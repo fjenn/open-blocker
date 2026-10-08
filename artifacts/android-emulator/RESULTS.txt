@@ -1,0 +1,40 @@
+Open Blocker Android emulator de-risk (API 34 google_apis x86_64)
+AVD: ob_api34  host: qemu-system-x86_64-headless
+Boot: -no-window -no-audio -gpu swiftshader_indirect -accel off
+Note: /dev/kvm exists but KVM vCPU create faults on this host (kvm_spurious_fault), so TCG (-accel off) was used.
+
+Step                                     Result  Evidence
+1. Launch Home, no Open Blocker FATAL    PASS    01-home.png  MainActivity, "Not Blocking"
+2. Picker lists Chrome / Clock / Settings PASS    02-app-picker.png Chrome+Clock; 02-app-picker-settings.png Settings (com.android.settings); 03-picker-selected.png checks persist
+2b. Selection persists across app start  PASS    04-home-after-restart.png "2 apps blocked"; shared_prefs blocked_apps
+3. Enable Accessibility via settings put PASS    05-accessibility-on.png "Accessibility service is enabled"
+                                             Bound after toggling accessibility_enabled 0 then 1
+                                             plus appops ACCESS_RESTRICTED_SETTINGS allow
+4. Debug START_SESSION without NFC       PASS    06-blocking-active.png "Blocking Active"
+                                             DebugSessionReceiver (debug source set only)
+4b. Clock covered by BlockScreenActivity PASS    07-clock-blocked.png "App Blocked"; dumpsys BlockScreenActivity
+4c. Settings (not blocked) not covered   PASS    08-settings-not-blocked.png Settings home
+5. Debug END_SESSION; Clock opens        PASS    10-clock-after-end.png DeskClock; 11-home-not-blocking.png
+5b. Reboot mid-block; overlay persists   PASS    session_prefs is_blocking=true after reboot;
+                                             09-after-reboot-still-blocked.png BlockScreenActivity
+
+Debug hook not in release: PASS
+  debug APK dex+manifest contain DebugSessionReceiver and START_SESSION
+  release APK dex+manifest contain neither
+  unit test DebugHookNotInReleaseTest
+
+Bugs fixed
+- Session and blocked-app prefs used apply(); reboot could drop state. Now commit().
+- App picker used getInstalledApplications; API 34 package visibility hid launchable apps.
+  Now queryIntentActivities(ACTION_MAIN + CATEGORY_LAUNCHER).
+- Debug-only adb session hook (not in release) so NFC is not required for emulator proof.
+
+Not a product bug
+- TCG is slow; Compose first frame and screencap can lag. Wait for UI, screencap to a file (not exec-out).
+- am force-stop after enabling Accessibility unbinds the service. Do not force-stop.
+- API 34: settings put enabled_accessibility_services is not enough; toggle accessibility_enabled 0/1 to bind.
+
+Phone-only (not proven here)
+- NFC tag write / NDEF read
+- Pair any card (UID)
+- Wrong-key reject on a real unpaired tag

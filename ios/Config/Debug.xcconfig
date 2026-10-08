@@ -1,0 +1,6 @@
+// Configuration for Debug builds
+// Contains development-only settings
+
+// Optional: Set these for anonymous counting (leave empty to disable)
+COUNT_URL = 
+COUNT_KEY = 

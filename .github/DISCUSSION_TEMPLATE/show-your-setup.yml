@@ -1,0 +1,52 @@
+title: "Show Your Setup"
+labels: ["show-and-tell"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your Open Blocker setup with the community! Help others see what works and inspire new ideas.
+  
+  - type: textarea
+    id: key-description
+    attributes:
+      label: Your Key
+      description: What do you use as your physical key? Photo or description.
+      placeholder: "Example: my transit card, or a 25mm NTAG213 sticker on a wooden coaster"
+    validations:
+      required: true
+  
+  - type: input
+    id: phone
+    attributes:
+      label: Phone & Android Version
+      description: What device are you using?
+      placeholder: "Example: Pixel 7, Android 14"
+    validations:
+      required: true
+  
+  - type: textarea
+    id: blocked-apps
+    attributes:
+      label: What You Block
+      description: Which apps do you block during focus sessions?
+      placeholder: "Example: Twitter, Instagram, YouTube"
+    validations:
+      required: true
+  
+  - type: textarea
+    id: review
+    attributes:
+      label: Honest Review
+      description: How is it working for you? What works well? What could be better?
+      placeholder: "Be honest! The good, the bad, and what needs improvement."
+    validations:
+      required: true
+  
+  - type: textarea
+    id: tips
+    attributes:
+      label: Tips (Optional)
+      description: Any tips for other users?
+      placeholder: "Example: I keep my tag in my desk drawer so I have to stand up to end a session"
+    validations:
+      required: false

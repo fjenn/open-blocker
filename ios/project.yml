@@ -1,0 +1,184 @@
+name: Open Blocker
+options:
+  bundleIdPrefix: org.openblocker
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: en
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+targets:
+  OpenBlocker:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: OpenBlocker
+        excludes:
+          - "**/*.md"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openblocker.OpenBlocker
+        PRODUCT_NAME: "Open Blocker"
+        PRODUCT_MODULE_NAME: OpenBlocker
+        INFOPLIST_FILE: OpenBlocker/Info.plist
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        DEVELOPMENT_TEAM: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: ""
+        Release:
+          CODE_SIGN_STYLE: Manual
+    entitlements:
+      path: OpenBlocker/OpenBlocker.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups:
+          - group.org.openblocker.OpenBlocker
+        com.apple.developer.nfc.readersession.formats:
+          - TAG
+          - NDEF
+    dependencies:
+      - target: OpenBlockerMonitor
+        embed: true
+      - sdk: DeviceActivity.framework
+      - sdk: FamilyControls.framework
+      - sdk: ManagedSettings.framework
+    info:
+      path: OpenBlocker/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleDisplayName: Open Blocker
+        CFBundleIconName: AppIcon
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchStoryboardName: LaunchScreen
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default Configuration
+        NFCReaderUsageDescription: "Open Blocker uses NFC to read and write tags and cards as your physical key for blocking sessions."
+        NSCameraUsageDescription: "Open Blocker uses the camera to scan QR codes as your physical key for blocking sessions."
+        com.apple.developer.nfc.readersession.iso7816.select-identifiers:
+          - D2760000850101
+        ITSAppUsesNonExemptEncryption: false
+
+  OpenBlockerMonitor:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - OpenBlockerMonitor
+      - path: OpenBlocker/Services/PolicyStore.swift
+      - path: OpenBlocker/Services/BlockEngine.swift
+      - path: OpenBlocker/Services/Reconcile.swift
+      - path: OpenBlocker/Services/ScheduleInterval.swift
+      - path: OpenBlocker/Services/KeyRegistration.swift
+      - path: OpenBlocker/Format/OpenBlockerFormat.swift
+      - path: OpenBlocker/Models
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openblocker.OpenBlocker.Monitor
+        PRODUCT_NAME: OpenBlockerMonitor
+        PRODUCT_MODULE_NAME: OpenBlockerMonitor
+        INFOPLIST_FILE: OpenBlockerMonitor/Info.plist
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EXTENSION"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: false
+    entitlements:
+      path: OpenBlockerMonitor/OpenBlockerMonitor.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups:
+          - group.org.openblocker.OpenBlocker
+    dependencies:
+      - sdk: DeviceActivity.framework
+      - sdk: FamilyControls.framework
+      - sdk: ManagedSettings.framework
+    info:
+      path: OpenBlockerMonitor/Info.plist
+      properties:
+        CFBundleDisplayName: Open Blocker Monitor
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MonitorExtension
+
+  OpenBlockerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - OpenBlockerTests
+    dependencies:
+      - target: OpenBlocker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openblocker.OpenBlockerTests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Open Blocker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Open Blocker
+        BUNDLE_LOADER: $(TEST_HOST)
+
+  OpenBlockerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - OpenBlockerUITests
+    dependencies:
+      - target: OpenBlocker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openblocker.OpenBlockerUITests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_TARGET_NAME: OpenBlocker
+
+schemes:
+  OpenBlocker:
+    build:
+      targets:
+        OpenBlocker: all
+        OpenBlockerMonitor: all
+        OpenBlockerUITests: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - OpenBlockerTests
+        - OpenBlockerUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

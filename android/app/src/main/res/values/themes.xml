@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OpenBlocker" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.BlockScreen" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+    <style name="Theme.OpenBlocker.QrScan" parent="Theme.AppCompat.Light.NoActionBar" />
+</resources>

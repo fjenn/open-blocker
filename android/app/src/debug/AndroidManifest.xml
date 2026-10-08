@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only. Not merged into release. Explicit so adb can send it. -->
+        <receiver
+            android:name=".debug.DebugSessionReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="app.openblocker.android.debug.START_SESSION" />
+                <action android:name="app.openblocker.android.debug.END_SESSION" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

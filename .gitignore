@@ -1,0 +1,75 @@
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.ap_
+*.aab
+!artifacts/release/*.apk
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log Files
+*.log
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Android Studio captures folder
+captures/
+
+# Keystore files (never commit)
+*.jks
+*.keystore
+artifacts/release-signing/
+
+# Testing
+/out
+__pycache__/
+*.pyc
+
+# Compiled class file
+*.class
+
+# Package Files
+*.jar
+!**/gradle-wrapper.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Artifacts: binaries not committed, except the public alpha APK and checksum
+/artifacts/*.apk
+/artifacts/*.sha256
+!artifacts/release/*.apk
+!artifacts/release/*.sha256
+/android/dist/
+
+# Simulator recordings and macOS screenshot temp files
+recordings/
+*.mp4.sb-*
+*.sb-*
+
+# iOS
+ios/*.xcodeproj
+ios/*.xcworkspace
+ios/DerivedData/
+ios/Pods/
+ios/.swiftpm/
+ios/xcuserdata/
+ios/OpenBlocker/Info.plist
+ios/OpenBlockerTests/Info.plist
