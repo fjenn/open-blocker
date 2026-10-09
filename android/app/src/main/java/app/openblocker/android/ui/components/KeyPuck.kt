@@ -344,7 +344,7 @@ private fun DrawScope.drawPuck(
 
 private fun DrawScope.drawFillAndBurst(
     progress: Float,
-    yaw: Float,
+    @Suppress("UNUSED_PARAMETER") yaw: Float,
     locked: Boolean,
     burst: Float
 ) {

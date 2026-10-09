@@ -161,7 +161,7 @@ internal class KeyFilamentView(
     override fun doFrame(frameTimeNanos: Long) {
         if (attached) choreographer.postFrameCallback(this)
         if (!ready) return
-        val eng = engine ?: return
+        if (engine == null) return
         val rend = renderer ?: return
         if (scene == null) return
         val vw = view ?: return
