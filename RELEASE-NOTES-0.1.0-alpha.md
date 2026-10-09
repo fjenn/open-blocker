@@ -29,3 +29,19 @@ Source is in `ios/`. No App Store build in this release. Screen Time / Family Co
 ## Honesty
 
 NFC and QR keys are not security. They can be copied. On Android the block can be bypassed (safe mode, uninstall, Accessibility off, ADB). Not every NFC card works. Test yours.
+
+## Installing the Android alpha
+
+This alpha is not on Google Play yet, so Google Play Protect does not recognise it and may warn about it or block it. On a Samsung test phone, opening the APK from WhatsApp showed "App not installed", Play Protect blocked it, and tapping "Install anyway" still failed. The steps below are what to try. Menu names vary a little between Android versions and phone makers.
+
+**Only install the APK from the official [v0.1.0-alpha release page](https://github.com/fjenn/open-blocker/releases/tag/v0.1.0-alpha).** Do not install a copy forwarded to you in a chat app. Check the SHA-256 before installing. This is an early alpha and has not had a security review.
+
+1. On the phone, open the [release page](https://github.com/fjenn/open-blocker/releases/tag/v0.1.0-alpha) in your browser and download `open-blocker-0.1.0-alpha.apk`. Download it directly rather than opening a copy from WhatsApp or another messaging app.
+2. Verify the file. Its SHA-256 must match the value in `open-blocker-0.1.0-alpha.apk.sha256` on the same release page. On a computer: `shasum -a 256 open-blocker-0.1.0-alpha.apk` (macOS) or `sha256sum open-blocker-0.1.0-alpha.apk` (Linux). If it does not match, delete the file and do not install it.
+3. Allow the app you open the APK with (your browser, or the Files / My Files app) to install unknown apps: Settings > Apps > [that app] > Install unknown apps > Allow.
+4. If an older Open Blocker build (for example a debug build) is already on the phone, uninstall it first. Android will not install over an app signed with a different key and reports that as "App not installed" too.
+5. Open the APK and tap Install.
+6. If Play Protect blocks it, tap "More details", then "Install anyway".
+7. If it still fails, temporarily turn off Play Protect scanning: open the Play Store, tap your profile picture, then Play Protect, then the settings gear, and turn off "Scan apps with Play Protect". Install the APK, then turn "Scan apps with Play Protect" back on right away.
+
+If none of this works on your phone, please open an issue with the phone model, Android version, and the exact message you saw.
