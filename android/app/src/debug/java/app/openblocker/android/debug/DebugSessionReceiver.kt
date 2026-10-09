@@ -82,7 +82,8 @@ class DebugSessionReceiver : BroadcastReceiver() {
                     tab = intent.getStringExtra("tab"),
                     screen = screen,
                     onboardPage = intent.getIntExtra("page", if (screen == "onboarding") 1 else 0),
-                    hold = hold
+                    hold = hold,
+                    forceReady = intent.getBooleanExtra("ready", true)
                 )
                 Log.i(TAG, "debug prep screenshots appearance=${appearance.id} tab=${intent.getStringExtra("tab")} screen=$screen")
             }

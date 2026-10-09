@@ -111,6 +111,7 @@ internal class KeyFilamentView(
 
     init {
         isOpaque = false
+        visibility = INVISIBLE
         surfaceTextureListener = this
         if (!KeyNatives.available()) {
             onFailed()
@@ -170,6 +171,9 @@ internal class KeyFilamentView(
         if (rend.beginFrame(chain, frameTimeNanos)) {
             rend.render(vw)
             rend.endFrame()
+            if (visibility != VISIBLE) {
+                post { visibility = VISIBLE }
+            }
         }
     }
 
@@ -269,14 +273,6 @@ internal class KeyFilamentView(
                     material.setParameter("metallicFactor", 0f)
                 } catch (_: Throwable) {
                 }
-                try {
-                    material.setParameter("reflectance", 0.18f)
-                } catch (_: Throwable) {
-                }
-                try {
-                    material.setParameter("clearCoat", 0f)
-                } catch (_: Throwable) {
-                }
             }
         }
     }
@@ -287,8 +283,8 @@ internal class KeyFilamentView(
         val half = loaded.boundingBox.halfExtent
         val radius = maxOf(half[0], half[2], 0.08f)
         val fov = 26.0
-        val elevation = Math.toRadians(58.0)
-        val distance = (radius / tan(Math.toRadians(fov * 0.5 * 0.70))).toFloat()
+        val elevation = Math.toRadians(50.0)
+        val distance = (radius / tan(Math.toRadians(fov * 0.5 * 0.78))).toFloat()
         val eyeX = centerX
         val eyeY = centerY + sin(elevation).toFloat() * distance
         val eyeZ = centerZ + cos(elevation).toFloat() * distance

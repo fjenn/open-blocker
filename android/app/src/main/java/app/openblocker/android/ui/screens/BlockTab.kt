@@ -117,8 +117,10 @@ fun BlockTab(
     val accessibilityOn = remember(resumeTick) {
         AccessibilityUtil.isAccessibilityServiceEnabled(context)
     }
+    val shot by ScreenshotDirector.cue.collectAsState()
     val hasKey = PreferencesManager.getPairedKeyCount() > 0
     val readiness = when {
+        shot.forceReady -> HomeReadiness.READY
         !accessibilityOn && !blocking -> HomeReadiness.NEEDS_ACCESSIBILITY
         !hasKey && !blocking -> HomeReadiness.NEEDS_KEY
         mode == null || !mode.hasAnythingToBlock() ->
@@ -129,7 +131,6 @@ fun BlockTab(
     val sessionSeconds = if (blocking && start > 0) (now - start) / 1000 else 0L
     val today = SessionManager.todayBlockedSeconds()
 
-    val shot by ScreenshotDirector.cue.collectAsState()
     val previewHold = shot.hold
 
     val qrLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -202,12 +203,12 @@ fun BlockTab(
             }
         },
         keySlot = {
-            if (previewHold != null) {
+            if (previewHold != null && !blocking) {
                 KeyModelScene(
                     progress = previewHold,
                     yaw = 0.15f,
-                    locked = blocking,
-                    burst = if (blocking) 0.28f else 0f,
+                    locked = false,
+                    burst = 0f,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
