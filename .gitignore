@@ -1,3 +1,6 @@
+# Blender key-sprite intermediates (committed sprites live in res/drawable-nodpi)
+/android/tools/renders/*.png
+
 # Android
 *.iml
 .gradle

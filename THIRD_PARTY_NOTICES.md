@@ -48,12 +48,6 @@ Open Blocker includes code adapted from the following open-source projects:
 - **Copyright:** Copyright (c) 2016-2020 The Inter Project Authors
 - **Use:** Bundled as `inter_regular/medium/semibold/bold.ttf` so Android type matches iOS SF Pro sizes and weights.
 
-## Filament (Android 3D key)
-
-- **Source:** https://github.com/google/filament
-- **License:** Apache License 2.0
-- **Use:** Renders `KeyModel.glb` (converted from this project's iOS `KeyModel.usdz`) in Compose via a TextureView. Lighting and the matte body color follow iOS `KeyView3D`; the hold fill and lock burst stay in Compose.
-
 ## ZXing (Android QR)
 
 - **Source:** https://github.com/zxing/zxing and https://github.com/journeyapps/zxing-android-embedded
