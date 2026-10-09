@@ -310,7 +310,7 @@ fun PrivacyScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 fun PrivacyContent(onBack: () -> Unit, onPolicy: () -> Unit, modifier: Modifier = Modifier) {
     val colors = obColors()
     val permissions = listOf(
-        Triple(Glyph.Hourglass, "Accessibility", "Android requires this so we can block apps. We don't read or track your usage. Time blocked is our own count."),
+        Triple(Glyph.Hourglass, "Accessibility", "Android requires this so we can block apps and websites. While a block is on, we read the address bar in supported browsers to enforce your website list. We don't store or send those addresses. Time blocked is our own count."),
         Triple(Glyph.Nfc, "NFC", "Reads your key tag or card, and sets up new tags."),
         Triple(Glyph.Camera, "Camera", "Scans your QR key. Nothing is recorded."),
         Triple(Glyph.Bell, "Notifications", "Tells you when a block ends, if you turn it on.")
@@ -347,7 +347,7 @@ fun HelpScreen(onBack: () -> Unit) {
     val faqs = listOf(
         "How keys work" to "A physical key (an NFC tag, a card, or a printed QR) unblocks your phone. You can start a block by holding the key on screen, or by scanning your key. Honesty, not a lock you cannot break.",
         "Emergency unblocks" to "If your key is out of reach, an emergency unblock ends the session. You get five every six months. The Emergency Unblock page shows when they reset.",
-        "Does it track my usage?" to "No. Android requires Accessibility permission for any app that blocks apps. Open Blocker can't see your usage. Time blocked only counts your own blocks."
+        "Does it track my usage?" to "No. Android requires Accessibility to block apps and websites. While a block is on we read the address bar in supported browsers to enforce your website list. We don't store or send those addresses. Time blocked only counts your own blocks."
     )
     Column(Modifier.fillMaxSize().background(colors.canvas)) {
         PushedHeader("Help", onBack)

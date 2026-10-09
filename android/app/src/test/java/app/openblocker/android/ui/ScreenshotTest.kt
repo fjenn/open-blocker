@@ -16,6 +16,7 @@ import app.openblocker.android.ui.screens.BlockTabContent
 import app.openblocker.android.ui.screens.BlockUiState
 import app.openblocker.android.ui.screens.EmergencyUnblockContent
 import app.openblocker.android.ui.screens.HomeReadiness
+import app.openblocker.android.ui.screens.ModeEditContent
 import app.openblocker.android.ui.screens.ModesSheetContent
 import app.openblocker.android.ui.screens.PermissionDeniedSheetContent
 import app.openblocker.android.ui.screens.PrivacyContent
@@ -174,15 +175,41 @@ class ScreenshotTest {
     @Test fun modesDark() = snap("modes_dark", AppAppearance.DARK) {
         ModesSheetContent(
             modes = listOf(
-                BlockMode(name = "Deep work", packages = setOf("a", "b")),
-                BlockMode(name = "Sleep", kind = BlockMode.Kind.ALLOW_ONLY, packages = setOf("c", "d", "e")),
+                BlockMode(
+                    id = "deep",
+                    name = "Deep work",
+                    packages = (1..12).map { "app$it" }.toSet(),
+                    websites = listOf("youtube.com", "reddit.com")
+                ),
+                BlockMode(name = "Sleep", kind = BlockMode.Kind.ALLOW_ONLY, packages = setOf("c", "d", "e", "f")),
                 ModeTemplate.DETOX.makeMode()
             ),
-            activeId = null,
+            activeId = "deep",
             onClose = {},
             onNew = {},
             onSelect = {},
             onEdit = {}
+        )
+    }
+
+    @Test fun modeEditDark() = snap("mode_edit_dark", AppAppearance.DARK) {
+        ModeEditContent(
+            isNew = false,
+            name = "Deep work",
+            onName = {},
+            kind = BlockMode.Kind.BLOCK,
+            onKind = {},
+            packages = emptySet(),
+            websites = emptyList(),
+            onPickApps = {},
+            onAddWebsite = { false },
+            onRemoveWebsite = {},
+            scheduleSummary = null,
+            addsSchedule = false,
+            onAddsSchedule = {},
+            onBackToTemplates = null,
+            onClose = {},
+            onSave = {}
         )
     }
 }

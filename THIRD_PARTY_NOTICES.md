@@ -32,6 +32,21 @@ Open Blocker includes code adapted from the following open-source projects:
   - `CoreNFCScanner.swift` - CoreNFC async/await implementation
   - `MockNFCScanner.swift` - Mock scanner for testing and simulator
 
+## MindMaster (Android website blocking)
+
+- **Source:** https://github.com/ArmanKhanTech/MindMaster
+- **License:** MIT License
+- **Copyright:** Copyright (c) 2023 Arman Khan
+- **Files adapted:**
+  - `app/src/main/java/com/android/MindMaster/Service/LogURLService.java` (`SupportedBrowserConfig` / `getSupportedBrowsers` / `captureUrl`)
+- **Use:** Package names and URL-bar view IDs for Chrome, Firefox, Opera, and Opera Mini, and the pattern of finding those nodes with `findAccessibilityNodeInfosByViewId`. Open Blocker's `BrowserUrlReader` and `AppBlockingService` are original Kotlin. Extra browsers (Brave, Edge, Samsung Internet, DuckDuckGo, Vivaldi, Firefox forks) use those apps' own public view IDs and were not copied from GPL projects (for example Curbox is GPL-3.0; it was read for ideas only).
+
+## Filament (Android 3D key)
+
+- **Source:** https://github.com/google/filament
+- **License:** Apache License 2.0
+- **Use:** Renders `KeyModel.glb` (converted from this project's iOS `KeyModel.usdz`) in Compose via a TextureView. Lighting and the matte body color follow iOS `KeyView3D`; the hold fill and lock burst stay in Compose.
+
 ## ZXing (Android QR)
 
 - **Source:** https://github.com/zxing/zxing and https://github.com/journeyapps/zxing-android-embedded

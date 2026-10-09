@@ -16,7 +16,7 @@ enum class Glyph {
     Back, Close, Plus, Chevron, Check,
     Key, Bell, Privacy, Help, Contact, About, Appearance, People,
     LifeRing, Calendar, Grid, Nfc, Camera, Hourglass, Moon, Leaf,
-    Family, Detox, Blank, Scope, Info, Notifications, Pencil
+    Family, Detox, Blank, Scope, Info, Notifications, Pencil, Globe
 }
 
 @Composable
@@ -165,6 +165,14 @@ fun GlyphIcon(
             Glyph.Pencil -> {
                 drawLine(color, Offset(s * 0.28f, s * 0.72f), Offset(s * 0.7f, s * 0.3f), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawLine(color, Offset(s * 0.28f, s * 0.72f), Offset(s * 0.22f, s * 0.8f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+            }
+            Glyph.Globe -> {
+                drawCircle(color, s * 0.34f, Offset(s * 0.5f, s * 0.5f), style = stroke)
+                drawArc(color, 250f, 40f, false, Offset(s * 0.28f, s * 0.16f), Size(s * 0.44f, s * 0.68f), style = stroke)
+                drawArc(color, 250f, 40f, false, Offset(s * 0.28f, s * 0.16f), Size(s * 0.44f, s * 0.68f), style = stroke)
+                drawLine(color, Offset(s * 0.2f, s * 0.5f), Offset(s * 0.8f, s * 0.5f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawArc(color, 200f, 140f, false, Offset(s * 0.22f, s * 0.22f), Size(s * 0.56f, s * 0.28f), style = stroke)
+                drawArc(color, 20f, 140f, false, Offset(s * 0.22f, s * 0.5f), Size(s * 0.56f, s * 0.28f), style = stroke)
             }
         }
     }

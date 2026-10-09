@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import app.openblocker.android.domain.FillLevel
@@ -38,9 +39,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * The hero key: a thick matte puck seen from about 50 degrees, matching the
- * iOS SceneKit camera. USDZ/Filament is not used here so Paparazzi and
- * devices without a GL context still render the same key. Drag yaws it.
+ * Static puck used by Paparazzi and as a last-resort fallback when Filament
+ * cannot start. The running app uses [KeyModelScene] (KeyModel.glb).
  */
 @Composable
 fun KeyPuck(
@@ -52,6 +52,33 @@ fun KeyPuck(
 ) {
     Canvas(modifier.fillMaxSize().testTag("key_view")) {
         drawPuck(progress, yaw, locked, burst)
+    }
+}
+
+/**
+ * Real-app key: iPhone KeyModel.glb through Filament, plus the same
+ * screen-space gray fill and lock burst as iOS KeyView3D. Paparazzi keeps
+ * the Canvas [KeyPuck] because layoutlib has no GL / native Filament.
+ */
+@Composable
+fun KeyModelScene(
+    progress: Float,
+    yaw: Float,
+    locked: Boolean,
+    burst: Float = 0f,
+    modifier: Modifier = Modifier
+) {
+    val inspection = LocalInspectionMode.current
+    var failed by remember { mutableStateOf(false) }
+    if (inspection || failed) {
+        KeyPuck(progress, yaw, locked, burst, modifier)
+        return
+    }
+    Box(modifier.fillMaxSize().testTag("key_view")) {
+        KeyModel3D(yaw = yaw, onFailed = { failed = true }, modifier = Modifier.fillMaxSize())
+        Canvas(Modifier.fillMaxSize()) {
+            drawFillAndBurst(progress, yaw, locked, burst)
+        }
     }
 }
 
@@ -181,7 +208,7 @@ fun KeyStage(
             )
         }
     ) {
-        KeyPuck(
+        KeyModelScene(
             progress = fill.progress.toFloat(),
             yaw = yaw,
             locked = locked,
@@ -312,19 +339,75 @@ private fun DrawScope.drawPuck(
     drawCircle(Color(0xFF6A6661), rx * 0.058f, dimple)
     drawCircle(Color.White.copy(alpha = 0.28f), rx * 0.02f, dimple + Offset(-rx * 0.018f, -ry * 0.02f))
 
-    if (locked || burst > 0f) {
-        val alpha = if (locked) 0.26f + burst * 0.28f else burst * 0.42f
-        drawOval(
-            color = Fill.copy(alpha = alpha),
-            topLeft = Offset(cx - rx * (1.12f + burst * 0.1f), topCy - ry * (1.12f + burst * 0.1f)),
-            size = Size(rx * 2f * (1.12f + burst * 0.1f), ry * 2f * (1.12f + burst * 0.1f)),
-            style = Stroke(width = 3.2f + burst * 5f)
-        )
-        drawOval(
-            color = Fill.copy(alpha = alpha * 0.4f),
-            topLeft = Offset(cx - rx * (1.26f + burst * 0.14f), topCy - ry * (1.26f + burst * 0.14f)),
-            size = Size(rx * 2f * (1.26f + burst * 0.14f), ry * 2f * (1.26f + burst * 0.14f)),
-            style = Stroke(width = 2f)
-        )
+    drawBurst(cx, topCy, rx, ry, locked, burst)
+}
+
+private fun DrawScope.drawFillAndBurst(
+    progress: Float,
+    yaw: Float,
+    locked: Boolean,
+    burst: Float
+) {
+    val short = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f - short * 0.03f
+    val elevation = Math.toRadians(50.0)
+    val radius = short * 0.34f
+    val thickness = radius * 0.42f
+    val rx = radius
+    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat()
+    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtLeast(radius * 0.18f)
+    val topCy = cy - wallH * 0.28f
+    val top = Path().apply {
+        addOval(Rect(cx - rx, topCy - ry, cx + rx, topCy + ry))
     }
+    val fillLevel = FillLevel.shaderLevel(progress.toDouble())
+    if (fillLevel > FillLevel.hidden) {
+        val t = ((fillLevel + 0.02f) / 1.04f).coerceIn(0f, 1f)
+        clipPath(top) {
+            val bottom = topCy + ry
+            val height = (ry * 2f) * t
+            drawRect(
+                brush = Brush.verticalGradient(
+                    listOf(FillHi, Fill, FillLo),
+                    startY = bottom - height,
+                    endY = bottom
+                ),
+                topLeft = Offset(cx - rx, bottom - height),
+                size = Size(rx * 2f, height + 2f)
+            )
+            drawLine(
+                color = Color.Black.copy(alpha = 0.22f),
+                start = Offset(cx - rx, bottom - height),
+                end = Offset(cx + rx, bottom - height),
+                strokeWidth = 2.2f,
+                cap = StrokeCap.Round
+            )
+        }
+    }
+    drawBurst(cx, topCy, rx, ry, locked, burst)
+}
+
+private fun DrawScope.drawBurst(
+    cx: Float,
+    topCy: Float,
+    rx: Float,
+    ry: Float,
+    locked: Boolean,
+    burst: Float
+) {
+    if (!(locked || burst > 0f)) return
+    val alpha = if (locked) 0.26f + burst * 0.28f else burst * 0.42f
+    drawOval(
+        color = Fill.copy(alpha = alpha),
+        topLeft = Offset(cx - rx * (1.12f + burst * 0.1f), topCy - ry * (1.12f + burst * 0.1f)),
+        size = Size(rx * 2f * (1.12f + burst * 0.1f), ry * 2f * (1.12f + burst * 0.1f)),
+        style = Stroke(width = 3.2f + burst * 5f)
+    )
+    drawOval(
+        color = Fill.copy(alpha = alpha * 0.4f),
+        topLeft = Offset(cx - rx * (1.26f + burst * 0.14f), topCy - ry * (1.26f + burst * 0.14f)),
+        size = Size(rx * 2f * (1.26f + burst * 0.14f), ry * 2f * (1.26f + burst * 0.14f)),
+        style = Stroke(width = 2f)
+    )
 }

@@ -51,6 +51,10 @@ android {
         
         val testMode = System.getenv("OPENBLOCKER_TEST_MODE") == "1"
         buildConfigField("boolean", "TEST_MODE", "$testMode")
+
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
     }
 
     signingConfigs {
@@ -118,6 +122,9 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.google.android.filament:filament-android:1.51.2")
+    implementation("com.google.android.filament:filament-utils-android:1.51.2")
+    implementation("com.google.android.filament:gltfio-android:1.51.2")
     
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

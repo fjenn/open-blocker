@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Open Blocker</string>
-    <string name="accessibility_service_description">Open Blocker uses accessibility to detect when blocked apps are opened during a blocking session and shows the block screen. No data is collected or transmitted.</string>
+    <string name="accessibility_service_description">Open Blocker uses accessibility to detect blocked apps and, while a block is on, to read the address bar in supported browsers so listed websites can be blocked. Addresses are not stored or sent.</string>
 </resources>
