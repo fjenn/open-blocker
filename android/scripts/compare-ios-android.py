@@ -1,96 +1,133 @@
 #!/usr/bin/env python3
-"""Build a side-by-side iOS-sheet vs Android-golden comparison image."""
+"""Lay out Android Paparazzi goldens in the same groups as the attached iOS sheets."""
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 
-def load(path: Path) -> Image.Image:
+ROOT = Path("/workspace")
+GOLDEN = ROOT / "android/app/src/test/snapshots/images"
+PREFIX = "app.openblocker.android.ui_ScreenshotTest_"
+OUT = Path("/opt/cursor/artifacts/android-ios-parity-comparison.png")
+BG = (12, 12, 12)
+INK = (242, 240, 237)
+MUTED = (155, 152, 147)
+
+
+def font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path in (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ):
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def load(name: str) -> Image.Image | None:
+    path = GOLDEN / f"{PREFIX}{name}.png"
+    if not path.exists():
+        return None
     return Image.open(path).convert("RGB")
 
 
-def fit(img: Image.Image, width: int, height: int) -> Image.Image:
-    img = img.copy()
-    img.thumbnail((width, height), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGB", (width, height), (16, 16, 16))
-    x = (width - img.width) // 2
-    y = (height - img.height) // 2
-    canvas.paste(img, (x, y))
+def phone(img: Image.Image, height: int = 640) -> Image.Image:
+    ratio = height / img.height
+    width = max(1, int(img.width * ratio))
+    return img.resize((width, height), Image.Resampling.LANCZOS)
+
+
+def section(title: str, names: list[str], caption: str) -> Image.Image:
+    tiles = [phone(img) for name in names if (img := load(name))]
+    pad = 20
+    header = 72
+    if not tiles:
+        canvas = Image.new("RGB", (800, 120), BG)
+        draw = ImageDraw.Draw(canvas)
+        draw.text((pad, 24), f"{title} (missing)", fill=INK, font=font(22))
+        return canvas
+    width = pad + sum(t.width + pad for t in tiles)
+    height = header + tiles[0].height + pad
+    canvas = Image.new("RGB", (width, height), BG)
+    draw = ImageDraw.Draw(canvas)
+    draw.text((pad, 12), title, fill=INK, font=font(26))
+    draw.text((pad, 42), caption, fill=MUTED, font=font(16))
+    x = pad
+    for tile in tiles:
+        canvas.paste(tile, (x, header))
+        x += tile.width + pad
     return canvas
 
 
-def label(draw: ImageDraw.ImageDraw, text: str, x: int, y: int) -> None:
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-    except OSError:
-        font = ImageFont.load_default()
-    draw.text((x, y), text, fill=(230, 228, 224), font=font)
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ios-dir", default="open-blocker/redesign/compare")
-    parser.add_argument(
-        "--android-dir",
-        default="android/app/src/test/snapshots/images",
-    )
-    parser.add_argument("--out", required=True)
-    args = parser.parse_args()
-
-    root = Path("/workspace")
-    ios = root / args.ios_dir
-    android = root / args.android_dir
-    prefix = "app.openblocker.android.ui_ScreenshotTest_"
-
-    pairs = [
-        ("iOS key (idle / hold / blocked / burst)", ios / "key-gray-sheet.png", None),
-        ("iOS modes", ios / "modes-sheet.png", None),
-        ("iOS settings / privacy / camera", ios / "settings-perms-sheet.png", None),
-        ("iOS round 4 (settings, activity, privacy, home, camera)", ios / "round4-sheet.png", None),
-        ("Android home idle dark", None, android / f"{prefix}home_idle_dark.png"),
-        ("Android home hold dark", None, android / f"{prefix}home_hold_dark.png"),
-        ("Android home blocked dark", None, android / f"{prefix}home_blocked_dark.png"),
-        ("Android home idle light", None, android / f"{prefix}home_idle_light.png"),
-        ("Android templates dark", None, android / f"{prefix}templates_dark.png"),
-        ("Android modes dark", None, android / f"{prefix}modes_dark.png"),
-        ("Android mode edit dark", None, android / f"{prefix}mode_edit_dark.png"),
-        ("Android settings dark", None, android / f"{prefix}settings_dark.png"),
-        ("Android settings light", None, android / f"{prefix}settings_light.png"),
-        ("Android emergency dark", None, android / f"{prefix}emergency_dark.png"),
-        ("Android privacy dark", None, android / f"{prefix}privacy_dark.png"),
-        ("Android permission dark", None, android / f"{prefix}permission_dark.png"),
+    blocks = [
+        section(
+            "Home / key  —  Android (Paparazzi Canvas fallback)",
+            [
+                "homeIdleDark_home_idle_dark",
+                "homeHoldDark_home_hold_dark",
+                "homeBlockedDark_home_blocked_dark",
+                "homeIdleLight_home_idle_light",
+                "homeHoldLight_home_hold_light",
+                "homeBlockedLight_home_blocked_light",
+            ],
+            "Matches iOS key-gray-sheet: idle, mid-hold, blocked. Real app uses KeyModel.glb via Filament; tests keep this puck.",
+        ),
+        section(
+            "Modes  —  Android",
+            [
+                "templatesDark_templates_dark",
+                "modesDark_modes_dark",
+                "modeEditDark_mode_edit_dark",
+            ],
+            "Matches iOS modes-sheet: New mode templates, Select mode, Edit mode (Websites section).",
+        ),
+        section(
+            "Settings / emergency / privacy / camera  —  Android",
+            [
+                "settingsDark_settings_dark",
+                "settingsLight_settings_light",
+                "emergencyDark_emergency_dark",
+                "privacyDark_privacy_dark",
+                "permissionDark_permission_dark",
+            ],
+            "Matches iOS settings-perms-sheet and round4 settings/privacy/permission frames.",
+        ),
     ]
-
-    cell_w, cell_h = 720, 720
-    pad = 24
-    label_h = 40
-    cols = 2
-    rows = (len(pairs) + 1) // 2
-    width = pad + cols * (cell_w + pad)
-    height = pad + rows * (cell_h + label_h + pad)
-    out = Image.new("RGB", (width, height), (10, 10, 10))
+    pad = 28
+    title_h = 96
+    width = max(b.width for b in blocks) + pad * 2
+    height = title_h + pad + sum(b.height + pad for b in blocks)
+    out = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(out)
-
-    for i, (title, ios_path, and_path) in enumerate(pairs):
-        r, c = divmod(i, cols)
-        x = pad + c * (cell_w + pad)
-        y = pad + r * (cell_h + label_h + pad)
-        src = ios_path if ios_path and ios_path.exists() else and_path
-        if src is None or not src.exists():
-            label(draw, f"{title} (missing)", x, y)
-            continue
-        tile = fit(load(src), cell_w, cell_h)
-        out.paste(tile, (x, y + label_h))
-        label(draw, title, x, y)
-
-    dest = Path(args.out)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    out.save(dest, "PNG")
-    print(dest)
+    draw.text(
+        (pad, 20),
+        "Open Blocker  —  iOS sheets vs Android goldens",
+        fill=INK,
+        font=font(32),
+    )
+    draw.text(
+        (pad, 58),
+        "iOS source: attached round4 / settings-perms / modes / key-gray sheets. "
+        "Android: Paparazzi PIXEL_5 goldens on this branch. Not device-tested.",
+        fill=MUTED,
+        font=font(16),
+    )
+    y = title_h
+    for block in blocks:
+        out.paste(block, (pad, y))
+        y += block.height + pad
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out.save(OUT, "PNG")
+    repo_copy = ROOT / "artifacts/android-ios-parity-comparison.png"
+    repo_copy.parent.mkdir(parents=True, exist_ok=True)
+    out.save(repo_copy, "PNG")
+    print(OUT, out.size, OUT.stat().st_size)
 
 
 if __name__ == "__main__":
