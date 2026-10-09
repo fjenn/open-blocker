@@ -42,7 +42,7 @@ TEST_MODE APK (`./build-release.sh --test-only`) has a Quick Test button. Do not
 
 Accessibility watches window and text changes. It blocks listed apps and, while a session is on, reads the address bar of supported browsers (Chrome, Brave, Edge, Firefox, Samsung Internet, Opera, DuckDuckGo, and forks) so a mode's website list can be enforced the same way as on iPhone: block-list blocks those hosts, allow-list allows only those hosts. A match shows `BlockScreenActivity` and sends the user back/home. Addresses are not stored. In-app WebViews and unknown browsers are not read.
 
-A paired NFC tap or QR scan starts or ends the session through `KeyMatcher`. Unpaired keys are rejected. The block is friction, not a lock. The home key is the iPhone `KeyModel.glb` rendered with Filament.
+A paired NFC tap or QR scan starts or ends the session through `KeyMatcher`. Unpaired keys are rejected. The block is friction, not a lock. The home key is the iPhone `KeyModel.glb` rendered offline to idle/fill sprites.
 
 Not every card works. Test yours.
 
