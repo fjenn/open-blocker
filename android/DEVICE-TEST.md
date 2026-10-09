@@ -50,7 +50,7 @@ Use a real Android phone with NFC. Fill these boxes on the phone.
 
 | Step | Action | Expected | Pass/Fail |
 |------|--------|----------|-----------|
-| 1.1 | Install the APK (`adb install -r` or open the file on the phone) | App appears as Open Blocker | |
+| 1.1 | Install the APK (`adb install -r` or open the file on the phone). If you see "App not installed" or Play Protect blocks it, follow "Installing the Android alpha" in the README | App appears as Open Blocker | |
 | 1.2 | Open Open Blocker | Home shows "Not Blocking" | emulator-verified; re-check on phone |
 | 1.3 | **Android 13+ only:** Settings > Apps > Open Blocker > Allow restricted settings | Restricted settings allowed | emulator used `appops ACCESS_RESTRICTED_SETTINGS allow` |
 
