@@ -1,6 +1,7 @@
 package app.openblocker.android.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,14 +38,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.openblocker.android.ui.theme.Metrics
 import app.openblocker.android.ui.theme.ObText
@@ -434,8 +438,35 @@ fun EmptyState(title: String, message: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun BrandMark(size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
-    Box(modifier.size(size).background(androidx.compose.ui.graphics.Color(0xFF4450F2), CircleShape))
+fun BrandMark(size: Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Color(0xFF4450F2)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(size * 50f / 512f)
+                .border(size * 10f / 512f, Color.White.copy(alpha = 0.35f), CircleShape)
+        )
+        Canvas(Modifier.fillMaxSize()) {
+            val s = size.toPx() / 512f
+            val hole = Path().apply {
+                addOval(Rect((256f - 62f) * s, (214f - 62f) * s, (256f + 62f) * s, (214f + 62f) * s))
+                moveTo(226f * s, 250f * s)
+                lineTo(286f * s, 250f * s)
+                lineTo(306f * s, 366f * s)
+                quadraticBezierTo(308f * s, 380f * s, 294f * s, 380f * s)
+                lineTo(218f * s, 380f * s)
+                quadraticBezierTo(204f * s, 380f * s, 206f * s, 366f * s)
+                close()
+            }
+            drawPath(hole, Color.White)
+        }
+    }
 }
 
 enum class AppTab(val label: String, val testTag: String) {

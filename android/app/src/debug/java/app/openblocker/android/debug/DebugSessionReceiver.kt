@@ -13,6 +13,7 @@ import app.openblocker.android.data.ScreenshotDirector
 import app.openblocker.android.data.SessionHistory
 import app.openblocker.android.data.SessionManager
 import app.openblocker.android.domain.BlockMode
+import app.openblocker.android.domain.FocusInterval
 import app.openblocker.android.ui.theme.AppAppearance
 
 /**
@@ -70,7 +71,7 @@ class DebugSessionReceiver : BroadcastReceiver() {
                     )
                 }
                 ModeRepository.setActive(ModeRepository.modes.value.first { it.name == "Deep work" })
-                seedWeekIfEmpty()
+                seedDemoWeek()
                 val hold = intent.getStringExtra("hold")?.toFloatOrNull()
                     ?: if (intent.hasExtra("hold")) intent.getFloatExtra("hold", -1f).takeIf { it >= 0f } else null
                 if (intent.getBooleanExtra("blocking", false)) {
@@ -90,15 +91,18 @@ class DebugSessionReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun seedWeekIfEmpty() {
-        if (SessionHistory.intervals().isNotEmpty()) return
+    private fun seedDemoWeek() {
         val now = System.currentTimeMillis()
         val day = 24L * 60 * 60 * 1000
-        SessionHistory.add(now - 32 * 60 * 1000, now - 60 * 1000)
-        SessionHistory.add(now - day - 50 * 60 * 1000, now - day)
-        SessionHistory.add(now - 2 * day - 80 * 60 * 1000, now - 2 * day)
-        SessionHistory.add(now - 3 * day - 40 * 60 * 1000, now - 3 * day)
-        SessionHistory.add(now - 5 * day - 70 * 60 * 1000, now - 5 * day)
+        SessionHistory.replace(
+            listOf(
+                FocusInterval(now - 32 * 60 * 1000, now - 60 * 1000),
+                FocusInterval(now - day - 50 * 60 * 1000, now - day),
+                FocusInterval(now - 2 * day - 80 * 60 * 1000, now - 2 * day),
+                FocusInterval(now - 3 * day - 40 * 60 * 1000, now - 3 * day),
+                FocusInterval(now - 5 * day - 70 * 60 * 1000, now - 5 * day)
+            )
+        )
     }
 
     companion object {

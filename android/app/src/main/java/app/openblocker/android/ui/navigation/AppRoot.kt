@@ -111,8 +111,6 @@ fun AppRoot() {
         tab = shot.tab
         showModes = shot.screen == "modes"
         when (shot.screen) {
-            "privacy" -> nav.navigate(Routes.SETTINGS_PRIVACY)
-            "emergency" -> nav.navigate(Routes.SETTINGS_EMERGENCY)
             "root" -> nav.popBackStack(Routes.ROOT, inclusive = false)
         }
     }
@@ -262,9 +260,15 @@ fun AppRoot() {
                 onBack = { pickingApps = null }
             )
         }
+        if (shot.screen == "privacy") {
+            PrivacyScreen(onBack = {})
+        }
+        if (shot.screen == "emergency") {
+            EmergencyUnblockScreen(onBack = {})
+        }
     }
 
-    if (showModes && !creatingMode && editingMode == null) {
+    if (showModes && !creatingMode && editingMode == null && shot.screen != "privacy" && shot.screen != "emergency") {
         ModalBottomSheet(
             onDismissRequest = { showModes = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

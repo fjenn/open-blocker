@@ -32,9 +32,13 @@ object SessionHistory {
 
     fun add(startMs: Long, endMs: Long) {
         if (endMs <= startMs) return
-        val next = (intervals() + FocusInterval(startMs, endMs)).takeLast(MAX_INTERVALS)
+        replace(intervals() + FocusInterval(startMs, endMs))
+    }
+
+    fun replace(next: List<FocusInterval>) {
+        val trimmed = next.filter { it.endMs > it.startMs }.takeLast(MAX_INTERVALS)
         val array = JSONArray()
-        next.forEach {
+        trimmed.forEach {
             array.put(JSONObject().put("start", it.startMs).put("end", it.endMs))
         }
         prefs.edit().putString(KEY_INTERVALS, array.toString()).apply()

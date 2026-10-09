@@ -12,10 +12,13 @@ import app.openblocker.android.domain.BlockMode
 import app.openblocker.android.domain.ModeTemplate
 import app.openblocker.android.ui.permissions.PermissionCopyCatalog
 import app.openblocker.android.ui.permissions.PermissionKind
+import app.openblocker.android.domain.FocusInterval
+import app.openblocker.android.ui.screens.ActivityTabContent
 import app.openblocker.android.ui.screens.BlockTabContent
 import app.openblocker.android.ui.screens.BlockUiState
 import app.openblocker.android.ui.screens.EmergencyUnblockContent
 import app.openblocker.android.ui.screens.HomeReadiness
+import app.openblocker.android.ui.screens.OnboardingScreen
 import app.openblocker.android.ui.screens.ModeEditContent
 import app.openblocker.android.ui.screens.ModesSheetContent
 import app.openblocker.android.ui.screens.PermissionDeniedSheetContent
@@ -115,6 +118,34 @@ class ScreenshotTest {
 
     @Test fun homeBlockedLight() = snapTab("home_blocked_light", AppAppearance.LIGHT, AppTab.BLOCK) {
         BlockTabContent(blocked(), {}, {}, interactiveKey = false)
+    }
+
+    private fun demoIntervals(): List<FocusInterval> {
+        val now = reset.time
+        val day = 86_400_000L
+        return listOf(
+            FocusInterval(now - 32 * 60 * 1000, now - 60 * 1000),
+            FocusInterval(now - day - 50 * 60 * 1000, now - day),
+            FocusInterval(now - 2 * day - 80 * 60 * 1000, now - 2 * day),
+            FocusInterval(now - 3 * day - 40 * 60 * 1000, now - 3 * day),
+            FocusInterval(now - 5 * day - 70 * 60 * 1000, now - 5 * day)
+        )
+    }
+
+    @Test fun activityDark() = snapTab("activity_dark", AppAppearance.DARK, AppTab.ACTIVITY) {
+        ActivityTabContent(demoIntervals(), reset.time, false)
+    }
+
+    @Test fun activityLight() = snapTab("activity_light", AppAppearance.LIGHT, AppTab.ACTIVITY) {
+        ActivityTabContent(demoIntervals(), reset.time, false)
+    }
+
+    @Test fun onboardingDark() = snap("onboarding_dark", AppAppearance.DARK) {
+        OnboardingScreen({}, {}, accessibilityOn = false, initialPage = 1)
+    }
+
+    @Test fun onboardingLight() = snap("onboarding_light", AppAppearance.LIGHT) {
+        OnboardingScreen({}, {}, accessibilityOn = false, initialPage = 1)
     }
 
     @Test fun templatesDark() = snap("templates_dark", AppAppearance.DARK) {

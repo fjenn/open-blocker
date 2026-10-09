@@ -282,9 +282,9 @@ internal class KeyFilamentView(
         val loaded = asset ?: return
         val half = loaded.boundingBox.halfExtent
         val radius = maxOf(half[0], half[2], 0.08f)
-        val fov = 26.0
-        val elevation = Math.toRadians(50.0)
-        val distance = (radius / tan(Math.toRadians(fov * 0.5 * 0.78))).toFloat()
+        val fov = KeyFovDeg
+        val elevation = Math.toRadians(KeyElevationDeg)
+        val distance = (radius / tan(Math.toRadians(fov * 0.5 * KeyDistanceFactor))).toFloat()
         val eyeX = centerX
         val eyeY = centerY + sin(elevation).toFloat() * distance
         val eyeZ = centerZ + cos(elevation).toFloat() * distance
@@ -297,7 +297,7 @@ internal class KeyFilamentView(
         if (width <= 0 || height <= 0) return
         view?.viewport = Viewport(0, 0, width, height)
         val aspect = width.toDouble() / height.toDouble()
-        camera?.setProjection(26.0, aspect, 0.05, 50.0, Camera.Fov.VERTICAL)
+        camera?.setProjection(KeyFovDeg, aspect, 0.05, 50.0, Camera.Fov.VERTICAL)
     }
 
     private fun applyYaw() {

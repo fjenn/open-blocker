@@ -35,7 +35,6 @@ import app.openblocker.android.domain.FillLevel
 import app.openblocker.android.domain.HoldFill
 import app.openblocker.android.ui.haptics.HoldHaptics
 import app.openblocker.android.ui.theme.KeyPalette
-import kotlin.math.cos
 import kotlin.math.sin
 
 /**
@@ -222,32 +221,45 @@ fun KeyStage(
 
 private val Body = KeyPalette.body
 private val Fill = KeyPalette.fill
-private val BodyHi = Color(0xFFA8A49E)
-private val BodyLo = Color(0xFF8A8680)
-private val Rim = Color(0xFF7E7A74)
+private val BodyHi = Color(0xFFB4B0AA)
+private val BodyMid = Color(0xFF9A9690)
+private val BodyLo = Color(0xFF7F7B75)
+private val WallHi = Color(0xFF8A8680)
+private val WallLo = Color(0xFF6A6661)
 private val FillHi = Color(0xFF8A8681)
-private val FillLo = Color(0xFF6E6A65)
+private val FillLo = Color(0xFF6A6662)
+
+/**
+ * Shared with Filament. iOS KeyView3D uses FOV 26, elevation 50 from the
+ * horizon, and distance = radius / tan(fov/2 * 0.78) inside a 300pt frame.
+ * That frames the GLB at ~77% of the frame (~55-60% of a phone screen).
+ * Canvas paints that same silhouette: top ellipse 0.45 of width, side wall
+ * 25% of total height, so both paths match the iPhone stills.
+ */
+internal const val KeyElevationDeg = 50.0
+internal const val KeyFovDeg = 26.0
+internal const val KeyDistanceFactor = 0.78
+internal const val KeyVisualRx = 0.385f
+internal const val KeyTopEllipseRatio = 0.45f
 
 private data class PuckGeom(
     val cx: Float,
     val topCy: Float,
     val rx: Float,
     val ry: Float,
-    val botCy: Float
+    val botCy: Float,
+    val wallH: Float
 )
 
 private fun DrawScope.puckGeom(): PuckGeom {
     val short = size.minDimension
     val cx = size.width / 2f
-    val cy = size.height / 2f + short * 0.01f
-    val elevation = Math.toRadians(68.0)
-    val radius = short * 0.46f
-    val thickness = radius * 0.16f
-    val rx = radius
-    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat().coerceAtLeast(radius * 0.93f)
-    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtMost(radius * 0.08f)
-    val topCy = cy - wallH * 0.35f
-    return PuckGeom(cx, topCy, rx, ry, topCy + wallH)
+    val cy = size.height / 2f + short * 0.04f
+    val rx = short * KeyVisualRx
+    val ry = rx * KeyTopEllipseRatio
+    val wallH = (2f * ry) / 3f
+    val topCy = cy - wallH * 0.28f
+    return PuckGeom(cx, topCy, rx, ry, topCy + wallH, wallH)
 }
 
 private fun DrawScope.drawPuck(
@@ -257,17 +269,18 @@ private fun DrawScope.drawPuck(
     burst: Float
 ) {
     val g = puckGeom()
-    val light = -2.2f + yaw
+    val light = -2.45f + yaw
     val lightX = sin(light)
+    val full = locked || progress >= 0.98f
 
     drawOval(
         brush = Brush.radialGradient(
-            colors = listOf(Color.Black.copy(alpha = 0.22f), Color.Transparent),
-            center = Offset(g.cx + g.rx * 0.04f, g.botCy + g.ry * 0.62f),
-            radius = g.rx * 1.05f
+            colors = listOf(Color.Black.copy(alpha = 0.28f), Color.Transparent),
+            center = Offset(g.cx, g.botCy + g.ry * 0.85f),
+            radius = g.rx * 1.15f
         ),
-        topLeft = Offset(g.cx - g.rx * 0.78f, g.botCy + g.ry * 0.18f),
-        size = Size(g.rx * 1.56f, g.ry * 0.62f)
+        topLeft = Offset(g.cx - g.rx * 0.82f, g.botCy + g.ry * 0.15f),
+        size = Size(g.rx * 1.64f, g.ry * 0.95f)
     )
 
     val wall = Path().apply {
@@ -278,35 +291,47 @@ private fun DrawScope.drawPuck(
         arcTo(Rect(g.cx - g.rx, g.topCy - g.ry, g.cx + g.rx, g.topCy + g.ry), 0f, 180f, false)
         close()
     }
-    drawPath(wall, Rim.copy(alpha = 0.55f))
+    drawPath(
+        wall,
+        brush = Brush.horizontalGradient(
+            colors = if (full) listOf(FillLo, Fill, FillLo) else listOf(WallLo, WallHi, WallLo),
+            startX = g.cx - g.rx,
+            endX = g.cx + g.rx
+        )
+    )
+    drawOval(
+        color = (if (full) FillLo else WallLo).copy(alpha = 0.95f),
+        topLeft = Offset(g.cx - g.rx, g.botCy - g.ry),
+        size = Size(g.rx * 2f, g.ry * 2f)
+    )
 
     val top = Path().apply {
         addOval(Rect(g.cx - g.rx, g.topCy - g.ry, g.cx + g.rx, g.topCy + g.ry))
     }
-    val highlight = Offset(g.cx + lightX * g.rx * 0.22f, g.topCy - 0.28f * g.ry)
+    val highlight = Offset(g.cx + lightX * g.rx * 0.32f, g.topCy - 0.38f * g.ry)
     drawPath(
         top,
         brush = Brush.radialGradient(
-            colors = listOf(BodyHi, Body, BodyLo),
+            colors = if (full) listOf(FillHi, Fill, FillLo) else listOf(BodyHi, BodyMid, BodyLo),
             center = highlight,
-            radius = g.rx * 1.55f
+            radius = g.rx * 1.35f
         )
     )
 
-    drawFillOnTop(top, g, progress)
+    if (!full) drawFillOnTop(top, g, progress)
 
     drawPath(
         top,
         brush = Brush.radialGradient(
-            colors = listOf(Color.White.copy(alpha = 0.05f), Color.Transparent),
+            colors = listOf(Color.White.copy(alpha = if (full) 0.04f else 0.10f), Color.Transparent),
             center = highlight,
-            radius = g.rx * 0.55f
+            radius = g.rx * 0.62f
         )
     )
 
-    val dimple = Offset(g.cx + lightX * g.rx * 0.008f, g.topCy + g.ry * 0.01f)
-    drawCircle(Color.Black.copy(alpha = 0.16f), g.rx * 0.055f, dimple, style = Stroke(width = 2.1f))
-    drawCircle(Color.Black.copy(alpha = 0.06f), g.rx * 0.038f, dimple)
+    val ring = Offset(g.cx + lightX * g.rx * 0.01f, g.topCy + g.ry * 0.02f)
+    drawCircle(Color.Black.copy(alpha = 0.18f), g.rx * 0.072f, ring, style = Stroke(width = 2.6f))
+    drawCircle(Color.White.copy(alpha = 0.06f), g.rx * 0.062f, ring, style = Stroke(width = 1.1f))
 
     drawBurst(g.cx, g.topCy, g.rx, g.ry, locked, burst)
 }
