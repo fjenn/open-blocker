@@ -366,24 +366,8 @@ fun OnboardingScreen(
         Box(Modifier.height(260.dp), contentAlignment = Alignment.Center) {
             when (page) {
                 0 -> app.openblocker.android.ui.components.KeyModelScene(0f, 0.2f, false, modifier = Modifier.size(260.dp))
-                1 -> Box(
-                    Modifier
-                        .size(168.dp)
-                        .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
-                        .background(androidx.compose.ui.graphics.Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    GlyphIcon(Glyph.Hourglass, androidx.compose.ui.graphics.Color(0xFF1B1B1B), size = 60.dp)
-                }
-                else -> Box(
-                    Modifier
-                        .size(168.dp)
-                        .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
-                        .background(androidx.compose.ui.graphics.Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    GlyphIcon(Glyph.Key, androidx.compose.ui.graphics.Color(0xFF1B1B1B), size = 60.dp)
-                }
+                1 -> OnboardingMedallion(Glyph.Hourglass)
+                else -> OnboardingMedallion(Glyph.Key)
             }
         }
         Text(titles[page], style = ObText.title, color = colors.ink, modifier = Modifier.padding(top = Space.s))
@@ -410,5 +394,21 @@ fun OnboardingScreen(
             }
         }
         Spacer(Modifier.height(Space.xxxl))
+    }
+}
+
+@Composable
+private fun OnboardingMedallion(glyph: Glyph) {
+    val colors = obColors()
+    val fill = if (colors.isDark) androidx.compose.ui.graphics.Color(0xFF2C2C2E) else androidx.compose.ui.graphics.Color.White
+    val icon = if (colors.isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF1B1B1B)
+    Box(
+        Modifier
+            .size(168.dp)
+            .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
+            .background(fill, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        GlyphIcon(glyph, icon, size = 60.dp)
     }
 }

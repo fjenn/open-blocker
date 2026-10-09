@@ -203,18 +203,24 @@ fun BlockTab(
             }
         },
         keySlot = {
-            if (previewHold != null && !blocking) {
-                KeyModelScene(
+            when {
+                blocking -> KeyModelScene(
+                    progress = 1f,
+                    yaw = 0.15f,
+                    locked = true,
+                    burst = 0.28f,
+                    modifier = Modifier.fillMaxSize()
+                )
+                previewHold != null -> KeyModelScene(
                     progress = previewHold,
                     yaw = 0.15f,
                     locked = false,
                     burst = 0f,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else {
-                KeyStage(
-                    locked = blocking,
-                    enabled = readiness == HomeReadiness.READY || blocking,
+                else -> KeyStage(
+                    locked = false,
+                    enabled = readiness == HomeReadiness.READY,
                     onCompleted = { SessionManager.startSession(SessionManager.SOURCE_HOLD) },
                     onTap = { handleTap() },
                     onHoldWhileLocked = { toast = "Unblocking needs your key." },
@@ -282,10 +288,8 @@ fun BlockTabContent(
 
             Box(
                 Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Space.margin)
                     .widthIn(max = 300.dp)
-                    .heightIn(max = 300.dp)
+                    .fillMaxWidth()
                     .aspectRatio(1f),
                 contentAlignment = Alignment.Center
             ) {
