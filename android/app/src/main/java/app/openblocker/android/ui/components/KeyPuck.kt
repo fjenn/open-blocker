@@ -75,6 +75,9 @@ fun KeyModelScene(
         return
     }
     Box(modifier.fillMaxSize().testTag("key_view")) {
+        // Canvas stays under Filament so a failed or invisible GL frame still
+        // shows the matte puck (SwiftShader often composites a blank TextureView).
+        KeyPuck(progress, yaw, locked, burst, modifier = Modifier.fillMaxSize())
         KeyModel3D(yaw = yaw, onFailed = { failed = true }, modifier = Modifier.fillMaxSize())
         Canvas(Modifier.fillMaxSize()) {
             drawFillAndBurst(progress, yaw, locked, burst)
@@ -237,12 +240,12 @@ private fun DrawScope.puckGeom(): PuckGeom {
     val short = size.minDimension
     val cx = size.width / 2f
     val cy = size.height / 2f + short * 0.01f
-    val elevation = Math.toRadians(62.0)
-    val radius = short * 0.47f
-    val thickness = radius * 0.18f
+    val elevation = Math.toRadians(68.0)
+    val radius = short * 0.46f
+    val thickness = radius * 0.16f
     val rx = radius
-    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat().coerceAtLeast(radius * 0.86f)
-    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtMost(radius * 0.10f)
+    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat().coerceAtLeast(radius * 0.93f)
+    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtMost(radius * 0.08f)
     val topCy = cy - wallH * 0.35f
     return PuckGeom(cx, topCy, rx, ry, topCy + wallH)
 }

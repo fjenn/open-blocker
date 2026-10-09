@@ -370,19 +370,19 @@ fun OnboardingScreen(
                     Modifier
                         .size(168.dp)
                         .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
-                        .background(colors.surfaceRaised, CircleShape),
+                        .background(androidx.compose.ui.graphics.Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    GlyphIcon(Glyph.Hourglass, colors.ink, size = 60.dp)
+                    GlyphIcon(Glyph.Hourglass, androidx.compose.ui.graphics.Color(0xFF1B1B1B), size = 60.dp)
                 }
                 else -> Box(
                     Modifier
                         .size(168.dp)
                         .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
-                        .background(colors.surfaceRaised, CircleShape),
+                        .background(androidx.compose.ui.graphics.Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    GlyphIcon(Glyph.Key, colors.ink, size = 60.dp)
+                    GlyphIcon(Glyph.Key, androidx.compose.ui.graphics.Color(0xFF1B1B1B), size = 60.dp)
                 }
             }
         }

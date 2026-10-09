@@ -12,6 +12,7 @@ data class ScreenshotCue(
     val screen: String = "root",
     val onboardPage: Int = 0,
     val hold: Float? = null,
+    val forceReady: Boolean = false,
     val tick: Int = 0
 )
 
@@ -23,7 +24,8 @@ object ScreenshotDirector {
         tab: String? = null,
         screen: String? = null,
         onboardPage: Int? = null,
-        hold: Float? = null
+        hold: Float? = null,
+        forceReady: Boolean? = null
     ) {
         _cue.update { cur ->
             cur.copy(
@@ -31,6 +33,7 @@ object ScreenshotDirector {
                 screen = screen ?: cur.screen,
                 onboardPage = onboardPage ?: cur.onboardPage,
                 hold = hold,
+                forceReady = forceReady ?: cur.forceReady,
                 tick = cur.tick + 1
             )
         }

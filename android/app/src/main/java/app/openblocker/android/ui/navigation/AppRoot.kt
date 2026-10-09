@@ -149,7 +149,7 @@ fun AppRoot() {
         AccessibilityUtil.isAccessibilityServiceEnabled(context)
     }
 
-    if (!onboarded) {
+    if (!onboarded || shot.screen == "onboarding") {
         OnboardingScreen(
             onFinished = {
                 OnboardingStore.complete()
