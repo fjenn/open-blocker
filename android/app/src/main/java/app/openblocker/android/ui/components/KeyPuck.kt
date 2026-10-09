@@ -219,12 +219,33 @@ fun KeyStage(
 
 private val Body = KeyPalette.body
 private val Fill = KeyPalette.fill
-private val BodyHi = Color(0xFFB8B3AC)
-private val BodyMid = Color(0xFF8E8A84)
-private val BodyLo = Color(0xFF5E5B56)
-private val WallLo = Color(0xFF4A4743)
-private val FillHi = Color(0xFF8D8883)
-private val FillLo = Color(0xFF5F5C58)
+private val BodyHi = Color(0xFFA8A49E)
+private val BodyLo = Color(0xFF8A8680)
+private val Rim = Color(0xFF7E7A74)
+private val FillHi = Color(0xFF8A8681)
+private val FillLo = Color(0xFF6E6A65)
+
+private data class PuckGeom(
+    val cx: Float,
+    val topCy: Float,
+    val rx: Float,
+    val ry: Float,
+    val botCy: Float
+)
+
+private fun DrawScope.puckGeom(): PuckGeom {
+    val short = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f + short * 0.01f
+    val elevation = Math.toRadians(62.0)
+    val radius = short * 0.47f
+    val thickness = radius * 0.18f
+    val rx = radius
+    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat().coerceAtLeast(radius * 0.86f)
+    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtMost(radius * 0.10f)
+    val topCy = cy - wallH * 0.35f
+    return PuckGeom(cx, topCy, rx, ry, topCy + wallH)
+}
 
 private fun DrawScope.drawPuck(
     progress: Float,
@@ -232,114 +253,85 @@ private fun DrawScope.drawPuck(
     locked: Boolean,
     burst: Float
 ) {
-    val short = size.minDimension
-    val cx = size.width / 2f
-    val cy = size.height / 2f - short * 0.03f
-    val elevation = Math.toRadians(50.0)
-    val radius = short * 0.34f
-    val thickness = radius * 0.42f
-    val rx = radius
-    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat()
-    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtLeast(radius * 0.18f)
-    val topCy = cy - wallH * 0.28f
-    val botCy = topCy + wallH
-
-    val light = -2.35f + yaw
+    val g = puckGeom()
+    val light = -2.2f + yaw
     val lightX = sin(light)
-    val shade = (0.55f + 0.45f * cos(light)).coerceIn(0.25f, 1f)
 
     drawOval(
         brush = Brush.radialGradient(
-            colors = listOf(Color.Black.copy(alpha = 0.38f), Color.Transparent),
-            center = Offset(cx + rx * 0.08f, botCy + ry * 0.72f),
-            radius = rx * 0.95f
+            colors = listOf(Color.Black.copy(alpha = 0.22f), Color.Transparent),
+            center = Offset(g.cx + g.rx * 0.04f, g.botCy + g.ry * 0.62f),
+            radius = g.rx * 1.05f
         ),
-        topLeft = Offset(cx - rx * 0.72f + rx * 0.1f, botCy + ry * 0.28f),
-        size = Size(rx * 1.44f, ry * 0.55f)
+        topLeft = Offset(g.cx - g.rx * 0.78f, g.botCy + g.ry * 0.18f),
+        size = Size(g.rx * 1.56f, g.ry * 0.62f)
     )
 
     val wall = Path().apply {
-        moveTo(cx - rx, topCy)
-        lineTo(cx - rx, botCy)
-        arcTo(Rect(cx - rx, botCy - ry, cx + rx, botCy + ry), 180f, -180f, false)
-        lineTo(cx + rx, topCy)
-        arcTo(Rect(cx - rx, topCy - ry, cx + rx, topCy + ry), 0f, 180f, false)
+        moveTo(g.cx - g.rx, g.topCy)
+        lineTo(g.cx - g.rx, g.botCy)
+        arcTo(Rect(g.cx - g.rx, g.botCy - g.ry, g.cx + g.rx, g.botCy + g.ry), 180f, -180f, false)
+        lineTo(g.cx + g.rx, g.topCy)
+        arcTo(Rect(g.cx - g.rx, g.topCy - g.ry, g.cx + g.rx, g.topCy + g.ry), 0f, 180f, false)
         close()
     }
-    val wallLeft = Color(
-        red = (BodyLo.red * (0.7f + 0.3f * (1f - shade))).coerceIn(0f, 1f),
-        green = (BodyLo.green * (0.7f + 0.3f * (1f - shade))).coerceIn(0f, 1f),
-        blue = (BodyLo.blue * (0.7f + 0.3f * (1f - shade))).coerceIn(0f, 1f)
-    )
-    drawPath(
-        wall,
-        brush = Brush.horizontalGradient(
-            colors = listOf(wallLeft, BodyMid, WallLo),
-            startX = cx - rx,
-            endX = cx + rx
-        )
-    )
-    drawOval(
-        color = WallLo.copy(alpha = 0.95f),
-        topLeft = Offset(cx - rx, botCy - ry),
-        size = Size(rx * 2f, ry * 2f)
-    )
+    drawPath(wall, Rim.copy(alpha = 0.55f))
 
     val top = Path().apply {
-        addOval(Rect(cx - rx, topCy - ry, cx + rx, topCy + ry))
+        addOval(Rect(g.cx - g.rx, g.topCy - g.ry, g.cx + g.rx, g.topCy + g.ry))
     }
-    val highlight = Offset(cx + lightX * rx * 0.38f, topCy - 0.42f * ry)
+    val highlight = Offset(g.cx + lightX * g.rx * 0.22f, g.topCy - 0.28f * g.ry)
     drawPath(
         top,
         brush = Brush.radialGradient(
             colors = listOf(BodyHi, Body, BodyLo),
             center = highlight,
-            radius = rx * 1.45f
+            radius = g.rx * 1.55f
         )
     )
 
-    val fillLevel = FillLevel.shaderLevel(progress.toDouble())
-    if (fillLevel > FillLevel.hidden) {
-        val t = ((fillLevel + 0.02f) / 1.04f).coerceIn(0f, 1f)
-        clipPath(top) {
-            val bottom = topCy + ry
-            val height = (ry * 2f) * t
-            drawRect(
-                brush = Brush.verticalGradient(
-                    listOf(FillHi, Fill, FillLo),
-                    startY = bottom - height,
-                    endY = bottom
-                ),
-                topLeft = Offset(cx - rx, bottom - height),
-                size = Size(rx * 2f, height + 2f)
-            )
-            drawLine(
-                color = Color.Black.copy(alpha = 0.22f),
-                start = Offset(cx - rx, bottom - height),
-                end = Offset(cx + rx, bottom - height),
-                strokeWidth = 2.2f,
-                cap = StrokeCap.Round
-            )
-        }
-    }
+    drawFillOnTop(top, g, progress)
 
     drawPath(
         top,
         brush = Brush.radialGradient(
-            colors = listOf(Color.White.copy(alpha = 0.28f), Color.Transparent),
+            colors = listOf(Color.White.copy(alpha = 0.05f), Color.Transparent),
             center = highlight,
-            radius = rx * 0.55f
+            radius = g.rx * 0.55f
         )
     )
-    drawPath(top, color = Color.White.copy(alpha = 0.20f), style = Stroke(width = 3.8f))
-    drawPath(top, color = Color.Black.copy(alpha = 0.16f), style = Stroke(width = 1.3f))
 
-    val dimple = Offset(cx + lightX * rx * 0.02f, topCy + ry * 0.02f)
-    drawCircle(Color.Black.copy(alpha = 0.22f), rx * 0.07f, dimple + Offset(1.4f, 2.2f))
-    drawCircle(Color(0xFF6A6661), rx * 0.058f, dimple)
-    drawCircle(Color.White.copy(alpha = 0.28f), rx * 0.02f, dimple + Offset(-rx * 0.018f, -ry * 0.02f))
+    val dimple = Offset(g.cx + lightX * g.rx * 0.008f, g.topCy + g.ry * 0.01f)
+    drawCircle(Color.Black.copy(alpha = 0.16f), g.rx * 0.055f, dimple, style = Stroke(width = 2.1f))
+    drawCircle(Color.Black.copy(alpha = 0.06f), g.rx * 0.038f, dimple)
 
-    drawBurst(cx, topCy, rx, ry, locked, burst)
+    drawBurst(g.cx, g.topCy, g.rx, g.ry, locked, burst)
+}
+
+private fun DrawScope.drawFillOnTop(top: Path, g: PuckGeom, progress: Float) {
+    val fillLevel = FillLevel.shaderLevel(progress.toDouble())
+    if (fillLevel <= FillLevel.hidden) return
+    val t = ((fillLevel + 0.02f) / 1.04f).coerceIn(0f, 1f)
+    clipPath(top) {
+        val bottom = g.topCy + g.ry
+        val height = (g.ry * 2f) * t
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(FillHi, Fill, FillLo),
+                startY = bottom - height,
+                endY = bottom
+            ),
+            topLeft = Offset(g.cx - g.rx, bottom - height),
+            size = Size(g.rx * 2f, height + 2f)
+        )
+        drawLine(
+            color = Color.Black.copy(alpha = 0.16f),
+            start = Offset(g.cx - g.rx, bottom - height),
+            end = Offset(g.cx + g.rx, bottom - height),
+            strokeWidth = 1.6f,
+            cap = StrokeCap.Round
+        )
+    }
 }
 
 private fun DrawScope.drawFillAndBurst(
@@ -348,44 +340,12 @@ private fun DrawScope.drawFillAndBurst(
     locked: Boolean,
     burst: Float
 ) {
-    val short = size.minDimension
-    val cx = size.width / 2f
-    val cy = size.height / 2f - short * 0.03f
-    val elevation = Math.toRadians(50.0)
-    val radius = short * 0.34f
-    val thickness = radius * 0.42f
-    val rx = radius
-    val ry = (radius * kotlin.math.abs(cos(elevation))).toFloat()
-    val wallH = (thickness * kotlin.math.abs(sin(elevation))).toFloat().coerceAtLeast(radius * 0.18f)
-    val topCy = cy - wallH * 0.28f
+    val g = puckGeom()
     val top = Path().apply {
-        addOval(Rect(cx - rx, topCy - ry, cx + rx, topCy + ry))
+        addOval(Rect(g.cx - g.rx, g.topCy - g.ry, g.cx + g.rx, g.topCy + g.ry))
     }
-    val fillLevel = FillLevel.shaderLevel(progress.toDouble())
-    if (fillLevel > FillLevel.hidden) {
-        val t = ((fillLevel + 0.02f) / 1.04f).coerceIn(0f, 1f)
-        clipPath(top) {
-            val bottom = topCy + ry
-            val height = (ry * 2f) * t
-            drawRect(
-                brush = Brush.verticalGradient(
-                    listOf(FillHi, Fill, FillLo),
-                    startY = bottom - height,
-                    endY = bottom
-                ),
-                topLeft = Offset(cx - rx, bottom - height),
-                size = Size(rx * 2f, height + 2f)
-            )
-            drawLine(
-                color = Color.Black.copy(alpha = 0.22f),
-                start = Offset(cx - rx, bottom - height),
-                end = Offset(cx + rx, bottom - height),
-                strokeWidth = 2.2f,
-                cap = StrokeCap.Round
-            )
-        }
-    }
-    drawBurst(cx, topCy, rx, ry, locked, burst)
+    drawFillOnTop(top, g, progress)
+    drawBurst(g.cx, g.topCy, g.rx, g.ry, locked, burst)
 }
 
 private fun DrawScope.drawBurst(
@@ -396,18 +356,12 @@ private fun DrawScope.drawBurst(
     locked: Boolean,
     burst: Float
 ) {
-    if (!(locked || burst > 0f)) return
-    val alpha = if (locked) 0.26f + burst * 0.28f else burst * 0.42f
+    if (!locked && burst <= 0.04f) return
+    val alpha = if (locked) 0.10f + burst * 0.12f else burst * 0.18f
     drawOval(
         color = Fill.copy(alpha = alpha),
-        topLeft = Offset(cx - rx * (1.12f + burst * 0.1f), topCy - ry * (1.12f + burst * 0.1f)),
-        size = Size(rx * 2f * (1.12f + burst * 0.1f), ry * 2f * (1.12f + burst * 0.1f)),
-        style = Stroke(width = 3.2f + burst * 5f)
-    )
-    drawOval(
-        color = Fill.copy(alpha = alpha * 0.4f),
-        topLeft = Offset(cx - rx * (1.26f + burst * 0.14f), topCy - ry * (1.26f + burst * 0.14f)),
-        size = Size(rx * 2f * (1.26f + burst * 0.14f), ry * 2f * (1.26f + burst * 0.14f)),
-        style = Stroke(width = 2f)
+        topLeft = Offset(cx - rx * (1.08f + burst * 0.08f), topCy - ry * (1.08f + burst * 0.08f)),
+        size = Size(rx * 2f * (1.08f + burst * 0.08f), ry * 2f * (1.08f + burst * 0.08f)),
+        style = Stroke(width = 1.6f + burst * 3.5f)
     )
 }

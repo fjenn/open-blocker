@@ -8,68 +8,69 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.openblocker.android.R
 
-private val Rounded = FontFamily(
-    Font(R.font.app_sans_regular, FontWeight.Normal),
-    Font(R.font.app_sans_regular, FontWeight.Medium),
-    Font(R.font.app_sans_bold, FontWeight.SemiBold),
-    Font(R.font.app_sans_bold, FontWeight.Bold)
+/** Inter (OFL) — closest widely-licensed match to SF Pro. */
+private val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold)
 )
 
 object ObText {
     val timer = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 44.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-1).sp,
         fontFeatureSettings = "tnum"
     )
     val largeTitle = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 40.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-1).sp
     )
     val title = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 24.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.4).sp
     )
     val headline = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.1).sp
     )
     val body = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 15.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp
     )
     val button = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 15.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp
     )
     val subhead = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 13.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp
     )
     val footnote = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 12.sp,
-        fontWeight = FontWeight.Normal,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp
     )
     val caption = TextStyle(
-        fontFamily = Rounded,
+        fontFamily = Inter,
         fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.6.sp
     )
 }
 

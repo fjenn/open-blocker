@@ -482,6 +482,33 @@ fun TextTabBar(selected: AppTab, onSelect: (AppTab) -> Unit, modifier: Modifier 
 }
 
 @Composable
+fun PhoneShell(
+    tab: AppTab,
+    onTab: (AppTab) -> Unit = {},
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val colors = obColors()
+    Column(modifier.fillMaxSize().background(colors.chrome).testTag("phone_shell")) {
+        Box(
+            Modifier
+                .weight(1f)
+                .shadow(
+                    18.dp,
+                    RoundedCornerShape(bottomStart = Radius.screen, bottomEnd = Radius.screen),
+                    ambientColor = colors.shadow,
+                    spotColor = colors.shadow
+                )
+                .clip(RoundedCornerShape(bottomStart = Radius.screen, bottomEnd = Radius.screen))
+                .background(colors.canvas)
+        ) {
+            content()
+        }
+        TextTabBar(tab, onTab)
+    }
+}
+
+@Composable
 fun ScrollColumn(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit

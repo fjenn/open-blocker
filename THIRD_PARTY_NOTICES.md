@@ -41,6 +41,13 @@ Open Blocker includes code adapted from the following open-source projects:
   - `app/src/main/java/com/android/MindMaster/Service/LogURLService.java` (`SupportedBrowserConfig` / `getSupportedBrowsers` / `captureUrl`)
 - **Use:** Package names and URL-bar view IDs for Chrome, Firefox, Opera, and Opera Mini, and the pattern of finding those nodes with `findAccessibilityNodeInfosByViewId`. Open Blocker's `BrowserUrlReader` and `AppBlockingService` are original Kotlin. Extra browsers (Brave, Edge, Samsung Internet, DuckDuckGo, Vivaldi, Firefox forks) use those apps' own public view IDs and were not copied from GPL projects (for example Curbox is GPL-3.0; it was read for ideas only).
 
+## Inter (typography)
+
+- **Source:** https://github.com/rsms/inter
+- **License:** SIL Open Font License 1.1
+- **Copyright:** Copyright (c) 2016-2020 The Inter Project Authors
+- **Use:** Bundled as `inter_regular/medium/semibold/bold.ttf` so Android type matches iOS SF Pro sizes and weights.
+
 ## Filament (Android 3D key)
 
 - **Source:** https://github.com/google/filament

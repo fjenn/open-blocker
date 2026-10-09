@@ -207,9 +207,9 @@ internal class KeyFilamentView(
 
         keyLight = EntityManager.get().create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(1f, 1f, 1f)
-            .intensity(70_000f)
-            .direction(0.45f, -0.85f, -0.40f)
+            .color(1f, 0.99f, 0.97f)
+            .intensity(22_000f)
+            .direction(0.35f, -0.92f, -0.28f)
             .castShadows(false)
             .build(eng, keyLight)
         scene!!.addEntity(keyLight)
@@ -217,8 +217,8 @@ internal class KeyFilamentView(
         fillLight = EntityManager.get().create()
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
             .color(1f, 1f, 1f)
-            .intensity(16_000f)
-            .direction(-0.55f, -0.35f, -0.20f)
+            .intensity(14_000f)
+            .direction(-0.40f, -0.55f, -0.25f)
             .castShadows(false)
             .build(eng, fillLight)
         scene!!.addEntity(fillLight)
@@ -269,6 +269,14 @@ internal class KeyFilamentView(
                     material.setParameter("metallicFactor", 0f)
                 } catch (_: Throwable) {
                 }
+                try {
+                    material.setParameter("reflectance", 0.18f)
+                } catch (_: Throwable) {
+                }
+                try {
+                    material.setParameter("clearCoat", 0f)
+                } catch (_: Throwable) {
+                }
             }
         }
     }
@@ -279,8 +287,8 @@ internal class KeyFilamentView(
         val half = loaded.boundingBox.halfExtent
         val radius = maxOf(half[0], half[2], 0.08f)
         val fov = 26.0
-        val elevation = Math.toRadians(50.0)
-        val distance = (radius / tan(Math.toRadians(fov * 0.5 * 0.78))).toFloat()
+        val elevation = Math.toRadians(58.0)
+        val distance = (radius / tan(Math.toRadians(fov * 0.5 * 0.70))).toFloat()
         val eyeX = centerX
         val eyeY = centerY + sin(elevation).toFloat() * distance
         val eyeZ = centerZ + cos(elevation).toFloat() * distance

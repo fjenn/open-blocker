@@ -14,12 +14,16 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,13 +42,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.openblocker.android.data.ModeRepository
 import app.openblocker.android.data.PreferencesManager
+import app.openblocker.android.data.ScreenshotDirector
 import app.openblocker.android.data.SessionManager
+import app.openblocker.android.ui.components.KeyModelScene
 import app.openblocker.android.domain.BlockMode
 import app.openblocker.android.domain.DurationText
 import app.openblocker.android.domain.HoldFill
 import app.openblocker.android.key.KeyMatcher
 import app.openblocker.android.qr.QrScanActivity
 import app.openblocker.android.ui.components.ButtonEmphasis
+import app.openblocker.android.ui.components.Glyph
+import app.openblocker.android.ui.components.GlyphIcon
 import app.openblocker.android.ui.components.KeyPuck
 import app.openblocker.android.ui.components.KeyStage
 import app.openblocker.android.ui.components.PrimaryButton
@@ -121,6 +129,9 @@ fun BlockTab(
     val sessionSeconds = if (blocking && start > 0) (now - start) / 1000 else 0L
     val today = SessionManager.todayBlockedSeconds()
 
+    val shot by ScreenshotDirector.cue.collectAsState()
+    val previewHold = shot.hold
+
     val qrLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
         val raw = result.data?.getStringExtra(QrScanActivity.EXTRA_PAYLOAD) ?: return@rememberLauncherForActivityResult
@@ -176,8 +187,8 @@ fun BlockTab(
             modeName = mode?.name?.ifEmpty { "No mode" } ?: "No mode",
             modeSubtitle = mode?.subtitle ?: "Pick a mode to choose what gets blocked.",
             readiness = readiness,
-            holdProgress = hold.progress.toFloat(),
-            holdHolding = hold.isHolding
+            holdProgress = previewHold ?: hold.progress.toFloat(),
+            holdHolding = previewHold != null || hold.isHolding
         ),
         toast = toast,
         onToastConsumed = { toast = null },
@@ -191,15 +202,25 @@ fun BlockTab(
             }
         },
         keySlot = {
-            KeyStage(
-                locked = blocking,
-                enabled = readiness == HomeReadiness.READY || blocking,
-                onCompleted = { SessionManager.startSession(SessionManager.SOURCE_HOLD) },
-                onTap = { handleTap() },
-                onHoldWhileLocked = { toast = "Unblocking needs your key." },
-                onProgress = { hold = it },
-                modifier = Modifier.size(280.dp)
-            )
+            if (previewHold != null) {
+                KeyModelScene(
+                    progress = previewHold,
+                    yaw = 0.15f,
+                    locked = blocking,
+                    burst = if (blocking) 0.28f else 0f,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                KeyStage(
+                    locked = blocking,
+                    enabled = readiness == HomeReadiness.READY || blocking,
+                    onCompleted = { SessionManager.startSession(SessionManager.SOURCE_HOLD) },
+                    onTap = { handleTap() },
+                    onHoldWhileLocked = { toast = "Unblocking needs your key." },
+                    onProgress = { hold = it },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         },
         modifier = modifier
     )
@@ -237,7 +258,7 @@ fun BlockTabContent(
 
     Box(modifier.fillMaxSize().background(colors.canvas).testTag("home_screen")) {
         Column(
-            Modifier.fillMaxSize().padding(horizontal = Space.margin),
+            Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(Modifier.height(96.dp).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -258,7 +279,15 @@ fun BlockTabContent(
 
             Spacer(Modifier.weight(1f))
 
-            Box(Modifier.size(280.dp), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Space.margin)
+                    .widthIn(max = 300.dp)
+                    .heightIn(max = 300.dp)
+                    .aspectRatio(1f),
+                contentAlignment = Alignment.Center
+            ) {
                 if (keySlot != null && interactiveKey) {
                     keySlot()
                 } else {
@@ -266,14 +295,16 @@ fun BlockTabContent(
                         progress = if (state.blocking) 1f else state.holdProgress,
                         yaw = 0.15f,
                         locked = state.blocking,
-                        burst = if (state.blocking) 0.4f else 0f,
-                        modifier = Modifier.size(280.dp)
+                        burst = if (state.blocking) 0.28f else 0f,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
 
             Column(
-                Modifier.padding(horizontal = Space.margin).padding(top = Space.xs),
+                Modifier
+                    .padding(horizontal = Space.margin)
+                    .padding(top = Space.xs),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Space.xxs)
             ) {
@@ -285,28 +316,36 @@ fun BlockTabContent(
                     modifier = Modifier.testTag("mode_name")
                 )
                 Text(state.modeSubtitle.asCopy(), style = ObText.subhead, color = colors.inkSecondary, textAlign = TextAlign.Center)
-                Text(
-                    (if (state.blocking) "View modes" else "Manage modes").asCopy(),
-                    style = ObText.footnote.copy(fontWeight = FontWeight.SemiBold),
-                    color = colors.ink,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onOpenModes)
-                        .padding(Space.xs)
+                        .padding(horizontal = Space.m, vertical = Space.xs)
                         .testTag("manage_modes")
-                )
+                ) {
+                    Text(
+                        (if (state.blocking) "View modes" else "Manage modes").asCopy(),
+                        style = ObText.footnote.copy(fontWeight = FontWeight.SemiBold),
+                        color = colors.ink
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    GlyphIcon(Glyph.Chevron, colors.ink, size = 10.dp)
+                }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(Space.l))
 
-            if (state.readiness != HomeReadiness.READY && !state.blocking) {
-                PrimaryButton(buttonTitle, emphasis = ButtonEmphasis.QUIET, testTag = "home_primary", onClick = onPrimary)
-            } else {
-                PrimaryButton(
-                    buttonTitle,
-                    progress = if (state.blocking) 0f else state.holdProgress,
-                    testTag = "home_primary",
-                    onClick = onPrimary
-                )
+            Box(Modifier.padding(horizontal = Space.xl)) {
+                if (state.readiness != HomeReadiness.READY && !state.blocking) {
+                    PrimaryButton(buttonTitle, emphasis = ButtonEmphasis.QUIET, testTag = "home_primary", onClick = onPrimary)
+                } else {
+                    PrimaryButton(
+                        buttonTitle,
+                        progress = if (state.blocking) 0f else state.holdProgress,
+                        testTag = "home_primary",
+                        onClick = onPrimary
+                    )
+                }
             }
 
             Text(
@@ -314,7 +353,11 @@ fun BlockTabContent(
                 style = ObText.footnote.copy(fontWeight = FontWeight.Normal),
                 color = colors.inkTertiary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = Space.xxxl, vertical = Space.s).testTag("home-hint")
+                modifier = Modifier
+                    .padding(horizontal = Space.xxxl)
+                    .padding(top = Space.s)
+                    .heightIn(min = 36.dp)
+                    .testTag("home-hint")
             )
             Spacer(Modifier.height(Space.s))
         }
