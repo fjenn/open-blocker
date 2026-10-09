@@ -113,7 +113,7 @@ fun BlockTab(
     val readiness = when {
         !accessibilityOn && !blocking -> HomeReadiness.NEEDS_ACCESSIBILITY
         !hasKey && !blocking -> HomeReadiness.NEEDS_KEY
-        mode == null || (mode.kind == BlockMode.Kind.BLOCK && mode.packages.isEmpty()) ->
+        mode == null || !mode.hasAnythingToBlock() ->
             if (blocking) HomeReadiness.READY else HomeReadiness.NEEDS_APPS
         else -> HomeReadiness.READY
     }

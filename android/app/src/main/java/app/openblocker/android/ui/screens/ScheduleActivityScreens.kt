@@ -287,13 +287,13 @@ fun OnboardingScreen(onFinished: () -> Unit, onAllowAccessibility: () -> Unit, a
     val titles = listOf("Open Blocker", "Accessibility", "Your key")
     val subs = listOf(
         "Lock distracting apps. Only something you can hold unlocks them again.",
-        "Android requires this permission for any app that blocks apps. Open Blocker doesn't read or track your usage.",
+        "Android requires this permission to block apps and websites. While a block is on, we read the address bar in supported browsers. We don't store those addresses.",
         "Add an NFC tag, a card, or a printed QR. Hold the key on screen to block any time. Only your real key unblocks."
     )
     Column(Modifier.fillMaxSize().background(colors.canvas).testTag("onboarding"), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
         when (page) {
-            0 -> app.openblocker.android.ui.components.KeyPuck(0f, 0.2f, false, modifier = Modifier.size(260.dp))
+            0 -> app.openblocker.android.ui.components.KeyModelScene(0f, 0.2f, false, modifier = Modifier.size(260.dp))
             1 -> Box(Modifier.size(168.dp).background(colors.surfaceRaised, CircleShape), contentAlignment = Alignment.Center) {
                 GlyphIcon(Glyph.Hourglass, colors.ink, size = 60.dp)
             }

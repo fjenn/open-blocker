@@ -80,6 +80,10 @@ object ModeRepository {
             ?: PreferencesManager.getBlockedApps().contains(packageName)
     }
 
+    fun shouldBlockHost(rawUrlOrHost: String): Boolean {
+        return activeMode()?.shouldBlockHost(rawUrlOrHost) ?: false
+    }
+
     private fun persist() {
         val array = JSONArray()
         _modes.value.forEach { mode ->

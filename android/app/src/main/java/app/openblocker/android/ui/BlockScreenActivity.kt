@@ -42,7 +42,7 @@ import app.openblocker.android.key.KeyMatcher
 import app.openblocker.android.nfc.NfcDispatch
 import app.openblocker.android.nfc.NfcHandler
 import app.openblocker.android.qr.QrScanActivity
-import app.openblocker.android.ui.components.KeyPuck
+import app.openblocker.android.ui.components.KeyModelScene
 import app.openblocker.android.ui.components.PrimaryButton
 import app.openblocker.android.ui.permissions.PermissionStatusReader
 import app.openblocker.android.ui.theme.ObText
@@ -53,6 +53,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class BlockScreenActivity : ComponentActivity() {
+
+    companion object {
+        const val EXTRA_WEBSITE = "website"
+    }
 
     private var nfcAdapter: NfcAdapter? = null
     private val nfcHandler = NfcHandler()
@@ -89,7 +93,8 @@ class BlockScreenActivity : ComponentActivity() {
             OpenBlockerTheme(appearance) {
                 BlockScreen(
                     onClose = { finish() },
-                    onScanQr = { openQr() }
+                    onScanQr = { openQr() },
+                    website = intent.getBooleanExtra(EXTRA_WEBSITE, false)
                 )
             }
         }
@@ -141,7 +146,7 @@ class BlockScreenActivity : ComponentActivity() {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun BlockScreen(onClose: () -> Unit, onScanQr: () -> Unit = {}) {
+fun BlockScreen(onClose: () -> Unit, onScanQr: () -> Unit = {}, website: Boolean = false) {
     val colors = obColors()
     val start by SessionManager.sessionStartTime.collectAsState()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -169,9 +174,14 @@ fun BlockScreen(onClose: () -> Unit, onScanQr: () -> Unit = {}) {
                 modifier = Modifier.testTag("blocked_timer")
             )
             Spacer(Modifier.height(Space.l))
-            KeyPuck(progress = 1f, yaw = 0.18f, locked = true, burst = 0.45f, modifier = Modifier.size(220.dp).testTag("block_screen"))
+            KeyModelScene(progress = 1f, yaw = 0.18f, locked = true, burst = 0.45f, modifier = Modifier.size(220.dp).testTag("block_screen"))
             Spacer(Modifier.height(Space.l))
-            Text("This app is blocked", style = ObText.title, color = colors.ink, textAlign = TextAlign.Center)
+            Text(
+                if (website) "This site is blocked" else "This app is blocked",
+                style = ObText.title,
+                color = colors.ink,
+                textAlign = TextAlign.Center
+            )
             Text(
                 "Tap your NFC key or scan your QR key to end the session.",
                 style = ObText.body,

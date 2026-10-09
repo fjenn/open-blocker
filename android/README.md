@@ -6,7 +6,7 @@ Reference Android app for the Open Blocker tag spec.
 
 ## Features
 
-- Block chosen apps during a session (Accessibility overlay)
+- Block chosen apps and websites during a session (Accessibility overlay; website hosts are read from supported browser address bars)
 - NFC pairing (write Open Blocker format, pair by UID, or two-tap any card)
 - Printed QR keys (generate, share/print, or scan; `openblocker://tag/v1/{32 hex}`)
 - Optional opt-in anonymous count ping (off unless built with a count URL and key)
@@ -40,7 +40,9 @@ TEST_MODE APK (`./build-release.sh --test-only`) has a Quick Test button. Do not
 
 ## Architecture
 
-Accessibility watches `TYPE_WINDOW_STATE_CHANGED` and shows `BlockScreenActivity`. A paired NFC tap or QR scan starts or ends the session through `KeyMatcher`. Unpaired keys are rejected. The block is friction, not a lock.
+Accessibility watches window and text changes. It blocks listed apps and, while a session is on, reads the address bar of supported browsers (Chrome, Brave, Edge, Firefox, Samsung Internet, Opera, DuckDuckGo, and forks) so a mode's website list can be enforced the same way as on iPhone: block-list blocks those hosts, allow-list allows only those hosts. A match shows `BlockScreenActivity` and sends the user back/home. Addresses are not stored. In-app WebViews and unknown browsers are not read.
+
+A paired NFC tap or QR scan starts or ends the session through `KeyMatcher`. Unpaired keys are rejected. The block is friction, not a lock. The home key is the iPhone `KeyModel.glb` rendered with Filament.
 
 Not every card works. Test yours.
 

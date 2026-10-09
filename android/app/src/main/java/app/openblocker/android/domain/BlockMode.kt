@@ -67,6 +67,25 @@ data class BlockMode(
             Kind.ALLOW_ONLY -> !packages.contains(packageName)
         }
     }
+
+    /**
+     * Website rules match iOS BlockEngine: block-list shields the listed
+     * domains; allow-list shields every other host (an empty allow list
+     * blocks every parseable address).
+     */
+    fun shouldBlockHost(rawUrlOrHost: String): Boolean {
+        val host = DomainMatch.hostOf(rawUrlOrHost) ?: return false
+        val listed = DomainMatch.listedHostMatches(host, websites)
+        return when (kind) {
+            Kind.BLOCK -> listed
+            Kind.ALLOW_ONLY -> !listed
+        }
+    }
+
+    fun hasAnythingToBlock(): Boolean = when (kind) {
+        Kind.ALLOW_ONLY -> true
+        Kind.BLOCK -> packages.isNotEmpty() || websites.isNotEmpty()
+    }
 }
 
 object ModeName {
