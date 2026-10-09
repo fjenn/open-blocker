@@ -5,10 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,14 +16,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -42,8 +39,8 @@ import app.openblocker.android.ui.theme.obColors
 
 /**
  * Offline Blender render of KeyModel.glb (see android/tools/render_key.py).
- * Idle and fill sprites share one camera; hold / blocked reveal the fill
- * sprite from the bottom. Paparazzi and the running app use the same path.
+ * Idle and fill sprites share the iOS camera; hold / blocked reveal the fill
+ * sprite from the bottom with a clip. Paparazzi and the app use the same path.
  */
 @Composable
 fun KeyPuck(
@@ -218,49 +215,42 @@ private fun KeySprite(
     }
     val shadowAlpha = if (colors.isDark) 0.55f else 0.20f
 
-    BoxWithConstraints(modifier.fillMaxSize().testTag("key_view"), contentAlignment = Alignment.Center) {
-        val frameHeight = maxHeight
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Canvas(Modifier.fillMaxSize()) {
-                val w = size.minDimension
-                drawOval(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color.Black.copy(alpha = shadowAlpha), Color.Transparent),
-                        center = Offset(size.width / 2f + w * 0.04f, size.height / 2f + w * 0.30f),
-                        radius = w * 0.42f
-                    ),
-                    topLeft = Offset(size.width / 2f - w * 0.30f + w * 0.04f, size.height / 2f + w * 0.22f),
-                    size = Size(w * 0.60f, w * 0.16f)
-                )
-            }
+    Box(modifier.fillMaxSize().testTag("key_view")) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.minDimension
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.Black.copy(alpha = shadowAlpha), Color.Transparent),
+                    center = Offset(size.width / 2f + w * 0.04f, size.height / 2f + w * 0.30f),
+                    radius = w * 0.42f
+                ),
+                topLeft = Offset(size.width / 2f - w * 0.30f + w * 0.04f, size.height / 2f + w * 0.22f),
+                size = Size(w * 0.60f, w * 0.16f)
+            )
+        }
+        Image(
+            painter = painterResource(R.drawable.key_idle),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize()
+        )
+        if (reveal > 0f) {
             Image(
-                painter = painterResource(R.drawable.key_idle),
+                painter = painterResource(R.drawable.key_fill),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        val top = size.height * (1f - reveal)
+                        clipRect(left = 0f, top = top, right = size.width, bottom = size.height) {
+                            this@drawWithContent.drawContent()
+                        }
+                    }
             )
-            if (reveal > 0f) {
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(frameHeight * reveal)
-                        .clipToBounds()
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.key_fill),
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(frameHeight)
-                            .align(Alignment.BottomCenter)
-                    )
-                }
-            }
-            Canvas(Modifier.fillMaxSize()) {
-                drawBurst(burst, locked)
-            }
+        }
+        Canvas(Modifier.fillMaxSize()) {
+            drawBurst(burst, locked)
         }
     }
 }
