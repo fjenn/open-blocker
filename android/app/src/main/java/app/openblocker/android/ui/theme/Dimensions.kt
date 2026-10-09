@@ -2,10 +2,6 @@ package app.openblocker.android.ui.theme
 
 import androidx.compose.ui.unit.dp
 
-/**
- * Open Blocker spacing, corner radii, and component dimensions.
- */
-
 object Radius {
     val screen = 44.dp
     val card = 24.dp

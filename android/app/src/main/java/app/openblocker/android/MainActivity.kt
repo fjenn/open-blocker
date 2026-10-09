@@ -7,20 +7,25 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import app.openblocker.android.data.AppearanceManager
+import app.openblocker.android.data.EmergencyUnblockManager
 import app.openblocker.android.data.PairingStateManager
 import app.openblocker.android.data.PreferencesManager
+import app.openblocker.android.data.ScheduleRepository
 import app.openblocker.android.nfc.NfcDispatch
 import app.openblocker.android.nfc.NfcHandler
 import app.openblocker.android.nfc.UidValidator
 import app.openblocker.android.ui.navigation.AppNavigation
 import app.openblocker.android.ui.theme.OpenBlockerTheme
+import app.openblocker.android.ui.theme.obColors
 
 class MainActivity : ComponentActivity() {
 
@@ -30,18 +35,18 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        enableEdgeToEdge()
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        EmergencyUnblockManager.renewIfDue()
 
         setContent {
-            OpenBlockerTheme {
+            val appearance by AppearanceManager.appearance
+            OpenBlockerTheme(appearance = appearance) {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
-                        .semantics {
-                            testTagsAsResourceId = true
-                        },
-                    color = MaterialTheme.colorScheme.background
+                        .semantics { testTagsAsResourceId = true },
+                    color = obColors().canvas
                 ) {
                     AppNavigation()
                 }
@@ -53,6 +58,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        EmergencyUnblockManager.renewIfDue()
+        ScheduleRepository.tick()
         NfcDispatch.enable(this, nfcAdapter)
     }
 
@@ -78,8 +85,7 @@ class MainActivity : ComponentActivity() {
                 nfcHandler.handleTag(this, tag)
             }
             is PairingStateManager.Mode.WriteTag -> {
-                val packageName = "app.openblocker.android"
-                val success = nfcHandler.writeTag(tag, packageName)
+                val success = nfcHandler.writeTag(tag, "app.openblocker.android")
                 if (success) {
                     Toast.makeText(this, "Tag written and paired successfully", Toast.LENGTH_SHORT).show()
                     PairingStateManager.clearMode()
@@ -102,16 +108,13 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, "Could not read card ID", Toast.LENGTH_SHORT).show()
                     return
                 }
-
                 val validationError = UidValidator.validateUid(uid)
                 if (validationError != null) {
                     Toast.makeText(this, validationError, Toast.LENGTH_LONG).show()
                     PairingStateManager.clearMode()
                     return
                 }
-
                 val uidString = UidValidator.formatUid(uid)
-
                 if (mode.step == 1) {
                     PairingStateManager.setMode(PairingStateManager.Mode.AnyCard(uidString, 2))
                     Toast.makeText(this, "Scan 1 of 2 recorded. Tap the same card again.", Toast.LENGTH_SHORT).show()

@@ -4,7 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import app.openblocker.android.data.CountManager
-import app.openblocker.android.data.PreferencesManager
+import app.openblocker.android.data.ModeRepository
 import app.openblocker.android.data.SessionManager
 import app.openblocker.android.ui.BlockScreenActivity
 
@@ -29,8 +29,7 @@ class AppBlockingService : AccessibilityService() {
             return
         }
         
-        val blockedApps = PreferencesManager.getBlockedApps()
-        if (blockedApps.contains(packageName)) {
+        if (ModeRepository.shouldBlockPackage(packageName, "app.openblocker.android")) {
             val now = System.currentTimeMillis()
             if (now - lastBlockedTime > blockCooldownMs) {
                 lastBlockedTime = now
