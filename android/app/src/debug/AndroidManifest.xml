@@ -9,6 +9,7 @@
             <intent-filter>
                 <action android:name="app.openblocker.android.debug.START_SESSION" />
                 <action android:name="app.openblocker.android.debug.END_SESSION" />
+                <action android:name="app.openblocker.android.debug.PREP_SCREENSHOTS" />
             </intent-filter>
         </receiver>
     </application>

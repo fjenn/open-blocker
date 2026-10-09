@@ -6,40 +6,38 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import app.openblocker.android.data.ScheduleRepository
 import app.openblocker.android.data.OnboardingStore
+import app.openblocker.android.data.ScheduleRepository
+import app.openblocker.android.data.ScreenshotDirector
 import app.openblocker.android.data.SessionNotify
 import app.openblocker.android.domain.BlockMode
 import app.openblocker.android.domain.BlockSchedule
 import app.openblocker.android.ui.components.AppTab
+import app.openblocker.android.ui.components.PhoneShell
 import app.openblocker.android.ui.components.StatusBarScrim
-import app.openblocker.android.ui.components.TextTabBar
 import app.openblocker.android.ui.permissions.PermissionKind
 import app.openblocker.android.ui.permissions.PermissionStatusReader
 import app.openblocker.android.ui.screens.AboutScreen
@@ -64,7 +62,6 @@ import app.openblocker.android.ui.screens.ScheduleEditSheet
 import app.openblocker.android.ui.screens.ScheduleTab
 import app.openblocker.android.ui.screens.SettingsTab
 import app.openblocker.android.ui.screens.TagPairingScreen
-import app.openblocker.android.ui.theme.Radius
 import app.openblocker.android.ui.theme.obColors
 import app.openblocker.android.util.AccessibilityUtil
 
@@ -102,6 +99,23 @@ fun AppRoot() {
     var denied by remember { mutableStateOf<PermissionKind?>(null) }
     var explainAccessibility by remember { mutableStateOf(false) }
     var onboarded by remember { mutableStateOf(OnboardingStore.isComplete()) }
+    val shot by ScreenshotDirector.cue.collectAsState()
+
+    LaunchedEffect(shot.tick) {
+        if (shot.tick == 0) return@LaunchedEffect
+        if (shot.screen == "onboarding") {
+            onboarded = false
+            return@LaunchedEffect
+        }
+        onboarded = OnboardingStore.isComplete()
+        tab = shot.tab
+        showModes = shot.screen == "modes"
+        when (shot.screen) {
+            "privacy" -> nav.navigate(Routes.SETTINGS_PRIVACY)
+            "emergency" -> nav.navigate(Routes.SETTINGS_EMERGENCY)
+            "root" -> nav.popBackStack(Routes.ROOT, inclusive = false)
+        }
+    }
 
     val notifyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         PermissionStatusReader.markAsked(context, "notifications")
@@ -142,7 +156,8 @@ fun AppRoot() {
                 onboarded = true
             },
             onAllowAccessibility = { explainAccessibility = true },
-            accessibilityOn = accessibilityOn
+            accessibilityOn = accessibilityOn,
+            initialPage = shot.onboardPage
         )
         if (explainAccessibility) {
             ModalBottomSheet(
@@ -166,41 +181,32 @@ fun AppRoot() {
     Box(Modifier.fillMaxSize().background(obColors().chrome)) {
         NavHost(nav, startDestination = Routes.ROOT, modifier = Modifier.fillMaxSize()) {
             composable(Routes.ROOT) {
-                Column(Modifier.fillMaxSize().navigationBarsPadding()) {
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .shadow(18.dp, RoundedCornerShape(bottomStart = Radius.screen, bottomEnd = Radius.screen))
-                            .clip(RoundedCornerShape(bottomStart = Radius.screen, bottomEnd = Radius.screen))
-                            .background(obColors().canvas)
-                    ) {
-                        Box(Modifier.fillMaxSize().statusBarsPadding()) {
-                            when (tab) {
-                                AppTab.BLOCK -> BlockTab(
-                                    onOpenModes = { showModes = true },
-                                    onOpenKeySetup = { nav.navigate(Routes.SETTINGS_KEYS) },
-                                    onDenied = { denied = it },
-                                    onExplainAccessibility = { explainAccessibility = true }
-                                )
-                                AppTab.SCHEDULE -> ScheduleTab(
-                                    onCreate = { editingSchedule = null; showScheduleEdit = true },
-                                    onEdit = { editingSchedule = it; showScheduleEdit = true }
-                                )
-                                AppTab.ACTIVITY -> ActivityTab()
-                                AppTab.SETTINGS -> SettingsTab(
-                                    onKeys = { nav.navigate(Routes.SETTINGS_KEYS) },
-                                    onEmergency = { nav.navigate(Routes.SETTINGS_EMERGENCY) },
-                                    onNotifications = { nav.navigate(Routes.SETTINGS_NOTIFICATIONS) },
-                                    onHelp = { nav.navigate(Routes.SETTINGS_HELP) },
-                                    onContact = { nav.navigate(Routes.SETTINGS_CONTACT) },
-                                    onAbout = { nav.navigate(Routes.SETTINGS_ABOUT) },
-                                    onPrivacy = { nav.navigate(Routes.SETTINGS_PRIVACY) }
-                                )
-                            }
+                PhoneShell(tab = tab, onTab = { tab = it }, modifier = Modifier.navigationBarsPadding()) {
+                    Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                        when (tab) {
+                            AppTab.BLOCK -> BlockTab(
+                                onOpenModes = { showModes = true },
+                                onOpenKeySetup = { nav.navigate(Routes.SETTINGS_KEYS) },
+                                onDenied = { denied = it },
+                                onExplainAccessibility = { explainAccessibility = true }
+                            )
+                            AppTab.SCHEDULE -> ScheduleTab(
+                                onCreate = { editingSchedule = null; showScheduleEdit = true },
+                                onEdit = { editingSchedule = it; showScheduleEdit = true }
+                            )
+                            AppTab.ACTIVITY -> ActivityTab()
+                            AppTab.SETTINGS -> SettingsTab(
+                                onKeys = { nav.navigate(Routes.SETTINGS_KEYS) },
+                                onEmergency = { nav.navigate(Routes.SETTINGS_EMERGENCY) },
+                                onNotifications = { nav.navigate(Routes.SETTINGS_NOTIFICATIONS) },
+                                onHelp = { nav.navigate(Routes.SETTINGS_HELP) },
+                                onContact = { nav.navigate(Routes.SETTINGS_CONTACT) },
+                                onAbout = { nav.navigate(Routes.SETTINGS_ABOUT) },
+                                onPrivacy = { nav.navigate(Routes.SETTINGS_PRIVACY) }
+                            )
                         }
-                        StatusBarScrim()
                     }
-                    TextTabBar(tab, { tab = it })
+                    StatusBarScrim()
                 }
             }
             composable(Routes.SETTINGS_EMERGENCY) { EmergencyUnblockScreen(onBack = { nav.popBackStack() }) }

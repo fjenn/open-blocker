@@ -14,4 +14,8 @@ object OnboardingStore {
     fun complete() {
         prefs.edit().putBoolean("complete", true).apply()
     }
+
+    fun clear() {
+        prefs.edit().putBoolean("complete", false).apply()
+    }
 }

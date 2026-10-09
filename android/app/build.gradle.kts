@@ -52,9 +52,6 @@ android {
         val testMode = System.getenv("OPENBLOCKER_TEST_MODE") == "1"
         buildConfigField("boolean", "TEST_MODE", "$testMode")
 
-        ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
-        }
     }
 
     signingConfigs {
@@ -69,6 +66,11 @@ android {
     }
     
     buildTypes {
+        debug {
+            ndk {
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -79,6 +81,9 @@ android {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
+            }
+            ndk {
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
             }
         }
     }

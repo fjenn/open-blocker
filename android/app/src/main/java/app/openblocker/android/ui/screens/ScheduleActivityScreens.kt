@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -52,6 +54,7 @@ import app.openblocker.android.ui.components.SheetHeader
 import app.openblocker.android.ui.components.TabHeader
 import app.openblocker.android.ui.theme.ObText
 import app.openblocker.android.ui.theme.Space
+import app.openblocker.android.ui.theme.asCopy
 import app.openblocker.android.ui.theme.obColors
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -234,45 +237,108 @@ fun ActivityTabContent(
     }
     val weekStart = SessionHistory.mondayWeekStart(nowMs)
     val hours = FocusStats.weekDurations(weekStart, intervals, nowMs).map { it / 3_600_000.0 }
-    val average = hours.sum() / 7.0
-    val yMax = maxOf(hours.maxOrNull() ?: 1.0, 1.0)
-    val dayFmt = remember { SimpleDateFormat("EEEE", Locale.getDefault()) }
+    val averageHours = hours.sum() / 7.0
+    val yMax = when {
+        hours.maxOrNull() ?: 0.0 <= 2 -> 2.0
+        (hours.maxOrNull() ?: 0.0) <= 4 -> 4.0
+        else -> kotlin.math.ceil(hours.maxOrNull() ?: 2.0)
+    }
+    val dayLabel = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
+    val dayNum = remember { SimpleDateFormat("d", Locale.getDefault()) }
+    val cardDay = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
+    val todayStart = Calendar.getInstance().apply {
+        timeInMillis = nowMs
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
     val recent = (0 until 7).map { offset ->
         val cal = Calendar.getInstance().apply { timeInMillis = nowMs; add(Calendar.DAY_OF_YEAR, -offset); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
         val stats = FocusStats.onDay(cal.timeInMillis, intervals, nowMs)
         Triple(cal.time, stats.durationMs, stats.sessions)
     }
+    val longest = maxOf(recent.maxOf { it.second }, 1L)
 
     Column(modifier.fillMaxSize().background(colors.canvas).testTag("activity_scroll")) {
         ScrollColumn {
             TabHeader("Weekly activity")
-            Text("Time blocked this week", style = ObText.caption, color = colors.inkSecondary)
+            Text("TIME BLOCKED THIS WEEK".asCopy(), style = ObText.caption, color = colors.inkSecondary)
             Spacer(Modifier.height(Space.m))
-            Text("Avg blocked time", style = ObText.subhead, color = colors.inkSecondary)
-            Text(DurationText.hoursMinutes((average * 3600).toLong()), style = ObText.largeTitle, color = colors.ink)
+            Text("Avg blocked time".asCopy(), style = ObText.subhead, color = colors.inkSecondary)
+            Text(DurationText.hoursMinutes((averageHours * 3600).toLong()).asCopy(), style = ObText.largeTitle, color = colors.ink)
             Spacer(Modifier.height(Space.m))
-            Canvas(Modifier.fillMaxWidth().height(160.dp)) {
-                val barW = size.width / 12f
+            Canvas(Modifier.fillMaxWidth().height(170.dp)) {
+                val barW = size.width / 16f
+                val chartH = size.height * 0.72f
+                val baseY = size.height * 0.82f
                 hours.forEachIndexed { i, h ->
                     val x = size.width * (i + 0.5f) / 7f
-                    val bh = (h / yMax).toFloat() * size.height * 0.85f
+                    val bh = ((h / yMax).toFloat() * chartH).coerceAtLeast(0f)
                     drawRoundRect(
                         color = colors.ink.copy(alpha = if (i == 6) 0.9f else 0.55f),
-                        topLeft = Offset(x - barW / 2, size.height - bh),
+                        topLeft = Offset(x - barW / 2, baseY - bh),
                         size = Size(barW, bh),
                         cornerRadius = CornerRadius(4f, 4f)
                     )
                 }
+                if (averageHours > 0) {
+                    val avgY = baseY - (averageHours / yMax).toFloat() * chartH
+                    var x = 0f
+                    while (x < size.width - 44f) {
+                        drawLine(colors.inkTertiary, Offset(x, avgY), Offset(x + 6f, avgY), strokeWidth = 2f)
+                        x += 10f
+                    }
+                }
+            }
+            Box(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    (0 until 7).forEach { i ->
+                        val cal = Calendar.getInstance().apply { timeInMillis = weekStart; add(Calendar.DAY_OF_YEAR, i) }
+                        val isToday = cal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().apply { timeInMillis = nowMs }.get(Calendar.DAY_OF_YEAR)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(dayLabel.format(cal.time).uppercase(Locale.getDefault()).asCopy(), style = ObText.caption.copy(fontWeight = FontWeight.Medium), color = if (isToday) colors.ink else colors.inkTertiary)
+                            Text(dayNum.format(cal.time).asCopy(), style = ObText.caption.copy(fontWeight = FontWeight.Normal), color = if (isToday) colors.ink else colors.inkTertiary)
+                        }
+                    }
+                }
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 2.dp)
+                        .background(colors.inkSecondary, CircleShape)
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                ) {
+                    Text("AVG".asCopy(), style = ObText.caption, color = colors.inkInverse)
+                }
             }
             Spacer(Modifier.height(Space.xl))
             recent.forEach { (date, duration, sessions) ->
-                CardSurface(Modifier.padding(bottom = Space.s)) {
-                    Row(Modifier.padding(Space.m), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(dayFmt.format(date), style = ObText.body.copy(fontWeight = FontWeight.SemiBold), color = colors.ink)
-                            Text("$sessions session${if (sessions == 1) "" else "s"}", style = ObText.footnote, color = colors.inkTertiary)
+                val isToday = date.time == todayStart
+                CardSurface(raised = isToday, modifier = Modifier.padding(bottom = Space.s)) {
+                    Column(Modifier.padding(Space.m), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            if (isToday) {
+                                Box(Modifier.size(5.dp).background(colors.ink, CircleShape))
+                            }
+                            Text((if (isToday) "TODAY" else cardDay.format(date).uppercase(Locale.getDefault())).asCopy(), style = ObText.caption, color = colors.inkSecondary)
                         }
-                        Text(DurationText.hoursMinutes(duration / 1000), style = ObText.headline, color = colors.ink)
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Column(Modifier.weight(1f)) {
+                                Text(DurationText.hoursMinutes(duration / 1000).asCopy(), style = ObText.title, color = colors.ink)
+                                Text("$sessions session${if (sessions == 1) "" else "s"}".asCopy(), style = ObText.subhead, color = colors.inkSecondary)
+                            }
+                            Box(
+                                Modifier
+                                    .width(96.dp)
+                                    .height(3.dp)
+                                    .background(colors.fillQuiet, CircleShape)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth((duration.toFloat() / longest).coerceIn(0f, 1f))
+                                        .height(3.dp)
+                                        .background(colors.ink, CircleShape)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -281,24 +347,43 @@ fun ActivityTabContent(
 }
 
 @Composable
-fun OnboardingScreen(onFinished: () -> Unit, onAllowAccessibility: () -> Unit, accessibilityOn: Boolean) {
-    var page by remember { mutableStateOf(0) }
+fun OnboardingScreen(
+    onFinished: () -> Unit,
+    onAllowAccessibility: () -> Unit,
+    accessibilityOn: Boolean,
+    initialPage: Int = 0
+) {
+    var page by remember(initialPage) { mutableStateOf(initialPage.coerceIn(0, 2)) }
     val colors = obColors()
     val titles = listOf("Open Blocker", "Accessibility", "Your key")
     val subs = listOf(
         "Lock distracting apps. Only something you can hold unlocks them again.",
-        "Android requires this permission to block apps and websites. While a block is on, we read the address bar in supported browsers. We don't store those addresses.",
+        "Android requires this permission to block apps and websites. Open Blocker doesn't read or track your usage.",
         "Add an NFC tag, a card, or a printed QR. Hold the key on screen to block any time. Only your real key unblocks."
     )
     Column(Modifier.fillMaxSize().background(colors.canvas).testTag("onboarding"), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
-        when (page) {
-            0 -> app.openblocker.android.ui.components.KeyModelScene(0f, 0.2f, false, modifier = Modifier.size(260.dp))
-            1 -> Box(Modifier.size(168.dp).background(colors.surfaceRaised, CircleShape), contentAlignment = Alignment.Center) {
-                GlyphIcon(Glyph.Hourglass, colors.ink, size = 60.dp)
-            }
-            else -> Box(Modifier.size(168.dp).background(colors.surfaceRaised, CircleShape), contentAlignment = Alignment.Center) {
-                GlyphIcon(Glyph.Key, colors.ink, size = 60.dp)
+        Box(Modifier.height(260.dp), contentAlignment = Alignment.Center) {
+            when (page) {
+                0 -> app.openblocker.android.ui.components.KeyModelScene(0f, 0.2f, false, modifier = Modifier.size(260.dp))
+                1 -> Box(
+                    Modifier
+                        .size(168.dp)
+                        .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
+                        .background(colors.surfaceRaised, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    GlyphIcon(Glyph.Hourglass, colors.ink, size = 60.dp)
+                }
+                else -> Box(
+                    Modifier
+                        .size(168.dp)
+                        .shadow(30.dp, CircleShape, ambientColor = colors.shadow, spotColor = colors.shadow)
+                        .background(colors.surfaceRaised, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    GlyphIcon(Glyph.Key, colors.ink, size = 60.dp)
+                }
             }
         }
         Text(titles[page], style = ObText.title, color = colors.ink, modifier = Modifier.padding(top = Space.s))

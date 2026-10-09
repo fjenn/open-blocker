@@ -20,6 +20,8 @@ import app.openblocker.android.ui.screens.ModeEditContent
 import app.openblocker.android.ui.screens.ModesSheetContent
 import app.openblocker.android.ui.screens.PermissionDeniedSheetContent
 import app.openblocker.android.ui.screens.PrivacyContent
+import app.openblocker.android.ui.components.AppTab
+import app.openblocker.android.ui.components.PhoneShell
 import app.openblocker.android.ui.screens.SettingsTabContent
 import app.openblocker.android.ui.screens.TemplatePickerContent
 import app.openblocker.android.ui.theme.AppAppearance
@@ -56,6 +58,21 @@ class ScreenshotTest {
         }
     }
 
+    private fun snapTab(
+        name: String,
+        appearance: AppAppearance,
+        tab: AppTab,
+        content: @androidx.compose.runtime.Composable () -> Unit
+    ) {
+        paparazzi.snapshot(name) {
+            CompositionLocalProvider(LocalScreenshotCopy provides true) {
+                OpenBlockerTheme(appearance) {
+                    PhoneShell(tab = tab) { content() }
+                }
+            }
+        }
+    }
+
     private fun idle() = BlockUiState(
         blocking = false,
         sessionSeconds = 0,
@@ -76,27 +93,27 @@ class ScreenshotTest {
         readiness = HomeReadiness.READY
     )
 
-    @Test fun homeIdleDark() = snap("home_idle_dark", AppAppearance.DARK) {
+    @Test fun homeIdleDark() = snapTab("home_idle_dark", AppAppearance.DARK, AppTab.BLOCK) {
         BlockTabContent(idle(), {}, {}, interactiveKey = false)
     }
 
-    @Test fun homeIdleLight() = snap("home_idle_light", AppAppearance.LIGHT) {
+    @Test fun homeIdleLight() = snapTab("home_idle_light", AppAppearance.LIGHT, AppTab.BLOCK) {
         BlockTabContent(idle(), {}, {}, interactiveKey = false)
     }
 
-    @Test fun homeHoldDark() = snap("home_hold_dark", AppAppearance.DARK) {
+    @Test fun homeHoldDark() = snapTab("home_hold_dark", AppAppearance.DARK, AppTab.BLOCK) {
         BlockTabContent(midHold(), {}, {}, interactiveKey = false)
     }
 
-    @Test fun homeHoldLight() = snap("home_hold_light", AppAppearance.LIGHT) {
+    @Test fun homeHoldLight() = snapTab("home_hold_light", AppAppearance.LIGHT, AppTab.BLOCK) {
         BlockTabContent(midHold(), {}, {}, interactiveKey = false)
     }
 
-    @Test fun homeBlockedDark() = snap("home_blocked_dark", AppAppearance.DARK) {
+    @Test fun homeBlockedDark() = snapTab("home_blocked_dark", AppAppearance.DARK, AppTab.BLOCK) {
         BlockTabContent(blocked(), {}, {}, interactiveKey = false)
     }
 
-    @Test fun homeBlockedLight() = snap("home_blocked_light", AppAppearance.LIGHT) {
+    @Test fun homeBlockedLight() = snapTab("home_blocked_light", AppAppearance.LIGHT, AppTab.BLOCK) {
         BlockTabContent(blocked(), {}, {}, interactiveKey = false)
     }
 
@@ -108,7 +125,7 @@ class ScreenshotTest {
         TemplatePickerContent({}, {})
     }
 
-    @Test fun settingsDark() = snap("settings_dark", AppAppearance.DARK) {
+    @Test fun settingsDark() = snapTab("settings_dark", AppAppearance.DARK, AppTab.SETTINGS) {
         SettingsTabContent(
             appearance = AppAppearance.DARK,
             onAppearance = {},
@@ -128,7 +145,7 @@ class ScreenshotTest {
         )
     }
 
-    @Test fun settingsLight() = snap("settings_light", AppAppearance.LIGHT) {
+    @Test fun settingsLight() = snapTab("settings_light", AppAppearance.LIGHT, AppTab.SETTINGS) {
         SettingsTabContent(
             appearance = AppAppearance.LIGHT,
             onAppearance = {},
