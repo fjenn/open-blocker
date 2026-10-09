@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("app.cash.paparazzi") version "1.3.4"
 }
 
 val keystorePathEnv = System.getenv("OPENBLOCKER_KEYSTORE_PATH")

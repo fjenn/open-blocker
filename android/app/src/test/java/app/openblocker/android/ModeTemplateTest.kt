@@ -1,89 +1,102 @@
 package app.openblocker.android
 
-import app.openblocker.android.models.ModeKind
-import app.openblocker.android.models.ModeTemplate
+import app.openblocker.android.domain.BlockMode
+import app.openblocker.android.domain.ModeDefaults
+import app.openblocker.android.domain.ModeName
+import app.openblocker.android.domain.ModeTemplate
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.Assert.*
 
-/**
- * Unit tests for Mode Template logic.
- */
 class ModeTemplateTest {
-    
+
     @Test
-    fun `all templates have required fields`() {
-        ModeTemplate.values().forEach { template ->
-            assertNotNull(template.displayName)
-            assertTrue(template.displayName.isNotEmpty())
-            assertNotNull(template.summary)
-            assertTrue(template.summary.isNotEmpty())
-            assertNotNull(template.symbol)
-            assertNotNull(template.kind)
+    fun templateSet() {
+        assertEquals(
+            listOf("Deep work", "Sleep", "Mindfulness", "Family time", "Detox", "Blank"),
+            ModeTemplate.entries.map { it.title }
+        )
+        ModeTemplate.entries.forEach { template ->
+            assertFalse(template.title.contains("almost none", ignoreCase = true))
+            assertFalse(template.title.contains("brick", ignoreCase = true))
+            assertFalse(template.summary.contains("\u2014"))
+            assertFalse((template.scheduleSummary ?: "").contains("\u2014"))
         }
     }
-    
+
     @Test
-    fun `deep work has correct configuration`() {
-        val template = ModeTemplate.DEEP_WORK
-        assertEquals("Deep work", template.displayName)
-        assertEquals(ModeKind.BLOCK, template.kind)
-        assertTrue(template.opensAppPicker)
-        assertNotNull(template.suggestedSchedule())
+    fun templatesPrefillBehavior() {
+        assertEquals(BlockMode.Kind.BLOCK, ModeTemplate.DEEP_WORK.kind)
+        assertEquals(BlockMode.Kind.ALLOW_ONLY, ModeTemplate.SLEEP.kind)
+        assertEquals(BlockMode.Kind.BLOCK, ModeTemplate.MINDFULNESS.kind)
+        assertEquals(BlockMode.Kind.ALLOW_ONLY, ModeTemplate.FAMILY_TIME.kind)
+        assertEquals(BlockMode.Kind.ALLOW_ONLY, ModeTemplate.DETOX.kind)
+        assertEquals(BlockMode.Kind.BLOCK, ModeTemplate.BLANK.kind)
     }
-    
+
     @Test
-    fun `sleep has correct configuration`() {
-        val template = ModeTemplate.SLEEP
-        assertEquals("Sleep", template.displayName)
-        assertEquals(ModeKind.ALLOW_ONLY, template.kind)
-        assertTrue(template.opensAppPicker)
-        
-        val schedule = template.suggestedSchedule()
-        assertNotNull(schedule)
-        assertEquals(7, schedule!!.weekdays.size) // Every day
-        assertEquals(22 * 60, schedule.startMinute) // 10 PM
-        assertEquals(7 * 60, schedule.endMinute) // 7 AM
+    fun onlyTemplatesThatNeedAppsOpenThePicker() {
+        assertEquals(
+            listOf(ModeTemplate.DEEP_WORK, ModeTemplate.SLEEP, ModeTemplate.MINDFULNESS, ModeTemplate.FAMILY_TIME),
+            ModeTemplate.entries.filter { it.opensAppPicker }
+        )
     }
-    
+
     @Test
-    fun `mindfulness has correct configuration`() {
-        val template = ModeTemplate.MINDFULNESS
-        assertEquals("Mindfulness", template.displayName)
-        assertEquals(ModeKind.BLOCK, template.kind)
-        assertTrue(template.opensAppPicker)
+    fun madeModesStartWithoutApps() {
+        val detox = ModeTemplate.DETOX.makeMode()
+        assertEquals("Detox", detox.name)
+        assertEquals("Blocks all apps", detox.subtitle)
+        assertEquals("Nothing chosen yet", ModeTemplate.DEEP_WORK.makeMode().subtitle)
+        assertEquals("", ModeTemplate.BLANK.makeMode().name)
     }
-    
+
     @Test
-    fun `family time has correct configuration`() {
-        val template = ModeTemplate.FAMILY_TIME
-        assertEquals("Family time", template.displayName)
-        assertEquals(ModeKind.ALLOW_ONLY, template.kind)
-        assertTrue(template.opensAppPicker)
+    fun sleepSuggestsAnOvernightScheduleForTheNewMode() {
+        val sleep = ModeTemplate.SLEEP.makeMode()
+        val schedule = ModeTemplate.SLEEP.suggestedSchedule(sleep)!!
+        assertEquals(sleep.id, schedule.modeId)
+        assertEquals("Sleep", schedule.name)
+        assertEquals(7, schedule.weekdays.size)
+        assertEquals(22 * 60, schedule.startMinute)
+        assertEquals(7 * 60, schedule.endMinute)
+        assertTrue(schedule.isOn)
+        assertEquals("Every day, 10:00 PM - 7:00 AM", ModeTemplate.SLEEP.scheduleSummary)
     }
-    
+
     @Test
-    fun `detox has correct configuration`() {
-        val template = ModeTemplate.DETOX
-        assertEquals("Detox", template.displayName)
-        assertEquals(ModeKind.ALLOW_ONLY, template.kind)
-        assertFalse(template.opensAppPicker)
+    fun everyScheduleSuggestionIsUsable() {
+        ModeTemplate.entries.forEach { template ->
+            val schedule = template.suggestedSchedule(template.makeMode()) ?: return@forEach
+            assertTrue(template.title, schedule.weekdays.isNotEmpty())
+            assertTrue(template.title, schedule.olderThan15Minutes)
+        }
+        assertNull(ModeTemplate.DETOX.scheduleSummary)
+        assertNull(ModeTemplate.BLANK.scheduleSummary)
     }
-    
+
     @Test
-    fun `blank has correct configuration`() {
-        val template = ModeTemplate.BLANK
-        assertEquals("Blank", template.displayName)
-        assertEquals(ModeKind.BLOCK, template.kind)
-        assertFalse(template.opensAppPicker)
-        assertNull(template.suggestedSchedule())
+    fun modeNamesAreTrimmedAndRequired() {
+        assertEquals("Reading", ModeName.validated("  Reading  "))
+        assertNull(ModeName.validated(""))
+        assertNull(ModeName.validated("   \n"))
     }
-    
+
     @Test
-    fun `deep work schedule is weekdays 9am to 12pm`() {
-        val schedule = ModeTemplate.DEEP_WORK.suggestedSchedule()
-        assertNotNull(schedule)
-        assertEquals(setOf(2, 3, 4, 5, 6), schedule!!.weekdays) // Mon-Fri
-        assertEquals(9 * 60, schedule.startMinute)
-        assertEquals(12 * 60, schedule.endMinute)
+    fun freshConfigGetsAnActiveStarterMode() {
+        val seeded = ModeDefaults.seeded(emptyList(), null)!!
+        assertEquals(1, seeded.first.size)
+        val starter = seeded.first.first()
+        assertEquals(starter.id, seeded.second)
+        assertEquals("Detox", starter.name)
+        assertEquals(BlockMode.Kind.ALLOW_ONLY, starter.kind)
+        assertEquals("Blocks all apps", starter.subtitle)
+    }
+
+    @Test
+    fun existingModesAreLeftAlone() {
+        assertNull(ModeDefaults.seeded(listOf(BlockMode(name = "Mine")), null))
     }
 }
