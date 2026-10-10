@@ -68,6 +68,12 @@ class DebugSessionReceiver : BroadcastReceiver() {
                 if (PreferencesManager.getPairedKeyCount() == 0) {
                     PreferencesManager.addPairedQrPayload("openblocker://tag/v1/" + "ab".repeat(16))
                 }
+                if (intent.getBooleanExtra("nfc", false) &&
+                    PreferencesManager.getPairedTagUids().isEmpty() &&
+                    PreferencesManager.getPairedTagIds().isEmpty()
+                ) {
+                    PreferencesManager.addPairedTagUid("04EMULATORUID01")
+                }
                 val deep = ModeRepository.modes.value.find { it.name == "Deep work" }
                     ?: BlockMode(
                         name = "Deep work",
