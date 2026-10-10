@@ -28,7 +28,9 @@ class HoldHapticCurveTest {
         assertEquals(4.94, HoldHapticCurve.tapTimes.last(), 0.0)
         assertTrue(taps.all { it in 0.0..0.999999 })
         val gaps = taps.zipWithNext { a, b -> b - a }
-        assertEquals(gaps, gaps.sortedDescending())
+        gaps.zipWithNext().forEach { (earlier, later) ->
+            assertTrue(earlier + 1e-9 >= later)
+        }
         assertTrue(gaps.first() / gaps.last() > 4)
     }
 }
