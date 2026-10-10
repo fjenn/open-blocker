@@ -40,7 +40,12 @@ object ScheduleRepository {
         val active = _schedules.value.filter { it.isOn && it.contains(now) }
         val blocking = SessionManager.isBlocking.value
         when {
-            active.isNotEmpty() && !blocking -> SessionManager.startSession(SessionManager.SOURCE_SCHEDULE)
+            active.isNotEmpty() && !blocking -> {
+                active.first().modeId?.let { id ->
+                    ModeRepository.modes.value.find { it.id == id }?.let { ModeRepository.setActive(it) }
+                }
+                SessionManager.startSession(SessionManager.SOURCE_SCHEDULE)
+            }
             blocking &&
                 SessionManager.source() == SessionManager.SOURCE_SCHEDULE &&
                 active.isEmpty() -> SessionManager.endSession()

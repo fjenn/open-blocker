@@ -479,6 +479,7 @@ enum class AppTab(val label: String, val testTag: String) {
 @Composable
 fun TextTabBar(selected: AppTab, onSelect: (AppTab) -> Unit, modifier: Modifier = Modifier) {
     val colors = obColors()
+    val view = androidx.compose.ui.platform.LocalView.current
     Row(
         modifier
             .fillMaxWidth()
@@ -491,7 +492,10 @@ fun TextTabBar(selected: AppTab, onSelect: (AppTab) -> Unit, modifier: Modifier 
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onSelect(tab) }
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        onSelect(tab)
+                    }
                     .testTag(tab.testTag),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center

@@ -97,6 +97,7 @@ fun BlockTab(
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var hold by remember { mutableStateOf(HoldFill()) }
     var toast by remember { mutableStateOf<String?>(null) }
+    var showChooser by remember { mutableStateOf(false) }
     var resumeTick by remember { mutableStateOf(0) }
 
     DisposableEffect(lifecycleOwner) {
@@ -165,21 +166,24 @@ fun BlockTab(
             HomeReadiness.NEEDS_KEY -> onOpenKeySetup()
             HomeReadiness.NEEDS_APPS -> onOpenModes()
             HomeReadiness.READY -> {
-                if (PreferencesManager.getPairedQrPayloads().isNotEmpty() &&
-                    PreferencesManager.getPairedTagIds().isEmpty() &&
-                    PreferencesManager.getPairedTagUids().isEmpty() &&
-                    PreferencesManager.getAnyCardUids().isEmpty()
-                ) {
-                    openQr()
-                } else if (PreferencesManager.getPairedQrPayloads().isNotEmpty()) {
-                    openQr()
-                } else {
-                    toast = if (blocking) "Tap your NFC key to unblock." else "Tap your NFC key, or hold the puck to block."
+                val hasQr = PreferencesManager.getPairedQrPayloads().isNotEmpty()
+                val hasNfc = PreferencesManager.getPairedTagIds().isNotEmpty() ||
+                    PreferencesManager.getPairedTagUids().isNotEmpty() ||
+                    PreferencesManager.getAnyCardUids().isNotEmpty()
+                when {
+                    hasQr && hasNfc -> showChooser = true
+                    hasQr -> openQr()
+                    else -> toast = if (blocking) {
+                        "Hold your key near the phone."
+                    } else {
+                        "Hold your key near the phone, or hold the puck to block."
+                    }
                 }
             }
         }
     }
 
+    Box(modifier.fillMaxSize()) {
     BlockTabContent(
         state = BlockUiState(
             blocking = blocking,
@@ -204,13 +208,6 @@ fun BlockTab(
         },
         keySlot = {
             when {
-                blocking -> KeyModelScene(
-                    progress = 1f,
-                    yaw = 0.15f,
-                    locked = true,
-                    burst = 0.28f,
-                    modifier = Modifier.fillMaxSize()
-                )
                 previewHold != null -> KeyModelScene(
                     progress = previewHold,
                     yaw = 0.15f,
@@ -219,8 +216,8 @@ fun BlockTab(
                     modifier = Modifier.fillMaxSize()
                 )
                 else -> KeyStage(
-                    locked = false,
-                    enabled = readiness == HomeReadiness.READY,
+                    locked = blocking,
+                    enabled = readiness == HomeReadiness.READY || blocking,
                     onCompleted = { SessionManager.startSession(SessionManager.SOURCE_HOLD) },
                     onTap = { handleTap() },
                     onHoldWhileLocked = { toast = "Unblocking needs your key." },
@@ -229,8 +226,22 @@ fun BlockTab(
                 )
             }
         },
-        modifier = modifier
+        modifier = Modifier.fillMaxSize()
     )
+    if (showChooser) {
+        KeyScanChooser(
+            onNfc = {
+                showChooser = false
+                toast = "Hold your key near the phone."
+            },
+            onQr = {
+                showChooser = false
+                openQr()
+            },
+            onCancel = { showChooser = false }
+        )
+    }
+    }
 }
 
 @Composable
@@ -385,5 +396,73 @@ fun BlockTabContent(
                 onToastConsumed()
             }
         }
+    }
+}
+
+@Composable
+private fun KeyScanChooser(onNfc: () -> Unit, onQr: () -> Unit, onCancel: () -> Unit) {
+    val colors = obColors()
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(colors.ink.copy(alpha = 0.35f))
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onCancel)
+            .testTag("key_scan_chooser")
+    ) {
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(colors.sheet, androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = {})
+                .padding(Space.margin)
+                .padding(bottom = Space.l),
+            verticalArrangement = Arrangement.spacedBy(Space.s)
+        ) {
+            Text("Scan your key".asCopy(), style = ObText.title, color = colors.ink)
+            ChooserOption(
+                glyph = Glyph.Nfc,
+                title = "Tap NFC key",
+                subtitle = "Tag or card near the phone",
+                testTag = "chooser_nfc",
+                onClick = onNfc
+            )
+            ChooserOption(
+                glyph = Glyph.Camera,
+                title = "Scan QR code",
+                subtitle = "Point the camera at your printed key",
+                testTag = "chooser_qr",
+                onClick = onQr
+            )
+            PrimaryButton("Cancel", emphasis = ButtonEmphasis.QUIET, testTag = "chooser_cancel", onClick = onCancel)
+        }
+    }
+}
+
+@Composable
+private fun ChooserOption(
+    glyph: Glyph,
+    title: String,
+    subtitle: String,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    val colors = obColors()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(colors.surface, androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+            .clickable(onClick = onClick)
+            .padding(Space.m)
+            .testTag(testTag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s)
+    ) {
+        app.openblocker.android.ui.components.IconTile(glyph, size = 44.dp)
+        Column(Modifier.weight(1f)) {
+            Text(title.asCopy(), style = ObText.headline, color = colors.ink)
+            Text(subtitle.asCopy(), style = ObText.subhead, color = colors.inkSecondary)
+        }
+        GlyphIcon(Glyph.Chevron, colors.inkTertiary, size = 12.dp)
     }
 }

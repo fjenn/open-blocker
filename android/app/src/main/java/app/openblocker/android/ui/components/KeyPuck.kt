@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -35,6 +37,7 @@ import app.openblocker.android.domain.FillLevel
 import app.openblocker.android.domain.HoldFill
 import app.openblocker.android.ui.haptics.HoldHaptics
 import app.openblocker.android.ui.theme.KeyPalette
+import app.openblocker.android.ui.theme.Motion
 import app.openblocker.android.ui.theme.obColors
 
 /**
@@ -45,12 +48,13 @@ import app.openblocker.android.ui.theme.obColors
 @Composable
 fun KeyPuck(
     progress: Float,
-    @Suppress("UNUSED_PARAMETER") yaw: Float,
+    yaw: Float,
     locked: Boolean,
     burst: Float = 0f,
+    holding: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    KeySprite(progress = progress, locked = locked, burst = burst, modifier = modifier)
+    KeySprite(progress = progress, yaw = yaw, locked = locked, burst = burst, holding = holding, modifier = modifier)
 }
 
 @Composable
@@ -61,7 +65,7 @@ fun KeyModelScene(
     burst: Float = 0f,
     modifier: Modifier = Modifier
 ) {
-    KeyPuck(progress, yaw, locked, burst, modifier)
+    KeyPuck(progress, yaw, locked, burst, holding = progress > 0.02f && !locked, modifier = modifier)
 }
 
 @Composable
@@ -163,6 +167,8 @@ fun KeyStage(
                         haptics.prepare()
                         haptics.beginBuildUp(fill.progress)
                         publish()
+                    } else if (locked) {
+                        haptics.fail()
                     }
                     tryAwaitRelease()
                     fill.release()
@@ -190,11 +196,28 @@ fun KeyStage(
             )
         }
     ) {
+        val press = animateFloatAsState(
+            targetValue = if (fill.isHolding && !locked) Motion.pressedScale else 1f,
+            animationSpec = Motion.quick,
+            label = "key-press"
+        )
+        val pop = animateFloatAsState(
+            targetValue = if (locked && burst > 0.7f) Motion.lockPopScale else 1f,
+            animationSpec = Motion.pop,
+            label = "key-pop"
+        )
         KeyModelScene(
             progress = fill.progress.toFloat(),
             yaw = yaw,
             locked = locked,
-            burst = if (locked) maxOf(burst, 0.35f) else burst
+            burst = if (locked) maxOf(burst, 0.35f) else burst,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val s = press.value * pop.value
+                    scaleX = s
+                    scaleY = s
+                }
         )
     }
 }
@@ -202,8 +225,10 @@ fun KeyStage(
 @Composable
 private fun KeySprite(
     progress: Float,
+    yaw: Float,
     locked: Boolean,
     burst: Float,
+    @Suppress("UNUSED_PARAMETER") holding: Boolean,
     modifier: Modifier = Modifier
 ) {
     val colors = obColors()
@@ -228,15 +253,17 @@ private fun KeySprite(
                 size = Size(w * 0.60f, w * 0.16f)
             )
         }
+        val idle = painterResource(KeySpin.idleFrame(LocalContext.current, yaw))
+        val fill = painterResource(KeySpin.fillFrame(LocalContext.current, yaw))
         Image(
-            painter = painterResource(R.drawable.key_idle),
+            painter = idle,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize()
         )
         if (reveal > 0f) {
             Image(
-                painter = painterResource(R.drawable.key_fill),
+                painter = fill,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier

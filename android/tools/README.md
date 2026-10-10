@@ -14,5 +14,6 @@ python3 android/tools/finalize_sprites.py
 ```
 
 `OPENBLOCKER_KEY_ENGINE` (default `CYCLES`) and `OPENBLOCKER_KEY_SAMPLES`
-(default 64) override the renderer. The running app and Paparazzi both draw
-these sprites; Filament is not shipped.
+(default 64) override the renderer. `OPENBLOCKER_KEY_SPIN=12` writes a 30s
+idle-spin sequence (`key_spin_XX` / `key_fill_spin_XX`). The running app and
+Paparazzi both draw these sprites; Filament is not shipped.

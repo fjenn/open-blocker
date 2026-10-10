@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import app.openblocker.android.data.PairingStateManager
 import app.openblocker.android.ui.components.ButtonEmphasis
@@ -50,7 +51,7 @@ fun AnyCardPairingScreen(onBack: () -> Unit) {
         else -> PairingState.Instructions
     }
 
-    Column(Modifier.fillMaxSize().background(colors.canvas)) {
+    Column(Modifier.fillMaxSize().background(colors.canvas).testTag("anycard_screen")) {
         PushedHeader("Pair any card", onBack)
         ScrollColumn {
             when (pairingState) {

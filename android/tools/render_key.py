@@ -313,12 +313,26 @@ def render_variant(color: tuple[float, float, float, float], dest: Path) -> None
 def main() -> None:
     idle = WORK / "key_idle.png"
     filled = WORK / "key_fill.png"
-    render_variant(BODY, idle)
-    render_variant(FILL, filled)
-    for src, name in ((idle, "key_idle.png"), (filled, "key_fill.png")):
-        dest = OUT_DIR / name
-        dest.write_bytes(src.read_bytes())
-        print(f"copied {dest}")
+    spin_count = int(os.environ.get("OPENBLOCKER_KEY_SPIN", "0"))
+    if spin_count <= 0:
+        render_variant(BODY, idle)
+        render_variant(FILL, filled)
+        for src, name in ((idle, "key_idle.png"), (filled, "key_fill.png")):
+            dest = OUT_DIR / name
+            dest.write_bytes(src.read_bytes())
+            print(f"copied {dest}")
+        return
+    global MODEL_YAW_DEG
+    base = float(os.environ.get("OPENBLOCKER_KEY_YAW", "28"))
+    spin_dir = WORK / "spin"
+    spin_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(spin_count):
+        MODEL_YAW_DEG = base + i * (360.0 / spin_count)
+        idle_i = spin_dir / f"key_spin_{i:02d}.png"
+        fill_i = spin_dir / f"key_fill_spin_{i:02d}.png"
+        render_variant(BODY, idle_i)
+        render_variant(FILL, fill_i)
+    print(f"wrote {spin_count} spin frames to {spin_dir}")
 
 
 if __name__ == "__main__":

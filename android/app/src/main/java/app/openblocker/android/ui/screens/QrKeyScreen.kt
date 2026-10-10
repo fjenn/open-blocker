@@ -4,7 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
-import android.widget.Toast
+import app.openblocker.android.ui.AppNotice
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -60,11 +60,11 @@ fun QrKeyScreen(
         val raw = result.data?.getStringExtra(QrScanActivity.EXTRA_PAYLOAD) ?: return@rememberLauncherForActivityResult
         val saved = KeyMatcher.registerQr(raw)
         if (saved == null) {
-            Toast.makeText(context, "This QR is not an Open Blocker key.", Toast.LENGTH_LONG).show()
+            AppNotice.show("This QR is not an Open Blocker key.")
         } else {
             payload = saved
             bitmap = QrBitmaps.toBitmap(saved)
-            Toast.makeText(context, "QR key saved. Print or share it, then scan to start or stop blocking.", Toast.LENGTH_LONG).show()
+            AppNotice.show("QR key saved. Print or share it, then scan to start or stop blocking.")
         }
     }
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -128,7 +128,7 @@ fun QrKeyScreen(
                             KeyMatcher.registerQr(uri)
                             payload = uri
                             bitmap = QrBitmaps.toBitmap(uri)
-                            Toast.makeText(context, "QR key saved. Print or share it.", Toast.LENGTH_SHORT).show()
+                            AppNotice.show("QR key saved. Print or share it.")
                         }
                     )
                     if (bitmap != null) {

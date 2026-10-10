@@ -1,5 +1,6 @@
 # Blender key-sprite intermediates (committed sprites live in res/drawable-nodpi)
 /android/tools/renders/*.png
+/android/tools/renders/**/*.png
 
 # Android
 *.iml

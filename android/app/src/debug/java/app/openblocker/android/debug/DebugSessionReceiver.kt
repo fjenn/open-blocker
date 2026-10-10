@@ -14,6 +14,7 @@ import app.openblocker.android.data.SessionHistory
 import app.openblocker.android.data.SessionManager
 import app.openblocker.android.domain.BlockMode
 import app.openblocker.android.domain.FocusInterval
+import app.openblocker.android.key.KeyMatcher
 import app.openblocker.android.ui.theme.AppAppearance
 
 /**
@@ -41,6 +42,19 @@ class DebugSessionReceiver : BroadcastReceiver() {
                 SessionManager.endSession()
                 Log.i(TAG, "debug end session")
                 Toast.makeText(context, "Blocking session ended", Toast.LENGTH_SHORT).show()
+            }
+            ACTION_APPLY_KEY -> {
+                KeyMatcher.applyPairedKey(context)
+                Log.i(TAG, "debug apply paired key")
+            }
+            ACTION_REJECT -> {
+                val message = intent.getStringExtra("message")
+                if (message.isNullOrBlank()) {
+                    KeyMatcher.reject(context)
+                } else {
+                    KeyMatcher.reject(context, message)
+                }
+                Log.i(TAG, "debug reject key")
             }
             ACTION_PREP -> {
                 val screen = intent.getStringExtra("screen") ?: "root"
@@ -109,6 +123,8 @@ class DebugSessionReceiver : BroadcastReceiver() {
         const val ACTION_START = "app.openblocker.android.debug.START_SESSION"
         const val ACTION_END = "app.openblocker.android.debug.END_SESSION"
         const val ACTION_PREP = "app.openblocker.android.debug.PREP_SCREENSHOTS"
+        const val ACTION_APPLY_KEY = "app.openblocker.android.debug.APPLY_KEY"
+        const val ACTION_REJECT = "app.openblocker.android.debug.REJECT_KEY"
         private const val TAG = "DebugSessionReceiver"
     }
 }
