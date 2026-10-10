@@ -91,7 +91,7 @@ fun ModesSheetContent(
     val colors = obColors()
     Column(modifier.fillMaxSize().background(colors.sheet).testTag("modes_sheet")) {
         SheetHeader("Select mode", onClose, onLeading = onNew, leadingGlyph = Glyph.Plus)
-        ScrollColumn {
+        ScrollColumn(Modifier.weight(1f)) {
             modes.forEach { mode ->
                 ModeCard(
                     mode,
@@ -103,10 +103,14 @@ fun ModesSheetContent(
                 )
                 Spacer(Modifier.height(Space.s))
             }
-            Spacer(Modifier.height(Space.s))
-            PrimaryButton("Done", emphasis = ButtonEmphasis.INK, onClick = onClose)
             Spacer(Modifier.height(Space.l))
         }
+        PrimaryButton(
+            "Done",
+            emphasis = ButtonEmphasis.INK,
+            onClick = onClose,
+            modifier = Modifier.padding(horizontal = Space.margin, vertical = Space.m)
+        )
     }
 }
 

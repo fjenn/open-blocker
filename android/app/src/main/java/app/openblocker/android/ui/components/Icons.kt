@@ -62,8 +62,12 @@ fun GlyphIcon(
                 drawArc(color, 0f, 180f, false, Offset(s * 0.4f, s * 0.68f), Size(s * 0.2f, s * 0.16f), style = stroke)
             }
             Glyph.Privacy -> {
-                drawCircle(color, s * 0.16f, Offset(s * 0.5f, s * 0.32f), style = stroke)
-                drawArc(color, 200f, 140f, false, Offset(s * 0.22f, s * 0.42f), Size(s * 0.56f, s * 0.46f), style = stroke)
+                drawRoundRect(color, Offset(s * 0.38f, s * 0.42f), Size(s * 0.24f, s * 0.36f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.12f))
+                drawRoundRect(color, Offset(s * 0.22f, s * 0.34f), Size(s * 0.16f, s * 0.34f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f))
+                drawRoundRect(color, Offset(s * 0.62f, s * 0.34f), Size(s * 0.16f, s * 0.34f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f))
+                drawRoundRect(color, Offset(s * 0.30f, s * 0.18f), Size(s * 0.14f, s * 0.28f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.07f))
+                drawRoundRect(color, Offset(s * 0.46f, s * 0.14f), Size(s * 0.14f, s * 0.30f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.07f))
+                drawLine(color, Offset(s * 0.50f, s * 0.78f), Offset(s * 0.50f, s * 0.88f), strokeWidth = stroke.width, cap = StrokeCap.Round)
             }
             Glyph.Help -> {
                 drawCircle(color, s * 0.38f, Offset(s * 0.5f, s * 0.5f), style = stroke)
@@ -71,8 +75,9 @@ fun GlyphIcon(
                 drawArc(color, 200f, 220f, false, Offset(s * 0.36f, s * 0.28f), Size(s * 0.28f, s * 0.28f), style = stroke)
             }
             Glyph.Contact -> {
-                drawCircle(color, s * 0.14f, Offset(s * 0.5f, s * 0.32f), style = stroke)
-                drawArc(color, 200f, 140f, false, Offset(s * 0.22f, s * 0.5f), Size(s * 0.56f, s * 0.36f), style = stroke)
+                drawRoundRect(color, Offset(s * 0.16f, s * 0.28f), Size(s * 0.68f, s * 0.46f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.06f))
+                drawLine(color, Offset(s * 0.16f, s * 0.32f), Offset(s * 0.50f, s * 0.54f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawLine(color, Offset(s * 0.84f, s * 0.32f), Offset(s * 0.50f, s * 0.54f), strokeWidth = stroke.width, cap = StrokeCap.Round)
             }
             Glyph.About -> {
                 drawCircle(color, s * 0.38f, Offset(s * 0.5f, s * 0.5f), style = stroke)

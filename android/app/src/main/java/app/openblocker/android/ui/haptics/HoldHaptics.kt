@@ -111,12 +111,13 @@ class HoldHaptics(private val context: Context, private val view: View? = null) 
         val builder = VibrationEffect.startComposition()
         try {
             builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 1f, 0)
-            builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.85f, 12)
+            builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.55f, 12)
+            builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.85f, 33)
             if (Build.VERSION.SDK_INT >= 31) {
-                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_THUD, 1f, 20)
-                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.8f, 40)
-            } else {
-                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 1f, 30)
+                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_THUD, 1f, 8)
+                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.85f, 60)
+                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.45f, 140)
+                builder.addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.15f, 180)
             }
             vibrator?.vibrate(builder.compose())
         } catch (_: Exception) {
@@ -140,8 +141,8 @@ class HoldHaptics(private val context: Context, private val view: View? = null) 
 
     private fun playClimaxWaveform() {
         if (Build.VERSION.SDK_INT < 26) return
-        val timings = longArrayOf(0, 18, 12, 28, 80, 140, 180)
-        val amps = intArrayOf(255, 0, 220, 0, 180, 80, 0)
+        val timings = longArrayOf(0, 12, 12, 21, 12, 20, 80, 140, 180, 97)
+        val amps = intArrayOf(255, 0, 255, 0, 217, 0, 255, 216, 115, 0)
         vibrator?.vibrate(VibrationEffect.createWaveform(timings, amps, -1))
     }
 

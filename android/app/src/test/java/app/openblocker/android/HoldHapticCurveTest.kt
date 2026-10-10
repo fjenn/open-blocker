@@ -23,7 +23,9 @@ class HoldHapticCurveTest {
     @Test
     fun tapsSpeedUpOverTheHold() {
         val taps = HoldHapticCurve.tapProgress
-        assertTrue(taps.size > 12)
+        assertEquals(21, taps.size)
+        assertEquals(0.12, HoldHapticCurve.tapTimes.first(), 0.0)
+        assertEquals(4.94, HoldHapticCurve.tapTimes.last(), 0.0)
         assertTrue(taps.all { it in 0.0..0.999999 })
         val gaps = taps.zipWithNext { a, b -> b - a }
         assertEquals(gaps, gaps.sortedDescending())

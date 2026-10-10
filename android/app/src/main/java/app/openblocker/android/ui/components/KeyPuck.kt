@@ -24,6 +24,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
@@ -266,6 +268,16 @@ private fun KeySprite(
                 painter = fill,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
+                colorFilter = ColorFilter.colorMatrix(
+                    ColorMatrix(
+                        floatArrayOf(
+                            0.62f, 0f, 0f, 0f, 0f,
+                            0f, 0.60f, 0f, 0f, 0f,
+                            0f, 0f, 0.58f, 0f, 0f,
+                            0f, 0f, 0f, 1f, 0f
+                        )
+                    )
+                ),
                 modifier = Modifier
                     .fillMaxSize()
                     .drawWithContent {

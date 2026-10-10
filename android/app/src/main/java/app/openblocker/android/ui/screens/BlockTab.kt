@@ -125,6 +125,7 @@ fun BlockTab(
     val storedKeys by KeyStore.keys.collectAsState()
     val hasKey = storedKeys.isNotEmpty() || PreferencesManager.getPairedKeyCount() > 0
     val readiness = when {
+        shot.forceNeedsKey -> HomeReadiness.NEEDS_KEY
         shot.forceReady -> HomeReadiness.READY
         !accessibilityOn && !blocking -> HomeReadiness.NEEDS_ACCESSIBILITY
         !hasKey && !blocking -> HomeReadiness.NEEDS_KEY
@@ -435,7 +436,7 @@ fun KeyScanChooser(onNfc: () -> Unit, onQr: () -> Unit, onCancel: () -> Unit) {
                 ChooserOption(
                     glyph = Glyph.Nfc,
                     title = "Tap NFC key",
-                    subtitle = "Tag or card at the back of your phone",
+                    subtitle = "Tag or card near the phone",
                     testTag = "chooser_nfc",
                     onClick = onNfc
                 )
@@ -470,10 +471,10 @@ private fun ChooserOption(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.s)
     ) {
-        app.openblocker.android.ui.components.IconTile(glyph, size = 44.dp)
+        GlyphIcon(glyph, colors.ink, size = 22.dp)
         Column(Modifier.weight(1f)) {
-            Text(title.asCopy(), style = ObText.headline, color = colors.ink)
-            Text(subtitle.asCopy(), style = ObText.subhead, color = colors.inkSecondary)
+            Text(title.asCopy(), style = ObText.headline, color = colors.ink, maxLines = 1)
+            Text(subtitle.asCopy(), style = ObText.subhead, color = colors.inkSecondary, maxLines = 2)
         }
         GlyphIcon(Glyph.Chevron, colors.inkTertiary, size = 12.dp)
     }
