@@ -47,6 +47,7 @@ import app.openblocker.android.ui.permissions.PermissionStatusReader
 import app.openblocker.android.ui.screens.AboutScreen
 import app.openblocker.android.ui.screens.AccessibilityExplainer
 import app.openblocker.android.ui.screens.ActivityTab
+import app.openblocker.android.ui.screens.AddKeySheet
 import app.openblocker.android.ui.screens.AnyCardPairingScreen
 import app.openblocker.android.ui.screens.AppPickerScreen
 import app.openblocker.android.ui.screens.BlockTab
@@ -62,6 +63,8 @@ import app.openblocker.android.ui.screens.OnboardingScreen
 import app.openblocker.android.ui.screens.PermissionDeniedSheet
 import app.openblocker.android.ui.screens.PrivacyScreen
 import app.openblocker.android.ui.screens.QrKeyScreen
+import app.openblocker.android.ui.screens.QrPasteScreen
+import app.openblocker.android.ui.screens.RulesScreen
 import app.openblocker.android.ui.screens.ScheduleEditSheet
 import app.openblocker.android.ui.screens.ScheduleTab
 import app.openblocker.android.ui.screens.SettingsTab
@@ -90,9 +93,11 @@ private object Routes {
     const val SETTINGS_ABOUT = "settings/about"
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_KEYS = "settings/keys"
+    const val SETTINGS_RULES = "settings/rules"
     const val TAG_PAIR = "keys/nfc"
     const val ANY_CARD = "keys/anycard"
     const val QR_KEY = "keys/qr"
+    const val QR_PASTE = "keys/qrpaste"
     const val DEBUG = "debug"
 }
 
@@ -114,6 +119,7 @@ fun AppRoot() {
     var editingSchedule by remember { mutableStateOf<BlockSchedule?>(null) }
     var denied by remember { mutableStateOf<PermissionKind?>(null) }
     var explainAccessibility by remember { mutableStateOf(false) }
+    var showAddKey by remember { mutableStateOf(false) }
     var onboarded by remember { mutableStateOf(OnboardingStore.isComplete()) }
     val shot by ScreenshotDirector.cue.collectAsState()
 
@@ -133,6 +139,7 @@ fun AppRoot() {
             null
         }
         showScheduleEdit = shot.screen == "schedule_edit"
+        showAddKey = shot.screen == "addkey"
         nav.popBackStack(Routes.ROOT, inclusive = false)
         when (shot.screen) {
             "keys" -> nav.navigate(Routes.SETTINGS_KEYS)
@@ -149,6 +156,8 @@ fun AppRoot() {
                 nav.navigate(Routes.SETTINGS_KEYS)
                 nav.navigate(Routes.QR_KEY)
             }
+            "qrpaste" -> nav.navigate(Routes.QR_PASTE)
+            "rules" -> nav.navigate(Routes.SETTINGS_RULES)
             "help" -> nav.navigate(Routes.SETTINGS_HELP)
             "about" -> nav.navigate(Routes.SETTINGS_ABOUT)
             "contact" -> nav.navigate(Routes.SETTINGS_CONTACT)
@@ -196,7 +205,8 @@ fun AppRoot() {
             },
             onAllowAccessibility = { explainAccessibility = true },
             accessibilityOn = accessibilityOn,
-            initialPage = shot.onboardPage
+            initialPage = shot.onboardPage,
+            askedAccessibility = shot.askedAccessibility
         )
         if (explainAccessibility) {
             ModalBottomSheet(
@@ -231,7 +241,8 @@ fun AppRoot() {
                             when (current) {
                                 AppTab.BLOCK -> BlockTab(
                                     onOpenModes = { showModes = true },
-                                    onOpenKeySetup = { nav.navigate(Routes.SETTINGS_KEYS) },
+                                    onOpenKeySetup = { showAddKey = true },
+                                    onOpenQrPaste = { nav.navigate(Routes.QR_PASTE) },
                                     onDenied = { denied = it },
                                     onExplainAccessibility = { explainAccessibility = true }
                                 )
@@ -242,6 +253,7 @@ fun AppRoot() {
                                 AppTab.ACTIVITY -> ActivityTab()
                                 AppTab.SETTINGS -> SettingsTab(
                                     onKeys = { nav.navigate(Routes.SETTINGS_KEYS) },
+                                    onRules = { nav.navigate(Routes.SETTINGS_RULES) },
                                     onEmergency = { nav.navigate(Routes.SETTINGS_EMERGENCY) },
                                     onNotifications = { nav.navigate(Routes.SETTINGS_NOTIFICATIONS) },
                                     onHelp = { nav.navigate(Routes.SETTINGS_HELP) },
@@ -277,9 +289,17 @@ fun AppRoot() {
             composable(Routes.SETTINGS_KEYS) {
                 KeysScreen(
                     onBack = { nav.popBackStack() },
-                    onNfc = { nav.navigate(Routes.TAG_PAIR) },
-                    onQr = { nav.navigate(Routes.QR_KEY) }
+                    onAdd = { showAddKey = true }
                 )
+            }
+            composable(Routes.SETTINGS_RULES) {
+                RulesScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpenAccessibility = { openAccessibilitySettings() }
+                )
+            }
+            composable(Routes.QR_PASTE) {
+                QrPasteScreen(onClose = { nav.popBackStack() })
             }
             composable(Routes.TAG_PAIR) {
                 TagPairingScreen(
@@ -313,6 +333,9 @@ fun AppRoot() {
         }
         if (shot.screen == "emergency") {
             EmergencyUnblockScreen(onBack = {})
+        }
+        if (shot.screen == "rules") {
+            RulesScreen(onBack = {}, onOpenAccessibility = { openAccessibilitySettings() })
         }
         if (notice != null) {
             val colors = obColors()
@@ -366,6 +389,15 @@ fun AppRoot() {
                     pickingApps = done
                 }
             )
+        }
+    }
+    if (showAddKey || shot.screen == "addkey") {
+        ModalBottomSheet(
+            onDismissRequest = { showAddKey = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = obColors().sheet
+        ) {
+            AddKeySheet(onClose = { showAddKey = false })
         }
     }
     if (showScheduleEdit) {

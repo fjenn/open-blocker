@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -68,7 +70,9 @@ fun ModesSheet(
         onClose = onClose,
         onNew = onNew,
         onSelect = { ModeRepository.setActive(it) },
-        onEdit = onEdit
+        onEdit = onEdit,
+        onDuplicate = { ModeRepository.duplicate(it) },
+        onDelete = { if (!it.isDefault) ModeRepository.delete(it) }
     )
 }
 
@@ -80,6 +84,8 @@ fun ModesSheetContent(
     onNew: () -> Unit,
     onSelect: (BlockMode) -> Unit,
     onEdit: (BlockMode) -> Unit,
+    onDuplicate: (BlockMode) -> Unit = {},
+    onDelete: (BlockMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = obColors()
@@ -87,7 +93,14 @@ fun ModesSheetContent(
         SheetHeader("Select mode", onClose, onLeading = onNew, leadingGlyph = Glyph.Plus)
         ScrollColumn {
             modes.forEach { mode ->
-                ModeCard(mode, mode.id == activeId, { onSelect(mode) }, { onEdit(mode) })
+                ModeCard(
+                    mode,
+                    mode.id == activeId,
+                    { onSelect(mode) },
+                    { onEdit(mode) },
+                    { onDuplicate(mode) },
+                    { onDelete(mode) }
+                )
                 Spacer(Modifier.height(Space.s))
             }
             Spacer(Modifier.height(Space.s))
@@ -98,8 +111,16 @@ fun ModesSheetContent(
 }
 
 @Composable
-private fun ModeCard(mode: BlockMode, active: Boolean, onSelect: () -> Unit, onEdit: () -> Unit) {
+private fun ModeCard(
+    mode: BlockMode,
+    active: Boolean,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit
+) {
     val colors = obColors()
+    var menu by remember { mutableStateOf(false) }
     CardSurface(raised = active, modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onSelect)) {
         Column(Modifier.padding(Space.m), verticalArrangement = Arrangement.spacedBy(Space.s)) {
             Row(verticalAlignment = Alignment.Top) {
@@ -126,6 +147,35 @@ private fun ModeCard(mode: BlockMode, active: Boolean, onSelect: () -> Unit, onE
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                         .testTag("mode_edit")
                 )
+                Box {
+                    Box(
+                        Modifier
+                            .padding(start = Space.xs)
+                            .size(36.dp)
+                            .background(colors.fillQuiet, CircleShape)
+                            .clickable { menu = true }
+                            .testTag("mode_more"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        GlyphIcon(Glyph.Ellipsis, colors.inkSecondary, size = 14.dp)
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Rename") },
+                            onClick = { menu = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Duplicate") },
+                            onClick = { menu = false; onDuplicate() }
+                        )
+                        if (!mode.isDefault) {
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = colors.danger) },
+                                onClick = { menu = false; onDelete() }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

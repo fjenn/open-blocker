@@ -25,6 +25,11 @@ import app.openblocker.android.ui.screens.PermissionDeniedSheetContent
 import app.openblocker.android.ui.screens.PrivacyContent
 import app.openblocker.android.ui.components.AppTab
 import app.openblocker.android.ui.components.PhoneShell
+import app.openblocker.android.data.StoredKey
+import app.openblocker.android.ui.screens.AddKeyContent
+import app.openblocker.android.ui.screens.KeyScanChooser
+import app.openblocker.android.ui.screens.QrPasteContent
+import app.openblocker.android.ui.screens.RulesContent
 import app.openblocker.android.ui.screens.SettingsTabContent
 import app.openblocker.android.ui.screens.TemplatePickerContent
 import app.openblocker.android.ui.theme.AppAppearance
@@ -165,8 +170,10 @@ class ScreenshotTest {
             countOn = true,
             onCount = {},
             keyCount = 1,
+            rulesOn = true,
             version = "1.0.0",
             onKeys = {},
+            onRules = {},
             onEmergency = {},
             onNotifications = {},
             onHelp = {},
@@ -185,8 +192,10 @@ class ScreenshotTest {
             countOn = true,
             onCount = {},
             keyCount = 1,
+            rulesOn = true,
             version = "1.0.0",
             onKeys = {},
+            onRules = {},
             onEmergency = {},
             onNotifications = {},
             onHelp = {},
@@ -194,6 +203,56 @@ class ScreenshotTest {
             onAbout = {},
             onPrivacy = {}
         )
+    }
+
+    @Test fun homeNeedsKeyDark() = snapTab("home_needs_key_dark", AppAppearance.DARK, AppTab.BLOCK) {
+        BlockTabContent(
+            idle().copy(
+                todaySeconds = 0,
+                modeName = "Detox",
+                modeSubtitle = "Blocks all apps",
+                readiness = HomeReadiness.NEEDS_KEY
+            ),
+            {},
+            {},
+            interactiveKey = false
+        )
+    }
+
+    @Test fun addKeyDark() = snap("add_key_dark", AppAppearance.DARK) {
+        AddKeyContent(
+            kind = StoredKey.Kind.QR,
+            onKind = {},
+            name = "",
+            onName = {},
+            secret = "",
+            qrBitmap = null,
+            nfcStatus = null,
+            nfcGood = false,
+            cardFirst = null,
+            busy = false,
+            onMakeQr = {},
+            onShareQr = {},
+            onScanTag = {},
+            onScanCard = {},
+            onClose = {},
+            onSave = {}
+        )
+    }
+
+    @Test fun qrPasteDark() = snap("qr_paste_dark", AppAppearance.DARK) {
+        QrPasteContent("", {}, {}, {})
+    }
+
+    @Test fun rulesDark() = snap("rules_dark", AppAppearance.DARK) {
+        RulesContent(on = true, onBack = {}, onOpenAccessibility = {})
+    }
+
+    @Test fun chooserDark() = snap("chooser_dark", AppAppearance.DARK) {
+        Box(Modifier.fillMaxSize()) {
+            BlockTabContent(idle(), {}, {}, interactiveKey = false)
+            KeyScanChooser({}, {}, {})
+        }
     }
 
     @Test fun emergencyDark() = snap("emergency_dark", AppAppearance.DARK) {

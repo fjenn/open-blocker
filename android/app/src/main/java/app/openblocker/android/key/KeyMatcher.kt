@@ -1,8 +1,10 @@
 package app.openblocker.android.key
 
 import android.content.Context
+import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.PreferencesManager
 import app.openblocker.android.data.SessionManager
+import app.openblocker.android.data.StoredKey
 import app.openblocker.android.format.OpenBlockerFormat
 import app.openblocker.android.ui.AppNotice
 import app.openblocker.android.ui.haptics.AppHaptics
@@ -12,9 +14,9 @@ object KeyMatcher {
     fun isPaired(scanned: ScannedKey): Boolean {
         return KeyRegistration.isPaired(
             scanned = scanned,
-            storedQr = PreferencesManager.getPairedQrPayloads(),
-            storedTagIds = PreferencesManager.getPairedTagIds(),
-            storedUids = PreferencesManager.getPairedTagUids() + PreferencesManager.getAnyCardUids()
+        storedQr = PreferencesManager.getPairedQrPayloads() + KeyStore.qrPayloads(),
+        storedTagIds = PreferencesManager.getPairedTagIds(),
+        storedUids = PreferencesManager.getPairedTagUids() + PreferencesManager.getAnyCardUids() + KeyStore.nfcSecrets()
         )
     }
 
@@ -32,7 +34,7 @@ object KeyMatcher {
     }
 
     fun onQrScanned(context: Context, raw: String) {
-        when (KeyRegistration.evaluateQr(raw, PreferencesManager.getPairedQrPayloads())) {
+        when (KeyRegistration.evaluateQr(raw, PreferencesManager.getPairedQrPayloads() + KeyStore.qrPayloads())) {
             QrScanOutcome.INVALID_FORMAT -> reject(context, "This QR is not an Open Blocker key.")
             QrScanOutcome.UNPAIRED -> reject(context, rejectMessage())
             QrScanOutcome.PAIRED -> applyPairedKey(context)
@@ -52,6 +54,9 @@ object KeyMatcher {
         }
         val canonical = OpenBlockerFormat.encodeForQR(data)
         PreferencesManager.addPairedQrPayload(canonical)
+        if (KeyStore.qrPayloads().none { KeyRegistration.qrPayloadsMatch(it, canonical) }) {
+            KeyStore.add(StoredKey(name = "QR key", kind = StoredKey.Kind.QR, secret = canonical))
+        }
         return canonical
     }
 }

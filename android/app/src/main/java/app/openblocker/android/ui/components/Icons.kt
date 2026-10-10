@@ -16,7 +16,8 @@ enum class Glyph {
     Back, Close, Plus, Chevron, Check,
     Key, Bell, Privacy, Help, Contact, About, Appearance, People,
     LifeRing, Calendar, Grid, Nfc, Camera, Hourglass, Moon, Leaf,
-    Family, Detox, Blank, Scope, Info, Notifications, Pencil, Globe
+    Family, Detox, Blank, Scope, Info, Notifications, Pencil, Globe,
+    Qr, Card, Ellipsis, Clipboard
 }
 
 @Composable
@@ -173,6 +174,29 @@ fun GlyphIcon(
                 drawLine(color, Offset(s * 0.2f, s * 0.5f), Offset(s * 0.8f, s * 0.5f), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawArc(color, 200f, 140f, false, Offset(s * 0.22f, s * 0.22f), Size(s * 0.56f, s * 0.28f), style = stroke)
                 drawArc(color, 20f, 140f, false, Offset(s * 0.22f, s * 0.5f), Size(s * 0.56f, s * 0.28f), style = stroke)
+            }
+            Glyph.Qr -> {
+                drawRoundRect(color, Offset(s * 0.18f, s * 0.18f), Size(s * 0.26f, s * 0.26f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.03f))
+                drawRoundRect(color, Offset(s * 0.56f, s * 0.18f), Size(s * 0.26f, s * 0.26f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.03f))
+                drawRoundRect(color, Offset(s * 0.18f, s * 0.56f), Size(s * 0.26f, s * 0.26f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.03f))
+                drawRect(color, Offset(s * 0.58f, s * 0.58f), Size(s * 0.1f, s * 0.1f))
+                drawRect(color, Offset(s * 0.72f, s * 0.58f), Size(s * 0.1f, s * 0.1f))
+                drawRect(color, Offset(s * 0.58f, s * 0.72f), Size(s * 0.1f, s * 0.1f))
+            }
+            Glyph.Card -> {
+                drawRoundRect(color, Offset(s * 0.14f, s * 0.28f), Size(s * 0.72f, s * 0.46f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.06f))
+                drawLine(color, Offset(s * 0.14f, s * 0.42f), Offset(s * 0.86f, s * 0.42f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+            }
+            Glyph.Ellipsis -> {
+                drawCircle(color, s * 0.07f, Offset(s * 0.22f, s * 0.5f))
+                drawCircle(color, s * 0.07f, Offset(s * 0.5f, s * 0.5f))
+                drawCircle(color, s * 0.07f, Offset(s * 0.78f, s * 0.5f))
+            }
+            Glyph.Clipboard -> {
+                drawRoundRect(color, Offset(s * 0.24f, s * 0.22f), Size(s * 0.52f, s * 0.62f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.06f))
+                drawRoundRect(color, Offset(s * 0.34f, s * 0.16f), Size(s * 0.32f, s * 0.14f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.04f))
+                drawLine(color, Offset(s * 0.34f, s * 0.46f), Offset(s * 0.66f, s * 0.46f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawLine(color, Offset(s * 0.34f, s * 0.58f), Offset(s * 0.66f, s * 0.58f), strokeWidth = stroke.width, cap = StrokeCap.Round)
             }
         }
     }
