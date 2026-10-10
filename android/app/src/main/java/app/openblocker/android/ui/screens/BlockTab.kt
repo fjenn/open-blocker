@@ -319,10 +319,10 @@ fun BlockTabContent(
                     keySlot()
                 } else {
                     KeyPuck(
-                        progress = if (state.blocking) 1f else state.holdProgress,
+                        progress = if (state.blocking) 0f else state.holdProgress,
                         yaw = 0.15f,
                         locked = state.blocking,
-                        burst = if (state.blocking) 0.28f else 0f,
+                        burst = 0f,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
