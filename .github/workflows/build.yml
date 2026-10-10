@@ -124,6 +124,6 @@ jobs:
           files: |
             android/dist/*.apk
             android/dist/*.sha256
-          body_path: RELEASE-NOTES-0.1.0-alpha.md
+          body_path: RELEASE-NOTES-0.2.0-alpha.md
           generate_release_notes: false
           prerelease: true
