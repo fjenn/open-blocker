@@ -45,6 +45,7 @@ import app.openblocker.android.ui.components.ButtonEmphasis
 import app.openblocker.android.ui.components.CardSurface
 import app.openblocker.android.ui.components.EmptyState
 import app.openblocker.android.ui.components.Glyph
+import app.openblocker.android.ui.components.HairlineDivider
 import app.openblocker.android.ui.components.GlyphIcon
 import app.openblocker.android.ui.components.PrimaryButton
 import app.openblocker.android.ui.components.RoundIconButton
@@ -121,14 +122,17 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
     var end by remember { mutableIntStateOf(existing?.endMinute ?: 17 * 60) }
     var modeId by remember { mutableStateOf(existing?.modeId ?: ModeRepository.activeMode()?.id) }
     var isOn by remember { mutableStateOf(existing?.isOn ?: true) }
-    val labels = listOf("S" to 1, "M" to 2, "T" to 3, "W" to 4, "T" to 5, "F" to 6, "S" to 7)
+    val labels = listOf("M" to 2, "T" to 3, "W" to 4, "T" to 5, "F" to 6, "S" to 7, "S" to 1)
 
     Column(Modifier.fillMaxSize().background(colors.sheet).testTag("schedule_edit")) {
         SheetHeader(if (existing == null) "Add schedule" else "Edit schedule", onClose)
-        ScrollColumn {
+        ScrollColumn(Modifier.weight(1f)) {
             SettingsGroup {
-                Row(Modifier.padding(Space.m), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Name", style = ObText.subhead, color = colors.inkSecondary, modifier = Modifier.weight(1f))
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = Space.m).height(54.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Name", style = ObText.subhead, color = colors.inkSecondary)
                     androidx.compose.material3.TextField(
                         value = name,
                         onValueChange = { name = it },
@@ -136,22 +140,62 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                             Text("e.g. Work, Evenings", style = ObText.subhead, color = colors.inkTertiary)
                         },
                         singleLine = true,
-                        textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink),
+                        textStyle = ObText.subhead.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.ink,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.End
+                        ),
                         colors = androidx.compose.material3.TextFieldDefaults.colors(
                             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                             unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                             focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                             unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                         ),
-                        modifier = Modifier.testTag("schedule_name")
+                        modifier = Modifier.weight(1f).testTag("schedule_name")
                     )
                 }
             }
             Spacer(Modifier.height(Space.s))
-            Text("Starts ${BlockSchedule.formatClock(start)}", style = ObText.subhead, color = colors.ink)
-            TimeStepper(start) { start = it }
-            Text("Ends ${BlockSchedule.formatClock(end)}", style = ObText.subhead, color = colors.ink)
-            TimeStepper(end) { end = it }
+            SettingsGroup {
+                ScheduleTimeRow("Starts", start) { start = (it + 1440) % 1440 }
+                HairlineDivider()
+                ScheduleTimeRow("Ends", end) { end = (it + 1440) % 1440 }
+            }
+            Spacer(Modifier.height(Space.s))
+            if (modes.isNotEmpty()) {
+                SettingsGroup {
+                    var modeOpen by remember { mutableStateOf(false) }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { modeOpen = !modeOpen }
+                            .padding(horizontal = Space.m)
+                            .height(54.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Mode", style = ObText.subhead, color = colors.inkSecondary, modifier = Modifier.weight(1f))
+                        Text(
+                            modes.find { it.id == modeId }?.name ?: "Mode",
+                            style = ObText.subhead.copy(fontWeight = FontWeight.SemiBold),
+                            color = colors.ink
+                        )
+                    }
+                    if (modeOpen) {
+                        modes.forEach { mode ->
+                            HairlineDivider()
+                            Text(
+                                mode.name.asCopy(),
+                                style = ObText.body.copy(fontWeight = if (mode.id == modeId) FontWeight.SemiBold else FontWeight.Normal),
+                                color = if (mode.id == modeId) colors.ink else colors.inkSecondary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { modeId = mode.id; modeOpen = false }
+                                    .padding(horizontal = Space.m, vertical = Space.s)
+                            )
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(Space.s))
             val daysLabel = when {
                 weekdays.size == 7 -> "Every day"
@@ -160,8 +204,11 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                 weekdays.size == 1 -> "1 day a week"
                 else -> "${weekdays.size} days a week"
             }
-            Text("Repeat · $daysLabel", style = ObText.caption, color = colors.inkSecondary)
-            Row(Modifier.fillMaxWidth().padding(vertical = Space.s), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = Space.xxs, vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                Text("Repeat", style = ObText.caption, color = colors.inkSecondary, modifier = Modifier.weight(1f))
+                Text(daysLabel, style = ObText.caption, color = colors.inkSecondary)
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = Space.s), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 labels.forEach { (label, day) ->
                     val on = weekdays.contains(day)
                     Box(
@@ -176,20 +223,18 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                     }
                 }
             }
-            if (modes.isNotEmpty()) {
-                Text("Mode", style = ObText.caption, color = colors.inkSecondary)
-                modes.forEach { mode ->
-                    val on = mode.id == modeId
-                    Text(
-                        mode.name,
-                        style = ObText.body.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
-                        color = if (on) colors.ink else colors.inkSecondary,
-                        modifier = Modifier.clickable { modeId = mode.id }.padding(vertical = Space.xs)
-                    )
-                }
+            if (existing != null) {
+                Spacer(Modifier.height(Space.m))
+                PrimaryButton("Delete schedule", onClick = { ScheduleRepository.delete(existing.id); onClose() })
             }
-            Spacer(Modifier.height(Space.m))
-            PrimaryButton("Save schedule", emphasis = ButtonEmphasis.INK, enabled = name.trim().isNotEmpty() && weekdays.isNotEmpty(), testTag = "save_schedule") {
+            Spacer(Modifier.height(Space.l))
+        }
+        PrimaryButton(
+            "Save schedule",
+            emphasis = ButtonEmphasis.INK,
+            enabled = name.trim().isNotEmpty() && weekdays.isNotEmpty(),
+            testTag = "save_schedule",
+            onClick = {
                 val next = (existing ?: BlockSchedule(name = name, weekdays = weekdays, startMinute = start, endMinute = end)).copy(
                     name = name.trim(),
                     weekdays = weekdays,
@@ -200,13 +245,38 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                 )
                 if (existing == null) ScheduleRepository.add(next) else ScheduleRepository.update(next)
                 onClose()
-            }
-            if (existing != null) {
-                Spacer(Modifier.height(Space.s))
-                PrimaryButton("Delete schedule", onClick = { ScheduleRepository.delete(existing.id); onClose() })
-            }
-            Spacer(Modifier.height(Space.l))
-        }
+            },
+            modifier = Modifier.padding(horizontal = Space.margin, vertical = Space.m)
+        )
+    }
+}
+
+@Composable
+private fun ScheduleTimeRow(label: String, minute: Int, onChange: (Int) -> Unit) {
+    val colors = obColors()
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = Space.m).height(54.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = ObText.subhead, color = colors.inkSecondary, modifier = Modifier.weight(1f))
+        Text(
+            "−",
+            style = ObText.headline,
+            color = colors.inkSecondary,
+            modifier = Modifier.clickable { onChange(minute - 15) }.padding(horizontal = Space.s)
+        )
+        Text(
+            BlockSchedule.formatClock(minute),
+            style = ObText.subhead.copy(fontWeight = FontWeight.SemiBold),
+            color = colors.ink,
+            modifier = Modifier.testTag("schedule_${label.lowercase()}")
+        )
+        Text(
+            "+",
+            style = ObText.headline,
+            color = colors.inkSecondary,
+            modifier = Modifier.clickable { onChange(minute + 15) }.padding(horizontal = Space.s)
+        )
     }
 }
 

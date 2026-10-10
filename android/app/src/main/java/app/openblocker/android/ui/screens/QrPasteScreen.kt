@@ -95,7 +95,7 @@ fun QrPasteContent(
             ) {
                 GlyphIcon(Glyph.Qr, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f), size = 54.dp)
                 Text(
-                    "The emulator has no camera. Paste an Open Blocker QR payload to test matching.".asCopy(),
+                    "The emulator has no camera.\nPaste an Open Blocker QR payload to test matching.".asCopy(),
                     style = ObText.subhead,
                     color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.75f),
                     textAlign = TextAlign.Center,
@@ -130,7 +130,6 @@ fun QrPasteContent(
                 PrimaryButton(
                     "Use payload",
                     emphasis = ButtonEmphasis.INK,
-                    enabled = payload.trim().isNotEmpty(),
                     testTag = "use_payload",
                     onClick = onUse,
                     modifier = Modifier.padding(horizontal = Space.xxxl)

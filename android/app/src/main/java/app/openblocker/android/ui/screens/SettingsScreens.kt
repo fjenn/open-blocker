@@ -465,10 +465,21 @@ fun NotificationsScreen(onBack: () -> Unit, onRequestNotifications: () -> Unit, 
 
 @Composable
 fun KeysScreen(onBack: () -> Unit, onAdd: () -> Unit) {
-    val colors = obColors()
     val keys by app.openblocker.android.data.KeyStore.keys.collectAsState()
     val blocking by SessionManager.isBlocking.collectAsState()
-    Column(Modifier.fillMaxSize().background(colors.canvas).testTag("keys_screen")) {
+    KeysContent(keys, blocking, onBack, onAdd)
+}
+
+@Composable
+fun KeysContent(
+    keys: List<app.openblocker.android.data.StoredKey>,
+    blocking: Boolean,
+    onBack: () -> Unit,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = obColors()
+    Column(modifier.fillMaxSize().background(colors.canvas).testTag("keys_screen")) {
         PushedHeader("My Keys", onBack)
         Box(Modifier.fillMaxSize()) {
             if (keys.isEmpty()) {
@@ -537,8 +548,6 @@ private fun KeyCardRow(key: app.openblocker.android.data.StoredKey, canDelete: B
                     Modifier
                         .width(36.dp)
                         .height(36.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(colors.fillQuiet)
                         .clickable { menu = true }
                         .testTag("key_menu"),
                     contentAlignment = Alignment.Center
@@ -601,7 +610,7 @@ fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Uni
             }
             Spacer(Modifier.height(Space.s))
             Text(
-                "On iPhone these rows are Screen Time rules (prevent delete, block installs, purchases, adult sites). Android has no equivalent API, so blocking uses Accessibility and your modes instead.".asCopy(),
+                "Android has no Screen Time rules. Blocking uses Accessibility and the apps and sites in your modes.".asCopy(),
                 style = ObText.subhead,
                 color = colors.inkSecondary
             )

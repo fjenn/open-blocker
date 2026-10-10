@@ -196,7 +196,7 @@ fun AddKeyContent(
     val canSave = name.trim().isNotEmpty() && secret.isNotEmpty()
     Column(modifier.fillMaxSize().background(colors.sheet).testTag("add_key_sheet")) {
         SheetHeader("Add Key", onClose)
-        ScrollColumn {
+        ScrollColumn(Modifier.weight(1f)) {
             SegmentedPill(
                 options = listOf(
                     "QR code" to StoredKey.Kind.QR,
@@ -213,7 +213,7 @@ fun AddKeyContent(
                     Modifier.fillMaxWidth().padding(horizontal = Space.m).height(54.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Key Name", style = ObText.subhead, color = colors.inkSecondary)
+                    Text("Key Name", style = ObText.subhead, color = colors.inkSecondary, modifier = Modifier.padding(end = Space.s))
                     TextField(
                         value = name,
                         onValueChange = onName,
@@ -221,7 +221,7 @@ fun AddKeyContent(
                             Text(kind.placeholder, style = ObText.subhead, color = colors.inkTertiary)
                         },
                         singleLine = true,
-                        textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink),
+                        textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink, textAlign = TextAlign.End),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                             unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -270,16 +270,16 @@ fun AddKeyContent(
                     )
                 }
             }
-            Spacer(Modifier.height(Space.m))
-            PrimaryButton(
-                "Save Key",
-                emphasis = ButtonEmphasis.INK,
-                enabled = canSave,
-                testTag = "save_key",
-                onClick = onSave
-            )
             Spacer(Modifier.height(Space.l))
         }
+        PrimaryButton(
+            "Save Key",
+            emphasis = ButtonEmphasis.INK,
+            enabled = canSave,
+            testTag = "save_key",
+            onClick = onSave,
+            modifier = Modifier.padding(horizontal = Space.margin, vertical = Space.m)
+        )
     }
 }
 

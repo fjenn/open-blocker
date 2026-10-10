@@ -28,8 +28,10 @@ import app.openblocker.android.ui.components.PhoneShell
 import app.openblocker.android.data.StoredKey
 import app.openblocker.android.ui.screens.AddKeyContent
 import app.openblocker.android.ui.screens.KeyScanChooser
+import app.openblocker.android.ui.screens.KeysContent
 import app.openblocker.android.ui.screens.QrPasteContent
 import app.openblocker.android.ui.screens.RulesContent
+import app.openblocker.android.ui.screens.ScheduleTabContent
 import app.openblocker.android.ui.screens.SettingsTabContent
 import app.openblocker.android.ui.screens.TemplatePickerContent
 import app.openblocker.android.ui.theme.AppAppearance
@@ -145,6 +147,10 @@ class ScreenshotTest {
         ActivityTabContent(demoIntervals(), reset.time, false)
     }
 
+    @Test fun onboardingWelcomeDark() = snap("onboarding_welcome_dark", AppAppearance.DARK) {
+        OnboardingScreen({}, {}, accessibilityOn = false, initialPage = 0)
+    }
+
     @Test fun onboardingDark() = snap("onboarding_dark", AppAppearance.DARK) {
         OnboardingScreen({}, {}, accessibilityOn = false, initialPage = 1)
     }
@@ -240,6 +246,51 @@ class ScreenshotTest {
         )
     }
 
+    @Test fun addKeyNfcDark() = snap("add_key_nfc_dark", AppAppearance.DARK) {
+        AddKeyContent(
+            kind = StoredKey.Kind.NFC_TAG,
+            onKind = {},
+            name = "",
+            onName = {},
+            secret = "",
+            qrBitmap = null,
+            nfcStatus = null,
+            nfcGood = false,
+            cardFirst = null,
+            busy = false,
+            onMakeQr = {},
+            onShareQr = {},
+            onScanTag = {},
+            onScanCard = {},
+            onClose = {},
+            onSave = {}
+        )
+    }
+
+    @Test fun keysDark() = snapTab("keys_dark", AppAppearance.DARK, AppTab.SETTINGS) {
+        KeysContent(
+            keys = listOf(
+                StoredKey(
+                    name = "Fridge QR",
+                    kind = StoredKey.Kind.QR,
+                    secret = "openblocker://tag/v1/demo",
+                    addedAtMs = reset.time - 5_000
+                )
+            ),
+            blocking = false,
+            onBack = {},
+            onAdd = {}
+        )
+    }
+
+    @Test fun scheduleEmptyDark() = snapTab("schedule_empty_dark", AppAppearance.DARK, AppTab.SCHEDULE) {
+        ScheduleTabContent(emptyList(), {}, { _, _ -> }, {})
+    }
+
+    @Test fun homeToastDark() = snapTab("home_toast_dark", AppAppearance.DARK, AppTab.BLOCK) {
+        BlockTabContent(blocked(), {}, {}, interactiveKey = false, toast = "Unblocking needs your key.")
+    }
+
     @Test fun qrPasteDark() = snap("qr_paste_dark", AppAppearance.DARK) {
         QrPasteContent("", {}, {}, {})
     }
@@ -250,7 +301,7 @@ class ScreenshotTest {
 
     @Test fun chooserDark() = snap("chooser_dark", AppAppearance.DARK) {
         Box(Modifier.fillMaxSize()) {
-            BlockTabContent(idle(), {}, {}, interactiveKey = false)
+            BlockTabContent(blocked(), {}, {}, interactiveKey = false)
             KeyScanChooser({}, {}, {})
         }
     }
