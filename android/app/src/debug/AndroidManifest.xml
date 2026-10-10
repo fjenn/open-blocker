@@ -10,6 +10,8 @@
                 <action android:name="app.openblocker.android.debug.START_SESSION" />
                 <action android:name="app.openblocker.android.debug.END_SESSION" />
                 <action android:name="app.openblocker.android.debug.PREP_SCREENSHOTS" />
+                <action android:name="app.openblocker.android.debug.APPLY_KEY" />
+                <action android:name="app.openblocker.android.debug.REJECT_KEY" />
             </intent-filter>
         </receiver>
     </application>

@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import app.openblocker.android.OpenBlockerApplication
 import app.openblocker.android.domain.EmergencyAllowance
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.Date
 
 object EmergencyUnblockManager {
@@ -13,6 +16,9 @@ object EmergencyUnblockManager {
 
     data class Status(val remaining: Int, val resetDate: Date)
 
+    private val _remaining = MutableStateFlow(EmergencyAllowance.maxCount)
+    val remaining: StateFlow<Int> = _remaining.asStateFlow()
+
     private val prefs: SharedPreferences by lazy {
         OpenBlockerApplication.getAppContext()
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -20,6 +26,7 @@ object EmergencyUnblockManager {
 
     fun status(now: Date = Date()): Status {
         val allowance = load(now)
+        _remaining.value = allowance.remaining
         return Status(allowance.remaining, allowance.resetDate())
     }
 
@@ -54,5 +61,6 @@ object EmergencyUnblockManager {
             .putInt(KEY_REMAINING, allowance.remaining)
             .putLong(KEY_PERIOD_START, allowance.periodStart.time)
             .apply()
+        _remaining.value = allowance.remaining
     }
 }

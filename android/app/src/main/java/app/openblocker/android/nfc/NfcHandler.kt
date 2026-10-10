@@ -5,7 +5,6 @@ import android.nfc.NdefMessage
 import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
-import android.widget.Toast
 import app.openblocker.android.data.DebugDataManager
 import app.openblocker.android.data.PreferencesManager
 import app.openblocker.android.format.OpenBlockerFormat
@@ -41,25 +40,25 @@ class NfcHandler {
                             success = true
                         } else {
                             error = "Tag ID not paired"
-                            Toast.makeText(context, KeyMatcher.rejectMessage(), Toast.LENGTH_SHORT).show()
+                            KeyMatcher.reject(context)
                         }
                     } else if (KeyMatcher.isPaired(ScannedKey.Uid(uid))) {
                         KeyMatcher.applyPairedKey(context)
                         success = true
                     } else {
                         error = error ?: "Unknown tag format"
-                        Toast.makeText(context, KeyMatcher.rejectMessage(), Toast.LENGTH_SHORT).show()
+                        KeyMatcher.reject(context)
                     }
                 } else if (KeyMatcher.isPaired(ScannedKey.Uid(uid))) {
                     KeyMatcher.applyPairedKey(context)
                     success = true
                 } else {
                     error = "No NDEF data and UID not paired"
-                    Toast.makeText(context, KeyMatcher.rejectMessage(), Toast.LENGTH_SHORT).show()
+                    KeyMatcher.reject(context)
                 }
         } catch (e: Exception) {
             error = "Exception: ${e.message}"
-            Toast.makeText(context, "Error reading tag", Toast.LENGTH_SHORT).show()
+            KeyMatcher.reject(context, "Error reading tag")
         }
         
         DebugDataManager.recordTagScan(uid, tagId, packageName, success, error)

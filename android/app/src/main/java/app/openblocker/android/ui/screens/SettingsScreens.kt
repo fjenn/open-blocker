@@ -76,7 +76,7 @@ fun SettingsTab(
     modifier: Modifier = Modifier
 ) {
     val appearance by AppearanceManager.appearance
-    val remaining = remember { EmergencyUnblockManager.status().remaining }
+    val remaining by EmergencyUnblockManager.remaining.collectAsState()
     var countOn by remember { mutableStateOf(CountManager.isPreferenceEnabled()) }
     val notifyOn = SessionNotify.isEnabled
     val keyCount = PreferencesManager.getPairedKeyCount()
@@ -457,7 +457,7 @@ fun NotificationsScreen(onBack: () -> Unit, onRequestNotifications: () -> Unit, 
 fun KeysScreen(onBack: () -> Unit, onNfc: () -> Unit, onQr: () -> Unit) {
     val colors = obColors()
     val count = PreferencesManager.getPairedKeyCount()
-    Column(Modifier.fillMaxSize().background(colors.canvas)) {
+    Column(Modifier.fillMaxSize().background(colors.canvas).testTag("keys_screen")) {
         PushedHeader("My Keys", onBack)
         ScrollColumn {
             Text(
@@ -468,9 +468,9 @@ fun KeysScreen(onBack: () -> Unit, onNfc: () -> Unit, onQr: () -> Unit) {
             )
             Spacer(Modifier.height(Space.m))
             SettingsGroup {
-                SettingsRow(Glyph.Nfc, "Pair NFC tag", subtitle = "Write or pair a tag or card", onClick = onNfc)
+                SettingsRow(Glyph.Nfc, "Pair NFC tag", subtitle = "Write or pair a tag or card", testTag = "keys_nfc", onClick = onNfc)
                 HairlineDivider()
-                SettingsRow(Glyph.Camera, "Printed QR key", subtitle = "Generate or scan openblocker://tag/v1/{32 hex}", onClick = onQr)
+                SettingsRow(Glyph.Camera, "Printed QR key", subtitle = "Generate or scan openblocker://tag/v1/{32 hex}", testTag = "keys_qr", onClick = onQr)
             }
         }
     }

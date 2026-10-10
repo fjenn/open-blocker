@@ -14,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import app.openblocker.android.data.PairingStateManager
 import app.openblocker.android.ui.components.ButtonEmphasis
@@ -41,7 +42,7 @@ fun TagPairingScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(colors.canvas)) {
+    Column(Modifier.fillMaxSize().background(colors.canvas).testTag("nfc_pair_screen")) {
         PushedHeader("Pair NFC tag", onBack)
         ScrollColumn {
             Text(
@@ -59,7 +60,7 @@ fun TagPairingScreen(
                         style = ObText.body,
                         color = colors.inkSecondary
                     )
-                    PrimaryButton("Write tag", emphasis = ButtonEmphasis.INK, onClick = {
+                    PrimaryButton("Write tag", emphasis = ButtonEmphasis.INK, testTag = "nfc_write", onClick = {
                         PairingStateManager.setMode(PairingStateManager.Mode.WriteTag)
                     })
                 }
@@ -73,10 +74,10 @@ fun TagPairingScreen(
                         style = ObText.body,
                         color = colors.inkSecondary
                     )
-                    PrimaryButton("Pair by UID", onClick = {
+                    PrimaryButton("Pair by UID", testTag = "nfc_uid", onClick = {
                         PairingStateManager.setMode(PairingStateManager.Mode.PairByUid)
                     })
-                    PrimaryButton("Pair any card", onClick = onNavigateToAnyCard)
+                    PrimaryButton("Pair any card", testTag = "nfc_anycard", onClick = onNavigateToAnyCard)
                 }
             }
             if (pairingMode != PairingStateManager.Mode.None) {

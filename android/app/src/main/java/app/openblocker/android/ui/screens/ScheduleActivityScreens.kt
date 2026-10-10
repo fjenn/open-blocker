@@ -106,7 +106,7 @@ fun ScheduleTabContent(
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = Space.l), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Create schedule", style = ObText.footnote, color = colors.inkSecondary)
             Spacer(Modifier.height(Space.s))
-            RoundIconButton(Glyph.Plus, "Create schedule", onClick = onCreate)
+            RoundIconButton(Glyph.Plus, "Create schedule", testTag = "schedule_create", onClick = onCreate)
         }
     }
 }
@@ -123,7 +123,7 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
     var isOn by remember { mutableStateOf(existing?.isOn ?: true) }
     val labels = listOf("S" to 1, "M" to 2, "T" to 3, "W" to 4, "T" to 5, "F" to 6, "S" to 7)
 
-    Column(Modifier.fillMaxSize().background(colors.sheet)) {
+    Column(Modifier.fillMaxSize().background(colors.sheet).testTag("schedule_edit")) {
         SheetHeader(if (existing == null) "New schedule" else "Edit schedule", onClose)
         ScrollColumn {
             SettingsGroup {

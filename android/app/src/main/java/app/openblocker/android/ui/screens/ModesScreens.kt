@@ -234,6 +234,14 @@ fun ModeEditFlow(
         addsSchedule = addsSchedule,
         onAddsSchedule = { addsSchedule = it },
         onBackToTemplates = if (existing == null) ({ template = null }) else null,
+        onDelete = if (existing != null && !existing.isDefault) {
+            {
+                ModeRepository.delete(existing)
+                onClose()
+            }
+        } else {
+            null
+        },
         onClose = onClose,
         onSave = {
             val valid = ModeName.validated(name) ?: return@ModeEditContent
@@ -268,6 +276,7 @@ fun ModeEditContent(
     addsSchedule: Boolean,
     onAddsSchedule: (Boolean) -> Unit,
     onBackToTemplates: (() -> Unit)?,
+    onDelete: (() -> Unit)? = null,
     onClose: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
@@ -417,6 +426,10 @@ fun ModeEditContent(
                 enabled = ModeName.validated(name) != null,
                 onClick = onSave
             )
+            if (onDelete != null) {
+                Spacer(Modifier.height(Space.s))
+                PrimaryButton("Delete mode", onClick = onDelete)
+            }
             Spacer(Modifier.height(Space.l))
         }
     }

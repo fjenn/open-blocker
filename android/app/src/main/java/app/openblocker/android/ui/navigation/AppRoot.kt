@@ -4,6 +4,10 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,8 +66,20 @@ import app.openblocker.android.ui.screens.ScheduleEditSheet
 import app.openblocker.android.ui.screens.ScheduleTab
 import app.openblocker.android.ui.screens.SettingsTab
 import app.openblocker.android.ui.screens.TagPairingScreen
+import app.openblocker.android.ui.AppNotice
+import app.openblocker.android.ui.theme.Motion
+import app.openblocker.android.ui.theme.ObText
+import app.openblocker.android.ui.theme.Space
 import app.openblocker.android.ui.theme.obColors
 import app.openblocker.android.util.AccessibilityUtil
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.delay
 
 private object Routes {
     const val ROOT = "root"
@@ -110,8 +126,33 @@ fun AppRoot() {
         onboarded = OnboardingStore.isComplete()
         tab = shot.tab
         showModes = shot.screen == "modes"
+        creatingMode = shot.screen == "mode_templates"
+        editingMode = if (shot.screen == "mode_edit") {
+            app.openblocker.android.data.ModeRepository.modes.value.firstOrNull()
+        } else {
+            null
+        }
+        showScheduleEdit = shot.screen == "schedule_edit"
+        nav.popBackStack(Routes.ROOT, inclusive = false)
         when (shot.screen) {
-            "root" -> nav.popBackStack(Routes.ROOT, inclusive = false)
+            "keys" -> nav.navigate(Routes.SETTINGS_KEYS)
+            "nfc" -> {
+                nav.navigate(Routes.SETTINGS_KEYS)
+                nav.navigate(Routes.TAG_PAIR)
+            }
+            "anycard" -> {
+                nav.navigate(Routes.SETTINGS_KEYS)
+                nav.navigate(Routes.TAG_PAIR)
+                nav.navigate(Routes.ANY_CARD)
+            }
+            "qr" -> {
+                nav.navigate(Routes.SETTINGS_KEYS)
+                nav.navigate(Routes.QR_KEY)
+            }
+            "help" -> nav.navigate(Routes.SETTINGS_HELP)
+            "about" -> nav.navigate(Routes.SETTINGS_ABOUT)
+            "contact" -> nav.navigate(Routes.SETTINGS_CONTACT)
+            "notifications" -> nav.navigate(Routes.SETTINGS_NOTIFICATIONS)
         }
     }
 
@@ -176,32 +217,39 @@ fun AppRoot() {
         return
     }
 
+    val notice by AppNotice.message.collectAsState()
     Box(Modifier.fillMaxSize().background(obColors().chrome)) {
         NavHost(nav, startDestination = Routes.ROOT, modifier = Modifier.fillMaxSize()) {
             composable(Routes.ROOT) {
                 PhoneShell(tab = tab, onTab = { tab = it }, modifier = Modifier.navigationBarsPadding()) {
                     Box(Modifier.fillMaxSize().statusBarsPadding()) {
-                        when (tab) {
-                            AppTab.BLOCK -> BlockTab(
-                                onOpenModes = { showModes = true },
-                                onOpenKeySetup = { nav.navigate(Routes.SETTINGS_KEYS) },
-                                onDenied = { denied = it },
-                                onExplainAccessibility = { explainAccessibility = true }
-                            )
-                            AppTab.SCHEDULE -> ScheduleTab(
-                                onCreate = { editingSchedule = null; showScheduleEdit = true },
-                                onEdit = { editingSchedule = it; showScheduleEdit = true }
-                            )
-                            AppTab.ACTIVITY -> ActivityTab()
-                            AppTab.SETTINGS -> SettingsTab(
-                                onKeys = { nav.navigate(Routes.SETTINGS_KEYS) },
-                                onEmergency = { nav.navigate(Routes.SETTINGS_EMERGENCY) },
-                                onNotifications = { nav.navigate(Routes.SETTINGS_NOTIFICATIONS) },
-                                onHelp = { nav.navigate(Routes.SETTINGS_HELP) },
-                                onContact = { nav.navigate(Routes.SETTINGS_CONTACT) },
-                                onAbout = { nav.navigate(Routes.SETTINGS_ABOUT) },
-                                onPrivacy = { nav.navigate(Routes.SETTINGS_PRIVACY) }
-                            )
+                        AnimatedContent(
+                            targetState = tab,
+                            transitionSpec = { fadeIn(Motion.fade) togetherWith fadeOut(Motion.fade) },
+                            label = "tab"
+                        ) { current ->
+                            when (current) {
+                                AppTab.BLOCK -> BlockTab(
+                                    onOpenModes = { showModes = true },
+                                    onOpenKeySetup = { nav.navigate(Routes.SETTINGS_KEYS) },
+                                    onDenied = { denied = it },
+                                    onExplainAccessibility = { explainAccessibility = true }
+                                )
+                                AppTab.SCHEDULE -> ScheduleTab(
+                                    onCreate = { editingSchedule = null; showScheduleEdit = true },
+                                    onEdit = { editingSchedule = it; showScheduleEdit = true }
+                                )
+                                AppTab.ACTIVITY -> ActivityTab()
+                                AppTab.SETTINGS -> SettingsTab(
+                                    onKeys = { nav.navigate(Routes.SETTINGS_KEYS) },
+                                    onEmergency = { nav.navigate(Routes.SETTINGS_EMERGENCY) },
+                                    onNotifications = { nav.navigate(Routes.SETTINGS_NOTIFICATIONS) },
+                                    onHelp = { nav.navigate(Routes.SETTINGS_HELP) },
+                                    onContact = { nav.navigate(Routes.SETTINGS_CONTACT) },
+                                    onAbout = { nav.navigate(Routes.SETTINGS_ABOUT) },
+                                    onPrivacy = { nav.navigate(Routes.SETTINGS_PRIVACY) }
+                                )
+                            }
                         }
                     }
                     StatusBarScrim()
@@ -265,6 +313,28 @@ fun AppRoot() {
         }
         if (shot.screen == "emergency") {
             EmergencyUnblockScreen(onBack = {})
+        }
+        if (notice != null) {
+            val colors = obColors()
+            Text(
+                notice!!,
+                style = ObText.subhead.copy(fontWeight = FontWeight.Medium),
+                color = colors.inkInverse,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = Space.xs)
+                    .background(colors.ink.copy(alpha = 0.92f), RoundedCornerShape(50))
+                    .clickable {
+                        AppNotice.consume()
+                    }
+                    .padding(horizontal = Space.l, vertical = Space.s)
+                    .testTag("app_notice")
+            )
+            LaunchedEffect(notice) {
+                delay(Motion.toastMs)
+                AppNotice.consume()
+            }
         }
     }
 

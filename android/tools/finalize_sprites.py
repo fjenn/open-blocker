@@ -77,10 +77,24 @@ def compare() -> None:
     print(f"wrote {dest} {canvas.size}")
 
 
+def pack_spin(prefix: str, count: int = 12) -> None:
+    spin = RENDERS / "spin"
+    for i in range(count):
+        src = spin / f"{prefix}_{i:02d}.png"
+        if src.exists():
+            im = Image.open(src).convert("RGBA")
+            dest = DRAWABLE / f"{prefix}_{i:02d}.webp"
+            im.save(dest, "WEBP", quality=82, method=6)
+            print(f"wrote {dest} {im.size} {dest.stat().st_size}b")
+
+
 def main() -> None:
-    write_webp(RENDERS / "key_idle.png", "key_idle")
-    write_webp(RENDERS / "key_fill.png", "key_fill")
-    compare()
+    if (RENDERS / "key_idle.png").exists():
+        write_webp(RENDERS / "key_idle.png", "key_idle")
+        write_webp(RENDERS / "key_fill.png", "key_fill")
+        compare()
+    pack_spin("key_spin")
+    pack_spin("key_fill_spin")
 
 
 if __name__ == "__main__":
