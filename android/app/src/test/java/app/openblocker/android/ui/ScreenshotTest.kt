@@ -330,23 +330,57 @@ class ScreenshotTest {
         PermissionDeniedSheetContent(PermissionCopyCatalog.of(PermissionKind.CAMERA), {}, {})
     }
 
+    private fun demoModes() = listOf(
+        BlockMode(
+            id = "deep",
+            name = "Deep work",
+            packages = (1..12).map { "app$it" }.toSet(),
+            websites = listOf("youtube.com", "reddit.com")
+        ),
+        BlockMode(name = "Sleep", kind = BlockMode.Kind.ALLOW_ONLY, packages = setOf("c", "d", "e", "f")),
+        ModeTemplate.DETOX.makeMode()
+    )
+
     @Test fun modesDark() = snap("modes_dark", AppAppearance.DARK) {
         ModesSheetContent(
-            modes = listOf(
-                BlockMode(
-                    id = "deep",
-                    name = "Deep work",
-                    packages = (1..12).map { "app$it" }.toSet(),
-                    websites = listOf("youtube.com", "reddit.com")
-                ),
-                BlockMode(name = "Sleep", kind = BlockMode.Kind.ALLOW_ONLY, packages = setOf("c", "d", "e", "f")),
-                ModeTemplate.DETOX.makeMode()
-            ),
+            modes = demoModes(),
             activeId = "deep",
             onClose = {},
             onNew = {},
             onSelect = {},
             onEdit = {}
+        )
+    }
+
+    @Test fun modesLight() = snap("modes_light", AppAppearance.LIGHT) {
+        ModesSheetContent(
+            modes = demoModes(),
+            activeId = "deep",
+            onClose = {},
+            onNew = {},
+            onSelect = {},
+            onEdit = {}
+        )
+    }
+
+    @Test fun addKeyLight() = snap("add_key_light", AppAppearance.LIGHT) {
+        AddKeyContent(
+            kind = StoredKey.Kind.QR,
+            onKind = {},
+            name = "",
+            onName = {},
+            secret = "",
+            qrBitmap = null,
+            nfcStatus = null,
+            nfcGood = false,
+            cardFirst = null,
+            busy = false,
+            onMakeQr = {},
+            onShareQr = {},
+            onScanTag = {},
+            onScanCard = {},
+            onClose = {},
+            onSave = {}
         )
     }
 
