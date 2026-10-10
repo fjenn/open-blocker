@@ -1,10 +1,10 @@
 # Android device test
 
-**0.1.0-alpha is an early alpha, not tested on real devices.** NFC keys and QR keys have been tried on an Android emulator only. This checklist is how to test on a phone. Please report Pass/Fail in GitHub Issues or Discussions.
+**0.2.0-alpha is an early alpha, not tested on real devices.** NFC keys and QR keys have been tried on an Android emulator only. This checklist is how to test on a phone. Please report Pass/Fail in GitHub Issues or Discussions.
 
 Two tracks: an **emulator pass** for everything except NFC and real-camera QR, and a **physical phone** pass for NFC plus printed-QR register / start / end / wrong-QR.
 
-The public file is `artifacts/release/open-blocker-0.1.0-alpha.apk` (release-signed). Debug APKs are for emulator work only.
+The public file is `artifacts/release/open-blocker-0.2.0-alpha.apk` (release-signed). Debug APKs are for emulator work only.
 
 Mark each row **Pass** or **Fail**.
 
@@ -155,6 +155,6 @@ Limits: Chrome custom tabs, WebView, Firefox with the address bar hidden, browse
 ## Notes
 
 - A determined user can get around the block on Android (safe mode, uninstall, turning off Accessibility, ADB). Open Blocker adds friction, not a lock.
-- The public alpha APK is release-signed (`open-blocker-0.1.0-alpha.apk`). Debug APKs are for emulator work.
+- The public alpha APK is release-signed (`open-blocker-0.2.0-alpha.apk`). Debug APKs are for emulator work.
 - NFC tag write, NDEF/UID read, and wrong-key reject on real tags cannot be proven without this phone run.
 - Printed QR register, start block, end block (including from the overlay), and wrong-QR reject need a real camera and a printed (or on-screen) QR. The emulator only proved the registration screen, permission prompt, and scanner preview.
