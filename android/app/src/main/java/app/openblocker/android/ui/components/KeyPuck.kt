@@ -44,8 +44,9 @@ import app.openblocker.android.ui.theme.obColors
 
 /**
  * Offline Blender render of KeyModel.glb (see android/tools/render_key.py).
- * Idle and fill sprites share the iOS camera; hold / blocked reveal the fill
- * sprite from the bottom with a clip. Paparazzi and the app use the same path.
+ * Idle and fill sprites share the iOS camera. Hold reveals the fill sprite
+ * from the bottom with a clip. Once locked the key returns to the idle body
+ * (iOS keeps the lighter puck; the liquid is only while holding).
  */
 @Composable
 fun KeyPuck(
@@ -212,7 +213,7 @@ fun KeyStage(
             progress = fill.progress.toFloat(),
             yaw = yaw,
             locked = locked,
-            burst = if (locked) maxOf(burst, 0.35f) else burst,
+            burst = burst,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
@@ -236,11 +237,21 @@ private fun KeySprite(
     val colors = obColors()
     val fillLevel = FillLevel.shaderLevel(progress.toDouble())
     val reveal = when {
-        locked || progress >= 0.98f -> 1f
+        locked -> 0f
         fillLevel <= FillLevel.hidden -> 0f
         else -> ((fillLevel + 0.02f) / 1.04f).coerceIn(0f, 1f)
     }
     val shadowAlpha = if (colors.isDark) 0.55f else 0.20f
+    val idleFilter = ColorFilter.colorMatrix(
+        ColorMatrix(
+            floatArrayOf(
+                0.95f, 0f, 0f, 0f, 0f,
+                0f, 0.93f, 0f, 0f, 0f,
+                0f, 0f, 0.90f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    )
 
     Box(modifier.fillMaxSize().testTag("key_view")) {
         Canvas(Modifier.fillMaxSize()) {
@@ -261,7 +272,13 @@ private fun KeySprite(
             painter = idle,
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
+            colorFilter = idleFilter,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = 0.96f
+                    scaleY = 0.96f
+                }
         )
         if (reveal > 0f) {
             Image(
@@ -280,6 +297,10 @@ private fun KeySprite(
                 ),
                 modifier = Modifier
                     .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 0.96f
+                        scaleY = 0.96f
+                    }
                     .drawWithContent {
                         val top = size.height * (1f - reveal)
                         clipRect(left = 0f, top = top, right = size.width, bottom = size.height) {
