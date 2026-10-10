@@ -1,16 +1,16 @@
 # Open Blocker
 
-**0.1.0-alpha is an early alpha. It has not been tested on real devices.** Both NFC keys and printed QR keys have been tried only on an Android emulator. This is not a daily-driver release. If you install it, you are helping test. Please report what happens (success or failure) in [Issues](../../issues) or [Discussions](../../discussions).
+**0.2.0-alpha is an early alpha. It has not been tested on real devices.** Both NFC keys and printed QR keys have been tried only on an Android emulator. This is not a daily-driver release. If you install it, you are helping test. Please report what happens (success or failure) in [Issues](../../issues) or [Discussions](../../discussions).
 
 Open Blocker is an open source physical phone blocker. You pick apps to lock, then start or stop a session by tapping an NFC key or scanning a printed QR. The idea is friction: you walk to the key, you do not swipe a toggle.
 
 **License:** MIT  
-**Android:** 0.1.0-alpha (sideload APK)  
+**Android:** 0.2.0-alpha (sideload APK)  
 **iPhone:** source is in `ios/`. There is no App Store build yet. Apple Screen Time / Family Controls distribution approval is still pending. Join the waitlist: https://openblocker.vercel.app/waitlist
 
 ## Android alpha (emulator only so far)
 
-Download `open-blocker-0.1.0-alpha.apk` from [Releases](../../releases). Check the SHA-256 next to the file.
+Download `open-blocker-0.2.0-alpha.apk` from [Releases](../../releases). Check the SHA-256 next to the file.
 
 This alpha has been run on an API 34 Android emulator (home, app picker, Accessibility, block overlay, QR registration / camera permission / scanner preview). It has **not** been tested on a wide range of real phones. NFC tag write/read, pairing a real card, scanning a real printed QR to start or end a session, and wrong-key reject on hardware are **unverified**.
 
@@ -18,10 +18,10 @@ This alpha has been run on an API 34 Android emulator (home, app picker, Accessi
 
 This alpha is not on Google Play yet, so Google Play Protect does not recognise it and may warn about it or block it. On a Samsung test phone, opening the APK from WhatsApp showed "App not installed", Play Protect blocked it, and tapping "Install anyway" still failed. The steps below are what to try. Menu names vary a little between Android versions and phone makers.
 
-**Only install the APK from the official [v0.1.0-alpha release page](https://github.com/fjenn/open-blocker/releases/tag/v0.1.0-alpha).** Do not install a copy forwarded to you in a chat app. Check the SHA-256 before installing. This is an early alpha and has not had a security review.
+**Only install the APK from the official [v0.2.0-alpha release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha).** Do not install a copy forwarded to you in a chat app. Check the SHA-256 before installing. This is an early alpha.
 
-1. On the phone, open the [release page](https://github.com/fjenn/open-blocker/releases/tag/v0.1.0-alpha) in your browser and download `open-blocker-0.1.0-alpha.apk`. Download it directly rather than opening a copy from WhatsApp or another messaging app.
-2. Verify the file. Its SHA-256 must match the value in `open-blocker-0.1.0-alpha.apk.sha256` on the same release page. On a computer: `shasum -a 256 open-blocker-0.1.0-alpha.apk` (macOS) or `sha256sum open-blocker-0.1.0-alpha.apk` (Linux). If it does not match, delete the file and do not install it.
+1. On the phone, open the [release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha) in your browser and download `open-blocker-0.2.0-alpha.apk`. Download it directly rather than opening a copy from WhatsApp or another messaging app.
+2. Verify the file. Its SHA-256 must match the value in `open-blocker-0.2.0-alpha.apk.sha256` on the same release page. On a computer: `shasum -a 256 open-blocker-0.2.0-alpha.apk` (macOS) or `sha256sum open-blocker-0.2.0-alpha.apk` (Linux). If it does not match, delete the file and do not install it.
 3. Allow the app you open the APK with (your browser, or the Files / My Files app) to install unknown apps: Settings > Apps > [that app] > Install unknown apps > Allow.
 4. If an older Open Blocker build (for example a debug build) is already on the phone, uninstall it first. Android will not install over an app signed with a different key and reports that as "App not installed" too.
 5. Open the APK and tap Install.
