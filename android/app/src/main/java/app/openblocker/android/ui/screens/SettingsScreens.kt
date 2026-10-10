@@ -3,6 +3,7 @@ package app.openblocker.android.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,6 +68,7 @@ import java.util.Locale
 @Composable
 fun SettingsTab(
     onKeys: () -> Unit,
+    onRules: () -> Unit,
     onEmergency: () -> Unit,
     onNotifications: () -> Unit,
     onHelp: () -> Unit,
@@ -80,6 +82,8 @@ fun SettingsTab(
     var countOn by remember { mutableStateOf(CountManager.isPreferenceEnabled()) }
     val notifyOn = SessionNotify.isEnabled
     val keyCount = PreferencesManager.getPairedKeyCount()
+    val context = LocalContext.current
+    val rulesOn = app.openblocker.android.util.AccessibilityUtil.isAccessibilityServiceEnabled(context)
 
     SettingsTabContent(
         appearance = appearance,
@@ -92,8 +96,10 @@ fun SettingsTab(
             countOn = it
         },
         keyCount = keyCount,
+        rulesOn = rulesOn,
         version = BuildConfig.VERSION_NAME,
         onKeys = onKeys,
+        onRules = onRules,
         onEmergency = onEmergency,
         onNotifications = onNotifications,
         onHelp = onHelp,
@@ -113,8 +119,10 @@ fun SettingsTabContent(
     countOn: Boolean,
     onCount: (Boolean) -> Unit,
     keyCount: Int,
+    rulesOn: Boolean = false,
     version: String,
     onKeys: () -> Unit,
+    onRules: () -> Unit = {},
     onEmergency: () -> Unit,
     onNotifications: () -> Unit,
     onHelp: () -> Unit,
@@ -130,6 +138,8 @@ fun SettingsTabContent(
             Spacer(Modifier.height(Space.l))
             SettingsGroup {
                 SettingsRow(Glyph.Key, "My Keys", detail = "$keyCount", testTag = "settings_keys", onClick = onKeys)
+                HairlineDivider()
+                SettingsRow(Glyph.Clipboard, "My Rules", detail = if (rulesOn) "On" else "Off", testTag = "settings_rules", onClick = onRules)
                 HairlineDivider()
                 SettingsRow(Glyph.LifeRing, "Emergency Unblock", detail = "$emergencyLeft left", testTag = "settings_emergency", onClick = onEmergency)
                 HairlineDivider()
@@ -454,24 +464,150 @@ fun NotificationsScreen(onBack: () -> Unit, onRequestNotifications: () -> Unit, 
 }
 
 @Composable
-fun KeysScreen(onBack: () -> Unit, onNfc: () -> Unit, onQr: () -> Unit) {
+fun KeysScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     val colors = obColors()
-    val count = PreferencesManager.getPairedKeyCount()
+    val keys by app.openblocker.android.data.KeyStore.keys.collectAsState()
+    val blocking by SessionManager.isBlocking.collectAsState()
     Column(Modifier.fillMaxSize().background(colors.canvas).testTag("keys_screen")) {
         PushedHeader("My Keys", onBack)
+        Box(Modifier.fillMaxSize()) {
+            if (keys.isEmpty()) {
+                app.openblocker.android.ui.components.EmptyState(
+                    "No keys yet",
+                    "A key is the thing you hold: an NFC tag, a card, or a printed QR. It is what unblocks you.",
+                    glyph = Glyph.Key
+                )
+            } else {
+                ScrollColumn {
+                    keys.forEach { key ->
+                        KeyCardRow(key, canDelete = !blocking)
+                        Spacer(Modifier.height(Space.s))
+                    }
+                    if (blocking) {
+                        Text(
+                            "Keys can't be removed while you're blocked.".asCopy(),
+                            style = ObText.footnote.copy(fontWeight = FontWeight.Normal),
+                            color = colors.inkTertiary
+                        )
+                    }
+                    Spacer(Modifier.height(120.dp))
+                }
+            }
+            PrimaryButton(
+                "Add Key",
+                emphasis = ButtonEmphasis.INK,
+                testTag = "add_key",
+                onClick = onAdd,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = Space.xxxl)
+                    .padding(bottom = Space.l)
+            )
+        }
+    }
+}
+
+@Composable
+private fun KeyCardRow(key: app.openblocker.android.data.StoredKey, canDelete: Boolean) {
+    val colors = obColors()
+    var menu by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
+    val glyph = when (key.kind) {
+        app.openblocker.android.data.StoredKey.Kind.QR -> Glyph.Qr
+        app.openblocker.android.data.StoredKey.Kind.NFC_TAG -> Glyph.Nfc
+        app.openblocker.android.data.StoredKey.Kind.CARD -> Glyph.Card
+    }
+    CardSurface {
+        Row(
+            Modifier.fillMaxWidth().padding(Space.m).testTag("key_card"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.m)
+        ) {
+            app.openblocker.android.ui.components.IconTile(glyph, size = 48.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(key.name.asCopy(), style = ObText.headline, color = colors.ink)
+                Text(
+                    "${key.kind.title} · added ${app.openblocker.android.data.KeyCodec.addedAgo(key.addedAtMs)}".asCopy(),
+                    style = ObText.subhead,
+                    color = colors.inkSecondary
+                )
+            }
+            Box {
+                Box(
+                    Modifier
+                        .width(36.dp)
+                        .height(36.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(colors.fillQuiet)
+                        .clickable { menu = true }
+                        .testTag("key_menu"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    app.openblocker.android.ui.components.GlyphIcon(Glyph.Ellipsis, colors.inkSecondary, size = 14.dp)
+                }
+                androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text("Remove key", color = colors.danger) },
+                        enabled = canDelete,
+                        onClick = {
+                            menu = false
+                            confirming = true
+                        }
+                    )
+                }
+            }
+        }
+    }
+    if (confirming) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("Remove \"${key.name}\"?") },
+            text = { Text("It won't unblock this phone anymore.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    app.openblocker.android.data.KeyStore.remove(key.id)
+                    confirming = false
+                }) { Text("Remove", color = colors.danger) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirming = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+fun RulesScreen(onBack: () -> Unit, onOpenAccessibility: () -> Unit) {
+    val context = LocalContext.current
+    val on = app.openblocker.android.util.AccessibilityUtil.isAccessibilityServiceEnabled(context)
+    RulesContent(on = on, onBack = onBack, onOpenAccessibility = onOpenAccessibility)
+}
+
+@Composable
+fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = obColors()
+    Column(modifier.fillMaxSize().background(colors.canvas).testTag("rules_screen")) {
+        PushedHeader("My Rules", onBack)
         ScrollColumn {
+            SettingsGroup {
+                SettingsToggleRow(
+                    Glyph.Hourglass,
+                    "Accessibility",
+                    checked = on,
+                    onCheckedChange = { onOpenAccessibility() },
+                    subtitle = "Android requires this to block apps and websites. Open Blocker doesn't read or track your usage.",
+                    testTag = "rules_accessibility"
+                )
+            }
+            Spacer(Modifier.height(Space.s))
             Text(
-                if (count == 0) "Add an NFC tag, a card, or a printed QR. Only your real key unblocks."
-                else "$count key(s) paired. Tap a paired tag or scan a paired QR to start or stop a block.",
-                style = ObText.body,
+                "On iPhone these rows are Screen Time rules (prevent delete, block installs, purchases, adult sites). Android has no equivalent API, so blocking uses Accessibility and your modes instead.".asCopy(),
+                style = ObText.subhead,
                 color = colors.inkSecondary
             )
-            Spacer(Modifier.height(Space.m))
-            SettingsGroup {
-                SettingsRow(Glyph.Nfc, "Pair NFC tag", subtitle = "Write or pair a tag or card", testTag = "keys_nfc", onClick = onNfc)
-                HairlineDivider()
-                SettingsRow(Glyph.Camera, "Printed QR key", subtitle = "Generate or scan openblocker://tag/v1/{32 hex}", testTag = "keys_qr", onClick = onQr)
-            }
+            Spacer(Modifier.height(Space.s))
+            PrimaryButton("Open Accessibility settings", onClick = onOpenAccessibility)
+            Spacer(Modifier.height(Space.l))
         }
     }
 }

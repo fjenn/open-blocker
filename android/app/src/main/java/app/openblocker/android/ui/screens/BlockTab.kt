@@ -35,11 +35,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.ModeRepository
 import app.openblocker.android.data.PreferencesManager
 import app.openblocker.android.data.ScreenshotDirector
@@ -83,6 +85,7 @@ data class BlockUiState(
 fun BlockTab(
     onOpenModes: () -> Unit,
     onOpenKeySetup: () -> Unit,
+    onOpenQrPaste: () -> Unit,
     onDenied: (PermissionKind) -> Unit,
     onExplainAccessibility: () -> Unit,
     modifier: Modifier = Modifier
@@ -119,7 +122,8 @@ fun BlockTab(
         AccessibilityUtil.isAccessibilityServiceEnabled(context)
     }
     val shot by ScreenshotDirector.cue.collectAsState()
-    val hasKey = PreferencesManager.getPairedKeyCount() > 0
+    val storedKeys by KeyStore.keys.collectAsState()
+    val hasKey = storedKeys.isNotEmpty() || PreferencesManager.getPairedKeyCount() > 0
     val readiness = when {
         shot.forceReady -> HomeReadiness.READY
         !accessibilityOn && !blocking -> HomeReadiness.NEEDS_ACCESSIBILITY
@@ -149,6 +153,10 @@ fun BlockTab(
     }
 
     fun openQr() {
+        if (isEmulatorDevice() || shot.screen == "qrpaste") {
+            onOpenQrPaste()
+            return
+        }
         PermissionStatusReader.handleRuntime(
             status = PermissionStatusReader.camera(context),
             request = {
@@ -166,8 +174,9 @@ fun BlockTab(
             HomeReadiness.NEEDS_KEY -> onOpenKeySetup()
             HomeReadiness.NEEDS_APPS -> onOpenModes()
             HomeReadiness.READY -> {
-                val hasQr = PreferencesManager.getPairedQrPayloads().isNotEmpty()
-                val hasNfc = PreferencesManager.getPairedTagIds().isNotEmpty() ||
+                val hasQr = KeyStore.hasQr() || PreferencesManager.getPairedQrPayloads().isNotEmpty()
+                val hasNfc = KeyStore.hasNfc() ||
+                    PreferencesManager.getPairedTagIds().isNotEmpty() ||
                     PreferencesManager.getPairedTagUids().isNotEmpty() ||
                     PreferencesManager.getAnyCardUids().isNotEmpty()
                 when {
@@ -228,7 +237,7 @@ fun BlockTab(
         },
         modifier = Modifier.fillMaxSize()
     )
-    if (showChooser) {
+    if (showChooser || shot.screen == "chooser") {
         KeyScanChooser(
             onNfc = {
                 showChooser = false
@@ -301,7 +310,8 @@ fun BlockTabContent(
                 Modifier
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
-                    .aspectRatio(1f),
+                    .aspectRatio(1f)
+                    .alpha(if (state.readiness == HomeReadiness.NEEDS_KEY && !state.blocking) 0.7f else 1f),
                 contentAlignment = Alignment.Center
             ) {
                 if (keySlot != null && interactiveKey) {
@@ -400,7 +410,7 @@ fun BlockTabContent(
 }
 
 @Composable
-private fun KeyScanChooser(onNfc: () -> Unit, onQr: () -> Unit, onCancel: () -> Unit) {
+fun KeyScanChooser(onNfc: () -> Unit, onQr: () -> Unit, onCancel: () -> Unit) {
     val colors = obColors()
     Box(
         Modifier
@@ -413,28 +423,30 @@ private fun KeyScanChooser(onNfc: () -> Unit, onQr: () -> Unit, onCancel: () -> 
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .height(300.dp)
                 .background(colors.sheet, androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = {})
-                .padding(Space.margin)
-                .padding(bottom = Space.l),
-            verticalArrangement = Arrangement.spacedBy(Space.s)
         ) {
-            Text("Scan your key".asCopy(), style = ObText.title, color = colors.ink)
-            ChooserOption(
-                glyph = Glyph.Nfc,
-                title = "Tap NFC key",
-                subtitle = "Tag or card near the phone",
-                testTag = "chooser_nfc",
-                onClick = onNfc
-            )
-            ChooserOption(
-                glyph = Glyph.Camera,
-                title = "Scan QR code",
-                subtitle = "Point the camera at your printed key",
-                testTag = "chooser_qr",
-                onClick = onQr
-            )
-            PrimaryButton("Cancel", emphasis = ButtonEmphasis.QUIET, testTag = "chooser_cancel", onClick = onCancel)
+            app.openblocker.android.ui.components.SheetHeader("Scan your key", onCancel)
+            Column(
+                Modifier.padding(horizontal = Space.margin),
+                verticalArrangement = Arrangement.spacedBy(Space.s)
+            ) {
+                ChooserOption(
+                    glyph = Glyph.Nfc,
+                    title = "Tap NFC key",
+                    subtitle = "Tag or card at the back of your phone",
+                    testTag = "chooser_nfc",
+                    onClick = onNfc
+                )
+                ChooserOption(
+                    glyph = Glyph.Qr,
+                    title = "Scan QR code",
+                    subtitle = "Point the camera at your printed key",
+                    testTag = "chooser_qr",
+                    onClick = onQr
+                )
+            }
         }
     }
 }

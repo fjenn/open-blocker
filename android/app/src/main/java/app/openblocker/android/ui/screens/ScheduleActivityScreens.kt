@@ -118,13 +118,13 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var weekdays by remember { mutableStateOf(existing?.weekdays ?: setOf(2, 3, 4, 5, 6)) }
     var start by remember { mutableIntStateOf(existing?.startMinute ?: 9 * 60) }
-    var end by remember { mutableIntStateOf(existing?.endMinute ?: 12 * 60) }
+    var end by remember { mutableIntStateOf(existing?.endMinute ?: 17 * 60) }
     var modeId by remember { mutableStateOf(existing?.modeId ?: ModeRepository.activeMode()?.id) }
     var isOn by remember { mutableStateOf(existing?.isOn ?: true) }
     val labels = listOf("S" to 1, "M" to 2, "T" to 3, "W" to 4, "T" to 5, "F" to 6, "S" to 7)
 
     Column(Modifier.fillMaxSize().background(colors.sheet).testTag("schedule_edit")) {
-        SheetHeader(if (existing == null) "New schedule" else "Edit schedule", onClose)
+        SheetHeader(if (existing == null) "Add schedule" else "Edit schedule", onClose)
         ScrollColumn {
             SettingsGroup {
                 Row(Modifier.padding(Space.m), verticalAlignment = Alignment.CenterVertically) {
@@ -132,6 +132,9 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                     androidx.compose.material3.TextField(
                         value = name,
                         onValueChange = { name = it },
+                        placeholder = {
+                            Text("e.g. Work, Evenings", style = ObText.subhead, color = colors.inkTertiary)
+                        },
                         singleLine = true,
                         textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink),
                         colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -139,12 +142,25 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                             unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                             focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                             unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                        )
+                        ),
+                        modifier = Modifier.testTag("schedule_name")
                     )
                 }
             }
             Spacer(Modifier.height(Space.s))
-            Text("Days", style = ObText.caption, color = colors.inkSecondary)
+            Text("Starts ${BlockSchedule.formatClock(start)}", style = ObText.subhead, color = colors.ink)
+            TimeStepper(start) { start = it }
+            Text("Ends ${BlockSchedule.formatClock(end)}", style = ObText.subhead, color = colors.ink)
+            TimeStepper(end) { end = it }
+            Spacer(Modifier.height(Space.s))
+            val daysLabel = when {
+                weekdays.size == 7 -> "Every day"
+                weekdays == setOf(2, 3, 4, 5, 6) -> "Weekdays"
+                weekdays == setOf(1, 7) -> "Weekends"
+                weekdays.size == 1 -> "1 day a week"
+                else -> "${weekdays.size} days a week"
+            }
+            Text("Repeat · $daysLabel", style = ObText.caption, color = colors.inkSecondary)
             Row(Modifier.fillMaxWidth().padding(vertical = Space.s), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 labels.forEach { (label, day) ->
                     val on = weekdays.contains(day)
@@ -160,11 +176,6 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                     }
                 }
             }
-            Text("Start ${BlockSchedule.formatClock(start)}", style = ObText.subhead, color = colors.ink)
-            TimeStepper(start) { start = it }
-            Text("End ${BlockSchedule.formatClock(end)}", style = ObText.subhead, color = colors.ink)
-            TimeStepper(end) { end = it }
-            Spacer(Modifier.height(Space.s))
             if (modes.isNotEmpty()) {
                 Text("Mode", style = ObText.caption, color = colors.inkSecondary)
                 modes.forEach { mode ->
@@ -178,7 +189,7 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(Space.m))
-            PrimaryButton("Save schedule", emphasis = ButtonEmphasis.INK, enabled = name.isNotBlank() && weekdays.isNotEmpty()) {
+            PrimaryButton("Save schedule", emphasis = ButtonEmphasis.INK, enabled = name.trim().isNotEmpty() && weekdays.isNotEmpty(), testTag = "save_schedule") {
                 val next = (existing ?: BlockSchedule(name = name, weekdays = weekdays, startMinute = start, endMinute = end)).copy(
                     name = name.trim(),
                     weekdays = weekdays,
@@ -192,7 +203,7 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
             }
             if (existing != null) {
                 Spacer(Modifier.height(Space.s))
-                PrimaryButton("Delete", onClick = { ScheduleRepository.delete(existing.id); onClose() })
+                PrimaryButton("Delete schedule", onClick = { ScheduleRepository.delete(existing.id); onClose() })
             }
             Spacer(Modifier.height(Space.l))
         }
@@ -351,9 +362,11 @@ fun OnboardingScreen(
     onFinished: () -> Unit,
     onAllowAccessibility: () -> Unit,
     accessibilityOn: Boolean,
-    initialPage: Int = 0
+    initialPage: Int = 0,
+    askedAccessibility: Boolean = false
 ) {
     var page by remember(initialPage) { mutableStateOf(initialPage.coerceIn(0, 2)) }
+    var asked by remember { mutableStateOf(askedAccessibility) }
     val colors = obColors()
     val titles = listOf("Open Blocker", "Accessibility", "Your key")
     val subs = listOf(
@@ -372,8 +385,25 @@ fun OnboardingScreen(
         }
         Text(titles[page], style = ObText.title, color = colors.ink, modifier = Modifier.padding(top = Space.s))
         Text(subs[page], style = ObText.body, color = colors.inkSecondary, modifier = Modifier.padding(horizontal = Space.xxxl), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        if (page == 1 && accessibilityOn) {
-            Text("Accessibility is on.", style = ObText.subhead, color = colors.ink, modifier = Modifier.padding(Space.m).testTag("onboarding_note"))
+        if (page == 1) {
+            val note = when {
+                accessibilityOn -> "Accessibility is on."
+                asked -> "The emulator can't grant Accessibility. On a phone, Android's permission page appears here."
+                else -> null
+            }
+            if (note != null) {
+                Text(
+                    note.asCopy(),
+                    style = ObText.subhead,
+                    color = colors.ink,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .padding(horizontal = Space.xxxl, vertical = Space.m)
+                        .background(colors.fillQuiet, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .padding(horizontal = Space.m, vertical = Space.s)
+                        .testTag("onboarding_note")
+                )
+            }
         }
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.xs), modifier = Modifier.padding(bottom = Space.xl)) {
@@ -383,13 +413,18 @@ fun OnboardingScreen(
         }
         val title = when (page) {
             0 -> "Continue"
-            1 -> if (accessibilityOn) "Continue" else "Allow Accessibility"
+            1 -> if (accessibilityOn || asked) "Continue" else "Allow Accessibility"
             else -> "Get Started"
         }
         PrimaryButton(title, emphasis = ButtonEmphasis.INK, modifier = Modifier.padding(horizontal = Space.xxxl), testTag = "onboarding_continue") {
             when (page) {
                 0 -> page = 1
-                1 -> if (accessibilityOn) page = 2 else onAllowAccessibility()
+                1 -> if (accessibilityOn || asked) {
+                    page = 2
+                } else {
+                    asked = true
+                    onAllowAccessibility()
+                }
                 else -> onFinished()
             }
         }

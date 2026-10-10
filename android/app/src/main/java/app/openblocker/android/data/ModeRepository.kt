@@ -67,6 +67,16 @@ object ModeRepository {
         applyActiveToBlockList()
     }
 
+    fun duplicate(mode: BlockMode): BlockMode {
+        val copy = mode.copy(
+            id = java.util.UUID.randomUUID().toString(),
+            name = "${mode.name} copy",
+            isDefault = false
+        )
+        add(copy)
+        return copy
+    }
+
     fun applyActiveToBlockList() {
         val mode = activeMode() ?: return
         if (mode.kind == BlockMode.Kind.BLOCK) {

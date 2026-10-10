@@ -6,12 +6,14 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import app.openblocker.android.data.AppearanceManager
+import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.ModeRepository
 import app.openblocker.android.data.OnboardingStore
 import app.openblocker.android.data.PreferencesManager
 import app.openblocker.android.data.ScreenshotDirector
 import app.openblocker.android.data.SessionHistory
 import app.openblocker.android.data.SessionManager
+import app.openblocker.android.data.StoredKey
 import app.openblocker.android.domain.BlockMode
 import app.openblocker.android.domain.FocusInterval
 import app.openblocker.android.key.KeyMatcher
@@ -65,14 +67,23 @@ class DebugSessionReceiver : BroadcastReceiver() {
                 }
                 val appearance = AppAppearance.fromId(intent.getStringExtra("appearance"))
                 AppearanceManager.setAppearance(appearance)
-                if (PreferencesManager.getPairedKeyCount() == 0) {
-                    PreferencesManager.addPairedQrPayload("openblocker://tag/v1/" + "ab".repeat(16))
+                if (KeyStore.count() == 0 && PreferencesManager.getPairedKeyCount() == 0) {
+                    KeyStore.add(
+                        StoredKey(
+                            name = "Fridge QR",
+                            kind = StoredKey.Kind.QR,
+                            secret = "openblocker://tag/v1/" + "ab".repeat(16)
+                        )
+                    )
                 }
-                if (intent.getBooleanExtra("nfc", false) &&
-                    PreferencesManager.getPairedTagUids().isEmpty() &&
-                    PreferencesManager.getPairedTagIds().isEmpty()
-                ) {
-                    PreferencesManager.addPairedTagUid("04EMULATORUID01")
+                if (intent.getBooleanExtra("nfc", false) && !KeyStore.hasNfc()) {
+                    KeyStore.add(
+                        StoredKey(
+                            name = "Desk tag",
+                            kind = StoredKey.Kind.NFC_TAG,
+                            secret = KeyStore.MOCK_NFC_UID
+                        )
+                    )
                 }
                 val deep = ModeRepository.modes.value.find { it.name == "Deep work" }
                     ?: BlockMode(
@@ -104,7 +115,8 @@ class DebugSessionReceiver : BroadcastReceiver() {
                     screen = screen,
                     onboardPage = intent.getIntExtra("page", if (screen == "onboarding") 1 else 0),
                     hold = hold,
-                    forceReady = intent.getBooleanExtra("ready", true)
+                    forceReady = intent.getBooleanExtra("ready", true),
+                    askedAccessibility = intent.getBooleanExtra("asked", false)
                 )
                 Log.i(TAG, "debug prep screenshots appearance=${appearance.id} tab=${intent.getStringExtra("tab")} screen=$screen")
             }

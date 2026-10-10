@@ -419,7 +419,7 @@ fun InfoNote(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun EmptyState(title: String, message: String, modifier: Modifier = Modifier) {
+fun EmptyState(title: String, message: String, modifier: Modifier = Modifier, glyph: Glyph = Glyph.Calendar) {
     val colors = obColors()
     Column(
         modifier.fillMaxWidth().padding(Space.xxxl),
@@ -430,7 +430,7 @@ fun EmptyState(title: String, message: String, modifier: Modifier = Modifier) {
             Modifier.size(88.dp).background(colors.fillQuiet, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            GlyphIcon(Glyph.Calendar, colors.inkSecondary, size = 34.dp)
+            GlyphIcon(glyph, colors.inkSecondary, size = 34.dp)
         }
         Text(title.asCopy(), style = ObText.headline, color = colors.ink, textAlign = TextAlign.Center)
         Text(message.asCopy(), style = ObText.subhead, color = colors.inkSecondary, textAlign = TextAlign.Center)
