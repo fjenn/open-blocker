@@ -129,6 +129,29 @@ Session start/stop without a physical key is emulator-verified via the debug bro
 | 7.2 | Open a blocked app | "App Blocked" overlay still appears | emulator-verified |
 | 7.3 | Tap the paired key | Session ends | **needs phone NFC** |
 
+### 8. Website blocking (Accessibility address bar)
+
+Needs a physical phone (or an emulator with a real browser). Open Blocker reads the address bar of supported browsers while a block is on. It does not use a VPN. Addresses are not stored.
+
+Add `youtube.com` (or another site you can open quickly) to the active mode's Websites list. Start a block. Then open that site in each browser you have installed.
+
+| Step | Browser | Action | Expected | Pass/Fail |
+|------|---------|--------|----------|-----------|
+| 8.1 | Chrome (`com.android.chrome`) | Open `https://www.youtube.com` or `youtube.com` | Block screen; back/home. Subdomains (`m.youtube.com`) also blocked | **needs phone** |
+| 8.2 | Chrome | Open `https://wikipedia.org` (not on the list, block-list mode) | Page stays open | **needs phone** |
+| 8.3 | Brave | Same as 8.1 | Same block screen | **needs phone** |
+| 8.4 | Microsoft Edge | Same as 8.1 | Same block screen | **needs phone** |
+| 8.5 | Firefox | Same as 8.1. URL bar id is `mozac_browser_toolbar_url_view` | Same block screen. Custom toolbar add-ons can hide the bar and skip the read | **needs phone** |
+| 8.6 | Samsung Internet | Same as 8.1 | Same block screen. Secret / extra toolbar modes may not expose the view id | **needs phone** |
+| 8.7 | Opera / Opera Mini | Same as 8.1 | Same block screen | **needs phone** |
+| 8.8 | DuckDuckGo | Same as 8.1 | Same block screen | **needs phone** |
+| 8.9 | Allow-only mode | Mode websites = `wikipedia.org` only. Open YouTube in Chrome | Blocked. Wikipedia allowed | **needs phone** |
+| 8.10 | In-app browsers / WebView apps | Open the listed site inside Instagram, Gmail, etc. | Not blocked. We only read known browser URL bars | **needs phone** |
+| 8.11 | New tab / search text | Type a search in the URL bar, not a host | Not blocked until the bar shows a real host | **needs phone** |
+| 8.12 | End the block | Tap or scan the paired key | Sites open again | **needs phone** |
+
+Limits: Chrome custom tabs, WebView, Firefox with the address bar hidden, browsers whose URL-bar view id we do not know, and pages that never write a host into the bar will not be blocked. Turning Accessibility off, using a browser we do not list, or opening the site in another app bypasses this.
+
 ## Notes
 
 - A determined user can get around the block on Android (safe mode, uninstall, turning off Accessibility, ADB). Open Blocker adds friction, not a lock.

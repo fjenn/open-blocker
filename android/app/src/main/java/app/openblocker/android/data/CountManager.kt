@@ -14,6 +14,10 @@ import java.util.UUID
 
 object CountManager {
     
+    const val enabledByDefault = true
+    const val SUMMARY = "Helps us count users. No personal data."
+    const val DISCLOSURE = "One ping after your first block, with a random ID and the app version. Nothing about you or your apps."
+    
     private const val PREFS_NAME = "count_prefs"
     private const val KEY_COUNT_ME_ENABLED = "count_me_enabled"
     private const val KEY_INSTALL_ID = "install_id"
@@ -25,8 +29,12 @@ object CountManager {
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
     
+    fun isPreferenceEnabled(): Boolean {
+        return prefs.getBoolean(KEY_COUNT_ME_ENABLED, enabledByDefault)
+    }
+
     fun isCountingEnabled(): Boolean {
-        return BuildConfig.COUNT_ENABLED && prefs.getBoolean(KEY_COUNT_ME_ENABLED, false)
+        return BuildConfig.COUNT_ENABLED && isPreferenceEnabled()
     }
     
     fun setCountingEnabled(enabled: Boolean) {

@@ -59,9 +59,9 @@ object KeyRegistration {
 
     fun rejectMessage(blocking: Boolean): String {
         return if (blocking) {
-            "Wrong key. Use the NFC tag, card, or QR you paired to end the session."
+            "That's not one of your keys."
         } else {
-            "This is not a paired key. Pair this tag, card, or QR before using it."
+            "This key isn't set up yet. Add it in Settings."
         }
     }
 }

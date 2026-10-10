@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("app.cash.paparazzi") version "1.3.4"
 }
 
 val keystorePathEnv = System.getenv("OPENBLOCKER_KEYSTORE_PATH")
@@ -50,6 +51,7 @@ android {
         
         val testMode = System.getenv("OPENBLOCKER_TEST_MODE") == "1"
         buildConfigField("boolean", "TEST_MODE", "$testMode")
+
     }
 
     signingConfigs {
@@ -74,6 +76,9 @@ android {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
+            }
+            ndk {
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
             }
         }
     }
@@ -116,7 +121,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
-    
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
