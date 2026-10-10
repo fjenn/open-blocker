@@ -397,7 +397,7 @@ fun SheetHeader(
             modifier = Modifier.align(Alignment.Center)
         )
         if (onLeading != null) {
-            RoundIconButton(leadingGlyph, "Back", Modifier.align(Alignment.CenterStart), onClick = onLeading)
+            RoundIconButton(leadingGlyph, "New", Modifier.align(Alignment.CenterStart).testTag("sheet_leading"), "sheet_leading", onLeading)
         }
         RoundIconButton(Glyph.Close, "Close", Modifier.align(Alignment.CenterEnd).testTag("sheet_close"), "sheet_close", onClose)
     }
