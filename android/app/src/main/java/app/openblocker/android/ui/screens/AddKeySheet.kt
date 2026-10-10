@@ -218,7 +218,9 @@ fun AddKeyContent(
                         value = name,
                         onValueChange = onName,
                         placeholder = {
-                            Text(kind.placeholder, style = ObText.subhead, color = colors.inkTertiary)
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                                Text(kind.placeholder, style = ObText.subhead, color = colors.inkTertiary)
+                            }
                         },
                         singleLine = true,
                         textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink, textAlign = TextAlign.End),

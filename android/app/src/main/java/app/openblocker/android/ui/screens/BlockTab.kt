@@ -416,7 +416,7 @@ fun KeyScanChooser(onNfc: () -> Unit, onQr: () -> Unit, onCancel: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(colors.ink.copy(alpha = 0.35f))
+            .background(colors.ink.copy(alpha = 0.22f))
             .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onCancel)
             .testTag("key_scan_chooser")
     ) {
