@@ -110,8 +110,8 @@ class KeyRegistrationTest {
     }
 
     @Test
-    fun rejectMessageMentionsQr() {
-        assertTrue(KeyRegistration.rejectMessage(true).contains("QR"))
-        assertTrue(KeyRegistration.rejectMessage(false).contains("QR"))
+    fun rejectMessageMatchesIos() {
+        assertEquals("That's not one of your keys.", KeyRegistration.rejectMessage(true))
+        assertEquals("This key isn't set up yet. Add it in Settings.", KeyRegistration.rejectMessage(false))
     }
 }

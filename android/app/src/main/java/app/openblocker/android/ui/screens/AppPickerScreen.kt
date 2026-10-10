@@ -2,20 +2,38 @@ package app.openblocker.android.ui.screens
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import app.openblocker.android.data.PreferencesManager
+import app.openblocker.android.ui.components.Glyph
+import app.openblocker.android.ui.components.GlyphIcon
+import app.openblocker.android.ui.components.HairlineDivider
+import app.openblocker.android.ui.components.PushedHeader
+import app.openblocker.android.ui.theme.ObText
+import app.openblocker.android.ui.theme.Space
+import app.openblocker.android.ui.theme.obColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,20 +44,25 @@ data class AppInfo(
     val isBlocked: Boolean
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppPickerScreen(onBack: () -> Unit) {
+fun AppPickerScreen(
+    onBack: () -> Unit,
+    initialSelected: Set<String>? = null,
+    title: String = "Select Apps to Block",
+    onSave: ((Set<String>) -> Unit)? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val apps = remember { mutableStateListOf<AppInfo>() }
     val isLoading = remember { mutableStateOf(true) }
     val loadError = remember { mutableStateOf<String?>(null) }
-    
+    val colors = obColors()
+
     LaunchedEffect(Unit) {
         scope.launch {
             try {
                 val installedApps = withContext(Dispatchers.IO) {
-                    loadInstalledApps(context.packageManager, context.packageName)
+                    loadInstalledApps(context.packageManager, context.packageName, initialSelected)
                 }
                 apps.clear()
                 apps.addAll(installedApps)
@@ -51,69 +74,36 @@ fun AppPickerScreen(onBack: () -> Unit) {
             }
         }
     }
-    
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Select Apps to Block") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        if (isLoading.value) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+
+    Column(Modifier.fillMaxSize().background(colors.canvas)) {
+        PushedHeader(title, onBack = {
+            if (onSave != null) {
+                onSave(apps.filter { it.isBlocked }.map { it.packageName }.toSet())
+            } else {
+                onBack()
             }
-        } else if (loadError.value != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = loadError.value ?: "",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+        })
+        when {
+            isLoading.value -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Loading apps…", style = ObText.body, color = colors.inkSecondary)
             }
-        } else if (apps.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No launchable apps found on this device.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+            loadError.value != null -> Box(Modifier.fillMaxSize().padding(Space.xl), contentAlignment = Alignment.Center) {
+                Text(loadError.value ?: "", style = ObText.body, color = colors.ink)
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .testTag("app_picker_list")
-            ) {
+            apps.isEmpty() -> Box(Modifier.fillMaxSize().padding(Space.xl), contentAlignment = Alignment.Center) {
+                Text("No launchable apps found on this device.", style = ObText.body, color = colors.inkSecondary)
+            }
+            else -> LazyColumn(Modifier.fillMaxSize().testTag("app_picker_list")) {
                 items(apps, key = { it.packageName }) { app ->
                     AppItem(
                         app = app,
                         onToggle = { packageName, isBlocked ->
-                            if (isBlocked) {
-                                PreferencesManager.addBlockedApp(packageName)
-                            } else {
-                                PreferencesManager.removeBlockedApp(packageName)
+                            if (onSave == null) {
+                                if (isBlocked) {
+                                    PreferencesManager.addBlockedApp(packageName)
+                                } else {
+                                    PreferencesManager.removeBlockedApp(packageName)
+                                }
                             }
                             val index = apps.indexOfFirst { it.packageName == packageName }
                             if (index >= 0) {
@@ -121,6 +111,7 @@ fun AppPickerScreen(onBack: () -> Unit) {
                             }
                         }
                     )
+                    HairlineDivider()
                 }
             }
         }
@@ -129,41 +120,39 @@ fun AppPickerScreen(onBack: () -> Unit) {
 
 @Composable
 fun AppItem(app: AppInfo, onToggle: (String, Boolean) -> Unit) {
+    val colors = obColors()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("app_row_${app.packageName}")
             .clickable { onToggle(app.packageName, !app.isBlocked) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = Space.margin, vertical = Space.s),
+        horizontalArrangement = Arrangement.spacedBy(Space.s),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = app.label,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = app.packageName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Column(Modifier.weight(1f)) {
+            Text(app.label, style = ObText.body, color = colors.ink)
+            Text(app.packageName, style = ObText.caption, color = colors.inkTertiary)
         }
-        
-        Checkbox(
-            checked = app.isBlocked,
-            onCheckedChange = { checked ->
-                onToggle(app.packageName, checked)
+        Box(
+            Modifier
+                .background(if (app.isBlocked) colors.ink else colors.fillQuiet, CircleShape)
+                .padding(6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (app.isBlocked) {
+                GlyphIcon(Glyph.Check, colors.inkInverse, size = 12.dp)
             }
-        )
+        }
     }
 }
 
 private fun loadInstalledApps(
     packageManager: PackageManager,
-    selfPackage: String
+    selfPackage: String,
+    initialSelected: Set<String>? = null
 ): List<AppInfo> {
-    val blockedApps = PreferencesManager.getBlockedApps()
+    val blockedApps = initialSelected ?: PreferencesManager.getBlockedApps()
     val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
     val resolved = packageManager.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
 

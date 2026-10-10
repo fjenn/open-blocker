@@ -9,18 +9,16 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,14 +31,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import app.openblocker.android.data.AppearanceManager
+import app.openblocker.android.ui.components.ButtonEmphasis
+import app.openblocker.android.ui.components.Glyph
+import app.openblocker.android.ui.components.IconTile
+import app.openblocker.android.ui.components.PrimaryButton
+import app.openblocker.android.ui.permissions.PermissionStatusReader
+import app.openblocker.android.ui.theme.ObText
 import app.openblocker.android.ui.theme.OpenBlockerTheme
+import app.openblocker.android.ui.theme.Space
+import app.openblocker.android.ui.theme.obColors
+import com.google.zxing.BarcodeFormat
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.journeyapps.barcodescanner.DefaultDecoderFactory
-import com.google.zxing.BarcodeFormat
 
 class QrScanActivity : ComponentActivity() {
 
@@ -52,6 +60,7 @@ class QrScanActivity : ComponentActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        PermissionStatusReader.markAsked(this, "camera")
         cameraGranted = granted
         permissionDenied = !granted
     }
@@ -59,16 +68,20 @@ class QrScanActivity : ComponentActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         cameraGranted = hasCameraPermission()
         if (!cameraGranted) {
+            PermissionStatusReader.markAsked(this, "camera")
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
         setContent {
-            OpenBlockerTheme {
+            val appearance by AppearanceManager.appearance
+            OpenBlockerTheme(appearance) {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
-                        .semantics { testTagsAsResourceId = true }
+                        .semantics { testTagsAsResourceId = true },
+                    color = obColors().canvas
                 ) {
                     if (cameraGranted) {
                         ScannerPane(
@@ -87,6 +100,7 @@ class QrScanActivity : ComponentActivity() {
                         PermissionPane(
                             denied = permissionDenied,
                             onRequest = {
+                                PermissionStatusReader.markAsked(this, "camera")
                                 permissionLauncher.launch(Manifest.permission.CAMERA)
                             },
                             onOpenSettings = {
@@ -178,35 +192,43 @@ private fun PermissionPane(
     onOpenSettings: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val colors = obColors()
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .background(colors.canvas)
+            .padding(horizontal = Space.margin)
             .testTag("qr_permission_screen"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        IconTile(Glyph.Camera, size = 56.dp)
+        Spacer(Modifier.height(Space.m))
         Text(
-            text = if (denied) {
-                "Camera access is required to scan QR keys. Enable it in Settings, or go back."
-            } else {
-                "Open Blocker needs the camera only while you scan a QR key."
-            },
-            style = MaterialTheme.typography.bodyLarge,
+            if (denied) "Camera is off" else "Camera",
+            style = ObText.title.copy(fontWeight = FontWeight.Medium),
+            color = colors.ink,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = if (denied) onOpenSettings else onRequest,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(if (denied) "qr_open_settings" else "qr_request_camera")
-        ) {
-            Text(if (denied) "Open Settings" else "Allow camera")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-            Text("Cancel")
-        }
+        Spacer(Modifier.height(Space.s))
+        Text(
+            text = if (denied) {
+                "Open Blocker uses the camera only to scan your QR key. Turn on Camera in Settings."
+            } else {
+                "Open Blocker uses the camera only to scan your QR key."
+            },
+            style = ObText.body,
+            color = colors.inkSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(Space.xl))
+        PrimaryButton(
+            if (denied) "Open Settings" else "Allow camera",
+            emphasis = ButtonEmphasis.INK,
+            testTag = if (denied) "qr_open_settings" else "qr_request_camera",
+            onClick = if (denied) onOpenSettings else onRequest
+        )
+        Spacer(Modifier.height(Space.s))
+        PrimaryButton("Cancel", onClick = onCancel)
     }
 }

@@ -1,34 +1,22 @@
 package app.openblocker.android.ui.screens
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
-import android.widget.Toast
+import app.openblocker.android.ui.AppNotice
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,10 +33,22 @@ import app.openblocker.android.format.OpenBlockerFormat
 import app.openblocker.android.key.KeyMatcher
 import app.openblocker.android.qr.QrBitmaps
 import app.openblocker.android.qr.QrScanActivity
+import app.openblocker.android.ui.components.ButtonEmphasis
+import app.openblocker.android.ui.components.CardSurface
+import app.openblocker.android.ui.components.PrimaryButton
+import app.openblocker.android.ui.components.PushedHeader
+import app.openblocker.android.ui.components.ScrollColumn
+import app.openblocker.android.ui.permissions.PermissionKind
+import app.openblocker.android.ui.permissions.PermissionStatusReader
+import app.openblocker.android.ui.theme.ObText
+import app.openblocker.android.ui.theme.Space
+import app.openblocker.android.ui.theme.obColors
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QrKeyScreen(onBack: () -> Unit) {
+fun QrKeyScreen(
+    onBack: () -> Unit,
+    onDenied: (PermissionKind) -> Unit = {}
+) {
     val context = LocalContext.current
     var payload by remember { mutableStateOf<String?>(null) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -60,92 +60,81 @@ fun QrKeyScreen(onBack: () -> Unit) {
         val raw = result.data?.getStringExtra(QrScanActivity.EXTRA_PAYLOAD) ?: return@rememberLauncherForActivityResult
         val saved = KeyMatcher.registerQr(raw)
         if (saved == null) {
-            Toast.makeText(context, "This QR is not an Open Blocker key.", Toast.LENGTH_LONG).show()
+            AppNotice.show("This QR is not an Open Blocker key.")
         } else {
             payload = saved
             bitmap = QrBitmaps.toBitmap(saved)
-            Toast.makeText(context, "QR key saved. Print or share it, then scan to start or stop blocking.", Toast.LENGTH_LONG).show()
+            AppNotice.show("QR key saved. Print or share it, then scan to start or stop blocking.")
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        PermissionStatusReader.markAsked(context, "camera")
+        if (granted) {
+            scanLauncher.launch(QrScanActivity.intent(context, QrScanActivity.MODE_REGISTER))
+        } else {
+            onDenied(PermissionKind.CAMERA)
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Printed QR key") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-                .testTag("qr_key_screen"),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    fun openScanner() {
+        PermissionStatusReader.handleRuntime(
+            status = PermissionStatusReader.camera(context),
+            request = {
+                PermissionStatusReader.markAsked(context, "camera")
+                cameraLauncher.launch(Manifest.permission.CAMERA)
+            },
+            granted = { scanLauncher.launch(QrScanActivity.intent(context, QrScanActivity.MODE_REGISTER)) },
+            denied = { onDenied(PermissionKind.CAMERA) }
+        )
+    }
+
+    val colors = obColors()
+    Column(Modifier.fillMaxSize().background(colors.canvas).testTag("qr_key_screen")) {
+        PushedHeader("Printed QR key", onBack)
+        ScrollColumn {
             Text(
-                text = "Generate a printable Open Blocker QR, or scan one you already printed (including one from iPhone). The same URI works on both apps.",
-                style = MaterialTheme.typography.bodyMedium,
+                "Generate a printable Open Blocker QR, or scan one you already printed. The same URI works on both apps.",
+                style = ObText.body,
+                color = colors.inkSecondary,
                 textAlign = TextAlign.Center
             )
-
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(Space.m))
+            CardSurface {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    Modifier.padding(Space.l),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Space.s)
                 ) {
                     val image = bitmap
                     if (image != null) {
                         Image(
                             bitmap = image.asImageBitmap(),
                             contentDescription = "Open Blocker QR key",
-                            modifier = Modifier
-                                .size(240.dp)
-                                .testTag("qr_preview")
+                            modifier = Modifier.size(240.dp).testTag("qr_preview")
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = payload ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center
-                        )
+                        Text(payload ?: "", style = ObText.footnote, color = colors.inkSecondary, textAlign = TextAlign.Center)
                     } else {
-                        Text(
-                            text = "No QR generated yet",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("No QR generated yet", style = ObText.body, color = colors.inkSecondary)
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
+                    PrimaryButton(
+                        "Generate QR code",
+                        emphasis = ButtonEmphasis.INK,
+                        testTag = "generate_qr",
                         onClick = {
-                            val data = OpenBlockerFormat.TagData(
-                                tagId = OpenBlockerFormat.generateTagId()
-                            )
+                            val data = OpenBlockerFormat.TagData(tagId = OpenBlockerFormat.generateTagId())
                             val uri = OpenBlockerFormat.encodeForQR(data)
                             KeyMatcher.registerQr(uri)
                             payload = uri
                             bitmap = QrBitmaps.toBitmap(uri)
-                            Toast.makeText(context, "QR key saved. Print or share it.", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("generate_qr")
-                    ) {
-                        Text("Generate QR Code")
-                    }
+                            AppNotice.show("QR key saved. Print or share it.")
+                        }
+                    )
                     if (bitmap != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
+                        PrimaryButton(
+                            "Share or print",
+                            testTag = "share_qr",
                             onClick = {
                                 val uri = QrBitmaps.shareUri(context, bitmap!!)
                                 val share = Intent(Intent.ACTION_SEND).apply {
@@ -155,46 +144,21 @@ fun QrKeyScreen(onBack: () -> Unit) {
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 context.startActivity(Intent.createChooser(share, "Share QR key"))
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("share_qr")
-                        ) {
-                            Text("Share or print")
-                        }
+                            }
+                        )
                     }
                 }
             }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
+            Spacer(Modifier.height(Space.m))
+            CardSurface {
+                Column(Modifier.padding(Space.l), verticalArrangement = Arrangement.spacedBy(Space.s)) {
+                    Text("Scan an existing QR", style = ObText.headline, color = colors.ink)
                     Text(
-                        text = "Scan an existing QR",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        "Register a printed Open Blocker QR as a key on this phone.",
+                        style = ObText.body,
+                        color = colors.inkSecondary
                     )
-                    Text(
-                        text = "Register a printed Open Blocker QR (for example one generated on iPhone) as a key on this phone.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    Button(
-                        onClick = {
-                            scanLauncher.launch(
-                                QrScanActivity.intent(context, QrScanActivity.MODE_REGISTER)
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("scan_to_register")
-                    ) {
-                        Text("Scan with camera")
-                    }
+                    PrimaryButton("Scan with camera", testTag = "scan_to_register", onClick = { openScanner() })
                 }
             }
         }
