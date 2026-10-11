@@ -24,7 +24,7 @@ Source is in `ios/`. No App Store build in this release. Screen Time / Family Co
 
 - Open tag spec (`spec/SPEC.md`) and Kotlin reference tests
 - Printable 25 mm NTAG213 case STL (`hardware/`)
-- Optional anonymous "Count me" ping (off unless you build with a count URL)
+- Optional anonymous "Count me" ping (on by default; nothing sent unless built with a count URL)
 
 ## Honesty
 
