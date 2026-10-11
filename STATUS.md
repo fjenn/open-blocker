@@ -46,7 +46,7 @@ Searched for `would go here`, `asyncAfter`, `TODO`, `FIXME`, `fatalError`, and `
 - Key setup scans through the real NFC scanner. Cards need two matching taps. Tags register UID and try to write an Open Blocker NDEF record; UID still works if write fails.
 - Block tab uses `KeyScanner` (NFC, QR, or chooser). Simulator QR is paste; device QR is camera.
 - Rules "How to set a Screen Time passcode" opens Apple's Screen Time guide.
-- `AppState` posts `sessionStarted` so opt-in Count can see a block.
+- `AppState` posts `sessionStarted` so the anonymous Count feature can see a block.
 - Demo Desk Key matches `MockNFCScanner.defaultUID`.
 - Emergency count write is verified; UserDefaults fallback when Keychain is unavailable.
 - Demo history includes a finished 32-minute session today.

@@ -8,7 +8,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.openblocker.android.R
 
-/** Inter (OFL) — closest widely-licensed match to SF Pro. */
+/** Inter (OFL) - closest widely-licensed match to SF Pro. */
 private val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal),
     Font(R.font.inter_medium, FontWeight.Medium),

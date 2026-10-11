@@ -9,7 +9,7 @@ Reference Android app for the Open Blocker tag spec.
 - Block chosen apps and websites during a session (Accessibility overlay; website hosts are read from supported browser address bars)
 - NFC pairing (write Open Blocker format, pair by UID, or two-tap any card)
 - Printed QR keys (generate, share/print, or scan; `openblocker://tag/v1/{32 hex}`)
-- Optional opt-in anonymous count ping (off unless built with a count URL and key)
+- Optional anonymous count ping (on by default; nothing sent unless built with a count URL and key)
 
 ## Requirements
 
