@@ -19,11 +19,11 @@ This local data is never transmitted anywhere.
 
 ### Optional Anonymous Count
 
-Open Blocker includes an opt-in "Count me" toggle on the home screen, **OFF by default**.
+Open Blocker includes an anonymous "Count me" toggle on the home screen, **ON by default**.
 
-If you enable this toggle, the app will:
+If the toggle is on, the app will:
 
-1. Generate a random UUID (install ID) when you opt in
+1. Generate a random UUID (install ID) automatically when the feature is enabled
 2. Send **one** HTTPS POST request:
    - **iPhone:** When the first focus session starts (when you scan your key)
    - **Android:** When the app successfully blocks an app for you (when the block screen actually appears)
@@ -49,6 +49,10 @@ If you enable this toggle, the app will:
 **Why we collect this:**
 
 The anonymous count helps us understand how many people use Open Blocker successfully. One ping per install tells us the project is helping people focus, which motivates continued development and helps us prioritize improvements.
+
+**Build-time control:**
+
+The count feature is on by default, but nothing is sent over the internet unless the app is built with a count server URL and key (COUNT_URL and COUNT_KEY in the build configuration). If these are left empty at build time, the "Count me" toggle is hidden and no network code runs. You can turn the toggle off at any time in Settings.
 
 **Server:**
 

@@ -120,7 +120,7 @@ struct SettingsTab: View {
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(Color.brickInk)
                                 .frame(width: 24)
-                            Text("Opt-in Count")
+                            Text("Anonymous Count")
                                 .brickText(size: 17, relativeTo: .body)
                                 .foregroundColor(Color.brickInk)
                                 .lineLimit(2)

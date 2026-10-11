@@ -262,14 +262,14 @@ After completing Section 4, you must switch back to the normal APK for the rest 
 
 | Step | Action | Expected Result | Pass/Fail/Notes |
 |------|--------|----------------|-----------------|
-| 7.1 | Look for a "Count me" card on the home screen | If present, you see a toggle switch that is OFF by default | |
+| 7.1 | Look for a "Count me" card on the home screen | If present, you see a toggle switch that is ON by default | |
 | 7.2 | Read the description text | It says "Send one anonymous ping after your first successful block (helps us understand reach)" | |
-| 7.3 | Tap the toggle switch to turn it ON | The switch moves to the ON position | |
-| 7.4 | Start a blocking session and open a blocked app | The block screen appears as usual | |
-| 7.5 | Return to the home screen | No visible change (the ping happens in the background) | |
-| 7.6 | Close and reopen the app | The "Count me" toggle is still ON (your preference was saved) | |
+| 7.3 | Start a blocking session and open a blocked app | The block screen appears as usual | |
+| 7.4 | Return to the home screen | No visible change (the ping happens in the background) | |
+| 7.5 | Tap the toggle switch to turn it OFF | The switch moves to the OFF position | |
+| 7.6 | Close and reopen the app | The "Count me" toggle is still OFF (your preference was saved) | |
 
-**Note:** The anonymous ping is sent once after the first successful block. You will not see any confirmation, as it happens silently in the background.
+**Note:** The anonymous ping is sent once after the first successful block. You will not see any confirmation, as it happens silently in the background. The toggle is on by default, but nothing is sent unless the count server is configured at build time.
 
 ---
 

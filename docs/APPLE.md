@@ -36,7 +36,7 @@ Open Blocker uses Family Controls to help users block distracting apps during fo
 - **Linked to User:** No
 - **Used for Tracking:** No
 - **Purpose:** Analytics only
-- **Details:** If user opts in via "Count me" toggle (OFF by default), one anonymous ping is sent after the first successful block. Contains only: random install ID (UUID), event name "first_block", and app version.
+- **Details:** If the "Count me" toggle is on (on by default, can be turned off anytime in Settings), one anonymous ping is sent after the first successful block. Contains only: random install ID (UUID), event name "first_block", and app version. Nothing is sent unless the count server is configured at build time.
 
 **Optional Reviews (after 3rd block):**
 - **Type:** User Content (review text)
@@ -115,7 +115,7 @@ None. All network requests go to our own Supabase backend (documented in PRIVACY
    
    - Create or edit `ios/Config/Release.xcconfig` with production values
    
-   If you leave these empty, the "Count me" toggle will be hidden and no network code runs.
+   If you leave these empty, the "Count me" toggle will be hidden and no network code runs. The toggle is on by default when the feature is enabled at build time.
 
 7. **Build and Run:**
    - Select your iPhone from the device dropdown

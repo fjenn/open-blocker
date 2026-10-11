@@ -16,6 +16,7 @@ struct Config {
 
 class CountManager: ObservableObject {
     static let shared = CountManager()
+    static let enabledByDefault = true
     
     @Published private(set) var isEnabled = false
     
@@ -28,7 +29,14 @@ class CountManager: ObservableObject {
     private let reviewPromptShownKey = "reviewPromptShown"
     
     private init() {
-        isEnabled = defaults.bool(forKey: isEnabledKey)
+        if defaults.object(forKey: isEnabledKey) == nil {
+            isEnabled = CountManager.enabledByDefault
+            if isEnabled {
+                ensureInstallId()
+            }
+        } else {
+            isEnabled = defaults.bool(forKey: isEnabledKey)
+        }
         
         NotificationCenter.default.addObserver(self, selector: #selector(sessionStarted), name: .sessionStarted, object: nil)
     }

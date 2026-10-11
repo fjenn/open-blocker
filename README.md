@@ -65,7 +65,7 @@ App source lives in `ios/`. The App Store version is waiting on Apple's Screen T
 
 ## Privacy
 
-Nothing leaves the device unless you turn on the optional "Count me" ping. See [PRIVACY.md](PRIVACY.md).
+The "Count me" feature is on by default. Nothing leaves the device unless the app is built with a count server configuration. You can turn the toggle off at any time. See [PRIVACY.md](PRIVACY.md).
 
 ## Build from source
 
