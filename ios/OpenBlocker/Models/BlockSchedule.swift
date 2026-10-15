@@ -10,6 +10,7 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     var endMinute: Int
     var modeID: UUID?
     var isOn: Bool
+    var endsOnKey: Bool
     
     init(
         id: UUID = UUID(),
@@ -18,7 +19,8 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         startMinute: Int,
         endMinute: Int,
         modeID: UUID? = nil,
-        isOn: Bool = false
+        isOn: Bool = false,
+        endsOnKey: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -27,6 +29,7 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.endMinute = endMinute
         self.modeID = modeID
         self.isOn = isOn
+        self.endsOnKey = endsOnKey
     }
     
     static func formatClock(_ minute: Int) -> String {
@@ -38,7 +41,10 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     }
     
     var timeRangeString: String {
-        "\(Self.formatClock(startMinute)) - \(Self.formatClock(endMinute))"
+        if endsOnKey {
+            return "\(Self.formatClock(startMinute)) - Until key tap"
+        }
+        return "\(Self.formatClock(startMinute)) - \(Self.formatClock(endMinute))"
     }
     
     /// Next start after `now`. Overnight windows still start on a selected weekday.

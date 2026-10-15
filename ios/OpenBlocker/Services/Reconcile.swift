@@ -41,7 +41,7 @@ enum Reconcile {
                 modeID: modeID,
                 source: .schedule(window.schedule.id),
                 startedAt: max(window.start, state.lastEnd ?? window.start),
-                scheduleEnd: window.end
+                scheduleEnd: window.schedule.endsOnKey ? nil : window.end
             )
             return .start(session)
         }

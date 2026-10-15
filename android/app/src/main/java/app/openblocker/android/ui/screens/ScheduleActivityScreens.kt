@@ -122,6 +122,7 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
     var end by remember { mutableIntStateOf(existing?.endMinute ?: 17 * 60) }
     var modeId by remember { mutableStateOf(existing?.modeId ?: ModeRepository.activeMode()?.id) }
     var isOn by remember { mutableStateOf(existing?.isOn ?: true) }
+    var endsOnKey by remember { mutableStateOf(existing?.endsOnKey ?: false) }
     val labels = listOf("M" to 2, "T" to 3, "W" to 4, "T" to 5, "F" to 6, "S" to 7, "S" to 1)
 
     Column(Modifier.fillMaxSize().background(colors.sheet).testTag("schedule_edit")) {
@@ -156,10 +157,52 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(Space.s))
+            Row(Modifier.fillMaxWidth().padding(horizontal = Space.xxs, vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                Text("End Type", style = ObText.caption, color = colors.inkSecondary)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = Space.xxs).padding(bottom = Space.s), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .background(
+                            if (!endsOnKey) colors.accent else colors.fillQuiet,
+                            androidx.compose.foundation.shape.RoundedCornerShape(Space.s)
+                        )
+                        .clickable { endsOnKey = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Set end time".asCopy(),
+                        style = ObText.subhead.copy(fontWeight = FontWeight.Medium),
+                        color = if (!endsOnKey) androidx.compose.ui.graphics.Color.White else colors.ink
+                    )
+                }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .background(
+                            if (endsOnKey) colors.accent else colors.fillQuiet,
+                            androidx.compose.foundation.shape.RoundedCornerShape(Space.s)
+                        )
+                        .clickable { endsOnKey = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Until I tap my key".asCopy(),
+                        style = ObText.subhead.copy(fontWeight = FontWeight.Medium),
+                        color = if (endsOnKey) androidx.compose.ui.graphics.Color.White else colors.ink
+                    )
+                }
+            }
+            Spacer(Modifier.height(Space.s))
             SettingsGroup {
                 ScheduleTimeRow("Starts", start) { start = (it + 1440) % 1440 }
-                HairlineDivider()
-                ScheduleTimeRow("Ends", end) { end = (it + 1440) % 1440 }
+                if (!endsOnKey) {
+                    HairlineDivider()
+                    ScheduleTimeRow("Ends", end) { end = (it + 1440) % 1440 }
+                }
             }
             Spacer(Modifier.height(Space.s))
             if (modes.isNotEmpty()) {
@@ -241,7 +284,8 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                     startMinute = start,
                     endMinute = end,
                     modeId = modeId,
-                    isOn = isOn
+                    isOn = isOn,
+                    endsOnKey = endsOnKey
                 )
                 if (existing == null) ScheduleRepository.add(next) else ScheduleRepository.update(next)
                 onClose()
