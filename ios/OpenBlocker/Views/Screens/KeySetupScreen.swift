@@ -238,7 +238,7 @@ struct NFCTagSetupView: View {
         Task {
             defer { isScanning = false }
             do {
-                let scanned = try await appState.nfcScanner.scan()
+                let scanned = try await appState.nfcScanner.scan(keyMatcher: nil)
                 guard let uid = KeyRegistration.nfcUIDHex(from: scanned) else {
                     status = "That was not an NFC tag."
                     return
@@ -379,7 +379,7 @@ struct NFCCardSetupView: View {
         Task {
             defer { isScanning = false }
             do {
-                let scanned = try await appState.nfcScanner.scan()
+                let scanned = try await appState.nfcScanner.scan(keyMatcher: nil)
                 guard let uid = KeyRegistration.nfcUIDHex(from: scanned) else {
                     status = "That was not an NFC card."
                     return

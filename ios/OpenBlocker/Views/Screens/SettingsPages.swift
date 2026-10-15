@@ -107,8 +107,10 @@ struct AboutScreen: View {
                     }
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "chevron.left.forwardslash.chevron.right")
-                            .font(.system(size: 14, weight: .medium))
+                        Image("mark-github")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 16, height: 16)
                         Text("See the code")
                             .font(.system(size: 15, weight: .medium))
                     }
