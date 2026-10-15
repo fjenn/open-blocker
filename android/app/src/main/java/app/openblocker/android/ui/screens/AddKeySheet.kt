@@ -242,6 +242,18 @@ fun AddKeyContent(
             ) { current ->
                 when (current) {
                     StoredKey.Kind.QR -> QrSetupPanel(qrBitmap, secret, onMakeQr, onShareQr)
+                    StoredKey.Kind.BARCODE -> SetupPanel(
+                        glyph = Glyph.Qr,
+                        title = "A product barcode",
+                        message = "Scan any product barcode. It becomes your physical key.",
+                        status = if (secret.isNotEmpty()) "Barcode scanned" else "",
+                        statusGood = secret.isNotEmpty(),
+                        action = if (secret.isEmpty()) "Scan barcode" else "Scan again",
+                        busy = false,
+                        busyLabel = "",
+                        testTag = "scan_barcode",
+                        onAction = { context.startActivity(Intent(context, QrScanActivity::class.java)) }
+                    )
                     StoredKey.Kind.NFC_TAG -> SetupPanel(
                         glyph = Glyph.Nfc,
                         title = "An NFC sticker",
