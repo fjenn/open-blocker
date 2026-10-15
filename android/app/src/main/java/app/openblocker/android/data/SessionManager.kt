@@ -13,6 +13,7 @@ object SessionManager {
     private const val KEY_IS_BLOCKING = "is_blocking"
     private const val KEY_SESSION_START_TIME = "session_start_time"
     private const val KEY_SOURCE = "session_source"
+    private const val KEY_SCHEDULE_ID = "session_schedule_id"
 
     const val SOURCE_HOLD = "hold"
     const val SOURCE_KEY = "key"
@@ -32,13 +33,14 @@ object SessionManager {
     private fun loadIsBlocking(): Boolean = prefs.getBoolean(KEY_IS_BLOCKING, false)
     private fun loadSessionStartTime(): Long = prefs.getLong(KEY_SESSION_START_TIME, 0L)
 
-    fun startSession(source: String = SOURCE_HOLD) {
+    fun startSession(source: String = SOURCE_HOLD, scheduleId: String? = null) {
         if (_isBlocking.value) return
         val now = System.currentTimeMillis()
         prefs.edit()
             .putBoolean(KEY_IS_BLOCKING, true)
             .putLong(KEY_SESSION_START_TIME, now)
             .putString(KEY_SOURCE, source)
+            .putString(KEY_SCHEDULE_ID, scheduleId ?: "")
             .commit()
         _isBlocking.value = true
         _sessionStartTime.value = now
@@ -56,12 +58,15 @@ object SessionManager {
             .putBoolean(KEY_IS_BLOCKING, false)
             .putLong(KEY_SESSION_START_TIME, 0L)
             .putString(KEY_SOURCE, "")
+            .putString(KEY_SCHEDULE_ID, "")
             .commit()
         _isBlocking.value = false
         _sessionStartTime.value = 0L
     }
 
     fun source(): String = prefs.getString(KEY_SOURCE, "") ?: ""
+    
+    fun scheduleId(): String = prefs.getString(KEY_SCHEDULE_ID, "") ?: ""
 
     fun getSessionDurationMillis(): Long {
         if (!_isBlocking.value) return 0L

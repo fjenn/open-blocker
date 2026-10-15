@@ -41,14 +41,22 @@ object ScheduleRepository {
         val blocking = SessionManager.isBlocking.value
         when {
             active.isNotEmpty() && !blocking -> {
-                active.first().modeId?.let { id ->
+                val schedule = active.first()
+                schedule.modeId?.let { id ->
                     ModeRepository.modes.value.find { it.id == id }?.let { ModeRepository.setActive(it) }
                 }
-                SessionManager.startSession(SessionManager.SOURCE_SCHEDULE)
+                SessionManager.startSession(SessionManager.SOURCE_SCHEDULE, schedule.id)
             }
-            blocking &&
-                SessionManager.source() == SessionManager.SOURCE_SCHEDULE &&
-                active.isEmpty() -> SessionManager.endSession()
+            blocking && SessionManager.source() == SessionManager.SOURCE_SCHEDULE -> {
+                val currentScheduleId = SessionManager.scheduleId()
+                val currentSchedule = _schedules.value.find { it.id == currentScheduleId }
+                
+                // End session if: no active schedules AND (no current schedule OR current schedule doesn't end on key)
+                val shouldEnd = active.isEmpty() && (currentSchedule == null || !currentSchedule.endsOnKey)
+                if (shouldEnd) {
+                    SessionManager.endSession()
+                }
+            }
         }
     }
 
@@ -64,6 +72,7 @@ object ScheduleRepository {
                     .put("endMinute", s.endMinute)
                     .put("modeId", s.modeId)
                     .put("isOn", s.isOn)
+                    .put("endsOnKey", s.endsOnKey)
             )
         }
         prefs.edit().putString(KEY_SCHEDULES, array.toString()).apply()
@@ -86,7 +95,8 @@ object ScheduleRepository {
                     startMinute = obj.getInt("startMinute"),
                     endMinute = obj.getInt("endMinute"),
                     modeId = obj.optString("modeId").ifEmpty { null },
-                    isOn = obj.optBoolean("isOn")
+                    isOn = obj.optBoolean("isOn"),
+                    endsOnKey = obj.optBoolean("endsOnKey", false)
                 )
             }
         } catch (_: Exception) {
