@@ -186,7 +186,9 @@ struct BlockTab: View {
         isScanning = true
         defer { isScanning = false }
         do {
-            let scannedKey = try await appState.nfcScanner.scan()
+            let scannedKey = try await appState.nfcScanner.scan(keyMatcher: { scanned in
+                appState.matchKey(scanned) != nil
+            })
             applyScannedKey(scannedKey)
         } catch NFCScanError.userCancelled {
             return

@@ -423,9 +423,31 @@ fun ContactScreen(onBack: () -> Unit) {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.vercel.app")))
         })
         Spacer(Modifier.height(Space.s))
-        PrimaryButton("See the code", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fjenn/open-blocker")))
-        })
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Space.xxxl)
+                .height(51.dp)
+                .clip(RoundedCornerShape(50))
+                .background(colors.surfaceRaised)
+                .clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fjenn/open-blocker")))
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Space.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_mark_github),
+                    contentDescription = null,
+                    tint = colors.ink,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text("See the code".asCopy(), style = ObText.body.copy(fontWeight = FontWeight.Medium), color = colors.ink)
+            }
+        }
         Spacer(Modifier.height(Space.xxxl))
     }
 }
