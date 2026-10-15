@@ -34,6 +34,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.openblocker.android.ui.theme.ObColors
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.RowScope
 import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.ModeRepository
 import app.openblocker.android.data.ScheduleRepository
@@ -483,7 +486,7 @@ fun OnboardingScreen(
 ) {
     var page by remember(initialPage) { mutableStateOf(initialPage.coerceIn(0, 3)) }
     var asked by remember { mutableStateOf(askedAccessibility) }
-    var selectedKeyType by remember { mutableStateOf(KeyStore.Kind.QR) }
+    var selectedKeyType by remember { mutableStateOf(StoredKey.Kind.QR) }
     var registeredKeyId by remember { mutableStateOf("") }
     var keyStatus by remember { mutableStateOf("") }
     val colors = obColors()
@@ -514,12 +517,12 @@ fun OnboardingScreen(
                 
                 // Key type selector
                 Row(Modifier.padding(horizontal = Space.xxxl, vertical = Space.m), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-                    KeyTypeButton(KeyStore.Kind.QR, Glyph.Qr, "QR", selectedKeyType, colors) { selectedKeyType = it }
-                    KeyTypeButton(KeyStore.Kind.BARCODE, Glyph.Qr, "Barcode", selectedKeyType, colors) { selectedKeyType = it }
+                    KeyTypeButton(StoredKey.Kind.QR, Glyph.Qr, "QR", selectedKeyType, colors) { selectedKeyType = it }
+                    KeyTypeButton(StoredKey.Kind.BARCODE, Glyph.Qr, "Barcode", selectedKeyType, colors) { selectedKeyType = it }
                 }
                 Row(Modifier.padding(horizontal = Space.xxxl), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-                    KeyTypeButton(KeyStore.Kind.NFC_TAG, Glyph.Nfc, "NFC Tag", selectedKeyType, colors) { selectedKeyType = it }
-                    KeyTypeButton(KeyStore.Kind.CARD, Glyph.Card, "Card", selectedKeyType, colors) { selectedKeyType = it }
+                    KeyTypeButton(StoredKey.Kind.NFC_TAG, Glyph.Nfc, "NFC Tag", selectedKeyType, colors) { selectedKeyType = it }
+                    KeyTypeButton(StoredKey.Kind.CARD, Glyph.Card, "Card", selectedKeyType, colors) { selectedKeyType = it }
                 }
                 
                 if (keyStatus.isNotEmpty()) {
@@ -587,19 +590,19 @@ fun OnboardingScreen(
                     if (registeredKeyId.isEmpty()) {
                         // Generate/register key based on type
                         when (selectedKeyType) {
-                            KeyStore.Kind.QR -> {
+                            StoredKey.Kind.QR -> {
                                 val tagId = app.openblocker.android.format.OpenBlockerFormat.generateTagId()
-                                val data = app.openblocker.android.format.OpenBlockerFormat.TagData(tagId)
+                                val data = app.openblocker.android.format.OpenBlockerFormat.TagData(tagId = tagId)
                                 val payload = app.openblocker.android.format.OpenBlockerFormat.encodeForQR(data)
                                 registeredKeyId = payload
-                                KeyStore.add(StoredKey(name = "My QR Key", kind = KeyStore.Kind.QR, secret = payload))
+                                KeyStore.add(StoredKey(name = "My QR Key", kind = StoredKey.Kind.QR, secret = payload))
                                 keyStatus = "QR code generated and saved"
                             }
-                            KeyStore.Kind.BARCODE -> {
+                            StoredKey.Kind.BARCODE -> {
                                 keyStatus = "Scan a barcode with the scanner"
                             }
-                            KeyStore.Kind.NFC_TAG, KeyStore.Kind.CARD -> {
-                                keyStatus = "Tap your ${if (selectedKeyType == KeyStore.Kind.NFC_TAG) "NFC tag" else "card"} to register"
+                            StoredKey.Kind.NFC_TAG, StoredKey.Kind.CARD -> {
+                                keyStatus = "Tap your ${if (selectedKeyType == StoredKey.Kind.NFC_TAG) "NFC tag" else "card"} to register"
                             }
                         }
                     } else {
@@ -630,13 +633,13 @@ private fun OnboardingMedallion(glyph: Glyph) {
 }
 
 @Composable
-private fun KeyTypeButton(
-    kind: KeyStore.Kind,
+private fun RowScope.KeyTypeButton(
+    kind: StoredKey.Kind,
     glyph: Glyph,
     label: String,
-    selected: KeyStore.Kind,
+    selected: StoredKey.Kind,
     colors: ObColors,
-    onClick: (KeyStore.Kind) -> Unit
+    onClick: (StoredKey.Kind) -> Unit
 ) {
     val isSelected = kind == selected
     Box(
