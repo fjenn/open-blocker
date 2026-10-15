@@ -43,7 +43,7 @@ struct BlockTab: View {
             QRScannerView(
                 onCode: { payload in
                     showingQRScanner = false
-                    applyScannedKey(KeyScanner.scannedKey(fromQR: payload))
+                    applyScannedKey(KeyScanner.scannedKey(fromCode: payload))
                 },
                 onCancel: { showingQRScanner = false }
             )

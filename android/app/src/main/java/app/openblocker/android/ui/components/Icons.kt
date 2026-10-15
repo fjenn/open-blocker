@@ -17,7 +17,7 @@ enum class Glyph {
     Key, Bell, Privacy, Help, Contact, About, Appearance, People,
     LifeRing, Calendar, Grid, Nfc, Camera, Hourglass, Moon, Leaf,
     Family, Detox, Blank, Scope, Info, Notifications, Pencil, Globe,
-    Qr, Card, Ellipsis, Clipboard
+    Qr, Card, Ellipsis, Clipboard, Lock
 }
 
 @Composable
@@ -202,6 +202,11 @@ fun GlyphIcon(
                 drawRoundRect(color, Offset(s * 0.34f, s * 0.16f), Size(s * 0.32f, s * 0.14f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.04f))
                 drawLine(color, Offset(s * 0.34f, s * 0.46f), Offset(s * 0.66f, s * 0.46f), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawLine(color, Offset(s * 0.34f, s * 0.58f), Offset(s * 0.66f, s * 0.58f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+            }
+            Glyph.Lock -> {
+                drawRoundRect(color, Offset(s * 0.26f, s * 0.44f), Size(s * 0.48f, s * 0.38f), style = stroke, cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f))
+                drawArc(color, 180f, 180f, false, Offset(s * 0.34f, s * 0.18f), Size(s * 0.32f, s * 0.32f), style = stroke)
+                drawCircle(color, s * 0.05f, Offset(s * 0.5f, s * 0.62f))
             }
         }
     }

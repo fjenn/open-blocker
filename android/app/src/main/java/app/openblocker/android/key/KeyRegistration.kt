@@ -48,10 +48,12 @@ object KeyRegistration {
         scanned: ScannedKey,
         storedQr: Set<String>,
         storedTagIds: Set<String>,
-        storedUids: Set<String>
+        storedUids: Set<String>,
+        storedBarcodes: Set<String> = emptySet()
     ): Boolean {
         return when (scanned) {
             is ScannedKey.Qr -> storedQr.any { qrPayloadsMatch(it, scanned.payload) }
+            is ScannedKey.Barcode -> storedBarcodes.contains(scanned.payload)
             is ScannedKey.OpenBlockerTag -> storedTagIds.contains(scanned.tagIdHex)
             is ScannedKey.Uid -> storedUids.contains(scanned.uidHex)
         }

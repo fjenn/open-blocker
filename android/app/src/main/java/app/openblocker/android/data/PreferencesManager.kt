@@ -12,6 +12,7 @@ object PreferencesManager {
     private const val KEY_PAIRED_TAG_UIDS = "paired_tag_uids"
     private const val KEY_ANY_CARD_UIDS = "any_card_uids"
     private const val KEY_PAIRED_QR_PAYLOADS = "paired_qr_payloads"
+    private const val KEY_BLOCK_ADDING_KEYS = "block_adding_keys"
     
     private val prefs: SharedPreferences by lazy {
         OpenBlockerApplication.getAppContext()
@@ -115,5 +116,13 @@ object PreferencesManager {
         if (named > 0) return named
         return getPairedTagIds().size + getPairedTagUids().size +
             getAnyCardUids().size + getPairedQrPayloads().size
+    }
+    
+    fun getBlockAddingKeys(): Boolean {
+        return prefs.getBoolean(KEY_BLOCK_ADDING_KEYS, true)
+    }
+    
+    fun setBlockAddingKeys(block: Boolean) {
+        prefs.edit().putBoolean(KEY_BLOCK_ADDING_KEYS, block).apply()
     }
 }

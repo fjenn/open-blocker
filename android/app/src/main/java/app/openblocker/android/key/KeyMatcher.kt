@@ -14,9 +14,10 @@ object KeyMatcher {
     fun isPaired(scanned: ScannedKey): Boolean {
         return KeyRegistration.isPaired(
             scanned = scanned,
-        storedQr = PreferencesManager.getPairedQrPayloads() + KeyStore.qrPayloads(),
-        storedTagIds = PreferencesManager.getPairedTagIds(),
-        storedUids = PreferencesManager.getPairedTagUids() + PreferencesManager.getAnyCardUids() + KeyStore.nfcSecrets()
+            storedQr = PreferencesManager.getPairedQrPayloads() + KeyStore.qrPayloads(),
+            storedTagIds = PreferencesManager.getPairedTagIds(),
+            storedUids = PreferencesManager.getPairedTagUids() + PreferencesManager.getAnyCardUids() + KeyStore.nfcSecrets(),
+            storedBarcodes = KeyStore.barcodePayloads()
         )
     }
 
@@ -33,13 +34,27 @@ object KeyMatcher {
         return KeyRegistration.rejectMessage(SessionManager.isBlocking.value)
     }
 
-    fun onQrScanned(context: Context, raw: String) {
-        when (KeyRegistration.evaluateQr(raw, PreferencesManager.getPairedQrPayloads() + KeyStore.qrPayloads())) {
-            QrScanOutcome.INVALID_FORMAT -> reject(context, "This QR is not an Open Blocker key.")
-            QrScanOutcome.UNPAIRED -> reject(context, rejectMessage())
-            QrScanOutcome.PAIRED -> applyPairedKey(context)
+    fun onCodeScanned(context: Context, raw: String) {
+        // Check if it's an Open Blocker QR first
+        if (KeyRegistration.isOpenBlockerQr(raw)) {
+            when (KeyRegistration.evaluateQr(raw, PreferencesManager.getPairedQrPayloads() + KeyStore.qrPayloads())) {
+                QrScanOutcome.INVALID_FORMAT -> reject(context, "This QR is not an Open Blocker key.")
+                QrScanOutcome.UNPAIRED -> reject(context, rejectMessage())
+                QrScanOutcome.PAIRED -> applyPairedKey(context)
+            }
+        } else {
+            // Treat as barcode
+            val scanned = ScannedKey.Barcode(raw)
+            if (isPaired(scanned)) {
+                applyPairedKey(context)
+            } else {
+                reject(context, rejectMessage())
+            }
         }
     }
+    
+    @Deprecated("Use onCodeScanned instead", ReplaceWith("onCodeScanned(context, raw)"))
+    fun onQrScanned(context: Context, raw: String) = onCodeScanned(context, raw)
 
     fun reject(context: Context, message: String = rejectMessage()) {
         AppHaptics.error(context)

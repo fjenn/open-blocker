@@ -19,13 +19,21 @@ struct KeySetupScreen: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         // Type selector
-                        Picker("Key Type", selection: $selectedType) {
-                            Text("QR Code").tag(BlockKey.Kind.qr)
-                            Text("NFC Tag").tag(BlockKey.Kind.openBlockerTag)
-                            Text("NFC Card").tag(BlockKey.Kind.card)
+                        VStack(spacing: 12) {
+                            Picker("Key Type", selection: $selectedType) {
+                                Text("QR Code").tag(BlockKey.Kind.qr)
+                                Text("Barcode").tag(BlockKey.Kind.barcode)
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal)
+                            
+                            Picker("NFC Type", selection: $selectedType) {
+                                Text("NFC Tag").tag(BlockKey.Kind.openBlockerTag)
+                                Text("NFC Card").tag(BlockKey.Kind.card)
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal)
                         }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
                         
                         // Name input
                         VStack(alignment: .leading, spacing: 8) {
@@ -51,6 +59,8 @@ struct KeySetupScreen: View {
                                     keyId: $generatedKeyId,
                                     qrImage: $qrImage
                                 )
+                            case .barcode:
+                                BarcodeKeySetupView(keyId: $generatedKeyId)
                             case .openBlockerTag:
                                 NFCTagSetupView(keyId: $generatedKeyId)
                             case .card:
@@ -245,6 +255,64 @@ struct NFCTagSetupView: View {
                 status = "Scan cancelled."
             } catch {
                 status = error.localizedDescription
+            }
+        }
+    }
+}
+
+struct BarcodeKeySetupView: View {
+    @Binding var keyId: String
+    @ObservedObject var appState = AppState.shared
+    @State private var isScanning = false
+    @State private var status = "Scan any product barcode"
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "barcode")
+                .font(.system(size: 80))
+                .foregroundColor(.blue)
+            
+            Text("Scan Barcode")
+                .font(.title2.weight(.semibold))
+            
+            Text("Scan any product barcode (EAN-13, EAN-8, UPC, Code128, Code39, etc.) to use it as your physical key.")
+                .font(.system(size: 15))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            
+            Text(status)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            
+            Button(action: scanBarcode) {
+                Text(isScanning ? "Scanning..." : "Scan Barcode")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(isScanning ? Color.gray.opacity(0.5) : Color.brickCard)
+                    )
+            }
+            .disabled(isScanning)
+            .padding(.horizontal, 40)
+        }
+    }
+    
+    private func scanBarcode() {
+        isScanning = true
+        status = "Point camera at a barcode..."
+        Task {
+            defer { isScanning = false }
+            do {
+                let scanned = try await appState.nfcScanner.scan()
+                status = "This is an NFC scanner. Use the camera scanner for barcodes."
+            } catch {
+                status = "Use the main scanner to scan barcodes."
             }
         }
     }

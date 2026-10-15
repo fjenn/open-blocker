@@ -230,4 +230,5 @@ struct Rules: Codable {
     var blockInstalls: Bool = false
     var blockPurchases: Bool = false
     var blockAdultWeb: Bool = false
+    var blockAddingKeys: Bool = true
 }

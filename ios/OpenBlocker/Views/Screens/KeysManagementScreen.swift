@@ -41,24 +41,36 @@ struct KeysManagementScreen: View {
             
             VStack {
                 Spacer()
-                Button(action: { showingKeySetup = true }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Key")
+                
+                let isBlockedAndRuleOn = appState.isBlocking && appState.rules.blockAddingKeys
+                
+                if isBlockedAndRuleOn {
+                    Text("Adding keys is not allowed while blocked.")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.brickMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                        .padding(.bottom, 20)
+                } else {
+                    Button(action: { showingKeySetup = true }) {
+                        HStack {
+                            Image(systemName: "plus")
+                            Text("Add Key")
+                        }
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.brickCard)
+                                .shadow(radius: 10)
+                        )
                     }
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.brickCard)
-                            .shadow(radius: 10)
-                    )
+                    .accessibilityIdentifier(AccessibilityID.addKey)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
-                .accessibilityIdentifier(AccessibilityID.addKey)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
             }
         }
         .navigationTitle("My Keys")
