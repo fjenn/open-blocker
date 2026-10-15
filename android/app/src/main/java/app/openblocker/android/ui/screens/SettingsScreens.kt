@@ -31,6 +31,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import app.openblocker.android.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import app.openblocker.android.BuildConfig
 import app.openblocker.android.data.AppearanceManager
 import app.openblocker.android.data.CountManager
@@ -419,9 +423,35 @@ fun ContactScreen(onBack: () -> Unit) {
             modifier = Modifier.padding(horizontal = Space.xxxl)
         )
         Spacer(Modifier.weight(1f))
-        PrimaryButton("Open the project page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
+        PrimaryButton("Project page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.vercel.app")))
         })
+        Spacer(Modifier.height(Space.s))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Space.xxxl)
+                .height(51.dp)
+                .clip(RoundedCornerShape(50))
+                .background(colors.surfaceRaised)
+                .clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fjenn/open-blocker")))
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Space.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_mark_github),
+                    contentDescription = null,
+                    tint = colors.ink,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text("See the code".asCopy(), style = ObText.body.copy(fontWeight = FontWeight.Medium), color = colors.ink)
+            }
+        }
         Spacer(Modifier.height(Space.xxxl))
     }
 }
@@ -467,7 +497,7 @@ fun NotificationsScreen(onBack: () -> Unit, onRequestNotifications: () -> Unit, 
 fun KeysScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     val keys by app.openblocker.android.data.KeyStore.keys.collectAsState()
     val blocking by SessionManager.isBlocking.collectAsState()
-    KeysContent(keys, blocking, onBack, onAdd)
+    KeysContent(keys, blocking, onBack, onAdd, blockAddingKeys = PreferencesManager.getBlockAddingKeys())
 }
 
 @Composable
@@ -476,9 +506,12 @@ fun KeysContent(
     blocking: Boolean,
     onBack: () -> Unit,
     onAdd: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    blockAddingKeys: Boolean = false
 ) {
     val colors = obColors()
+    val canAddKeys = !blocking || !blockAddingKeys
+    
     Column(modifier.fillMaxSize().background(colors.canvas).testTag("keys_screen")) {
         PushedHeader("My Keys", onBack)
         Box(Modifier.fillMaxSize()) {
@@ -504,16 +537,29 @@ fun KeysContent(
                     Spacer(Modifier.height(120.dp))
                 }
             }
-            PrimaryButton(
-                "Add Key",
-                emphasis = ButtonEmphasis.INK,
-                testTag = "add_key",
-                onClick = onAdd,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = Space.xxxl)
-                    .padding(bottom = Space.l)
-            )
+            if (canAddKeys) {
+                PrimaryButton(
+                    "Add Key",
+                    emphasis = ButtonEmphasis.INK,
+                    testTag = "add_key",
+                    onClick = onAdd,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = Space.xxxl)
+                        .padding(bottom = Space.l)
+                )
+            } else {
+                Text(
+                    "Adding keys is not allowed while blocked.".asCopy(),
+                    style = ObText.subhead,
+                    color = colors.inkSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = Space.xxxl)
+                        .padding(bottom = Space.l)
+                )
+            }
         }
     }
 }
@@ -524,7 +570,8 @@ private fun KeyCardRow(key: app.openblocker.android.data.StoredKey, canDelete: B
     var menu by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     val glyph = when (key.kind) {
-        app.openblocker.android.data.StoredKey.Kind.QR -> Glyph.Qr
+        app.openblocker.android.data.StoredKey.Kind.QR,
+        app.openblocker.android.data.StoredKey.Kind.BARCODE -> Glyph.Qr
         app.openblocker.android.data.StoredKey.Kind.NFC_TAG -> Glyph.Nfc
         app.openblocker.android.data.StoredKey.Kind.CARD -> Glyph.Card
     }
@@ -589,23 +636,75 @@ private fun KeyCardRow(key: app.openblocker.android.data.StoredKey, canDelete: B
 fun RulesScreen(onBack: () -> Unit, onOpenAccessibility: () -> Unit) {
     val context = LocalContext.current
     val on = app.openblocker.android.util.AccessibilityUtil.isAccessibilityServiceEnabled(context)
-    RulesContent(on = on, onBack = onBack, onOpenAccessibility = onOpenAccessibility)
+    val blocking by SessionManager.isBlocking.collectAsState()
+    RulesContent(
+        on = on,
+        blocking = blocking,
+        onBack = onBack,
+        onOpenAccessibility = onOpenAccessibility,
+        initialBlockAddingKeys = PreferencesManager.getBlockAddingKeys(),
+        onBlockAddingKeysChange = { PreferencesManager.setBlockAddingKeys(it) }
+    )
 }
 
 @Composable
-fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Unit, modifier: Modifier = Modifier) {
+fun RulesContent(
+    on: Boolean,
+    blocking: Boolean = false,
+    onBack: () -> Unit,
+    onOpenAccessibility: () -> Unit,
+    modifier: Modifier = Modifier,
+    initialBlockAddingKeys: Boolean = false,
+    onBlockAddingKeysChange: (Boolean) -> Unit = {}
+) {
     val colors = obColors()
+    var blockAddingKeys by remember { mutableStateOf(initialBlockAddingKeys) }
+    
     Column(modifier.fillMaxSize().background(colors.canvas).testTag("rules_screen")) {
         PushedHeader("My Rules", onBack)
         ScrollColumn {
+            if (blocking) {
+                CardSurface(Modifier.padding(bottom = Space.s)) {
+                    Row(
+                        Modifier.padding(Space.m),
+                        horizontalArrangement = Arrangement.spacedBy(Space.s),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        app.openblocker.android.ui.components.GlyphIcon(Glyph.Lock, colors.inkSecondary, size = 16.dp)
+                        Text(
+                            "Rules can't be changed while you're blocked.".asCopy(),
+                            style = ObText.body,
+                            color = colors.inkSecondary
+                        )
+                    }
+                }
+            }
             SettingsGroup {
                 SettingsToggleRow(
                     Glyph.Hourglass,
                     "Accessibility",
                     checked = on,
-                    onCheckedChange = { onOpenAccessibility() },
+                    enabled = !blocking,
+                    onCheckedChange = { if (!blocking) onOpenAccessibility() },
                     subtitle = "Android requires this to block apps and websites. Open Blocker doesn't read or track your usage.",
                     testTag = "rules_accessibility"
+                )
+            }
+            Spacer(Modifier.height(Space.s))
+            SettingsGroup {
+                SettingsToggleRow(
+                    Glyph.Key,
+                    "Don't allow adding new keys while blocked",
+                    checked = blockAddingKeys,
+                    enabled = !blocking,
+                    onCheckedChange = { 
+                        if (!blocking) {
+                            blockAddingKeys = it
+                            onBlockAddingKeysChange(it)
+                        }
+                    },
+                    subtitle = "Prevents adding keys during a block.",
+                    testTag = "rules_block_adding_keys"
                 )
             }
             Spacer(Modifier.height(Space.s))
@@ -615,7 +714,7 @@ fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Uni
                 color = colors.inkSecondary
             )
             Spacer(Modifier.height(Space.s))
-            PrimaryButton("Open Accessibility settings", onClick = onOpenAccessibility)
+            PrimaryButton("Open Accessibility settings", enabled = !blocking, onClick = onOpenAccessibility)
             Spacer(Modifier.height(Space.l))
         }
     }

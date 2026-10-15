@@ -16,6 +16,7 @@ struct ScheduleEditScreen: View {
     @State private var endMinute: Int
     @State private var selectedDays: Set<Int>
     @State private var isOn: Bool
+    @State private var endsOnKey: Bool
     
     init(schedule: BlockSchedule? = nil) {
         self.schedule = schedule
@@ -31,6 +32,7 @@ struct ScheduleEditScreen: View {
         _endMinute = State(initialValue: end % 60)
         _selectedDays = State(initialValue: schedule?.weekdays ?? [2, 3, 4, 5, 6])
         _isOn = State(initialValue: schedule?.isOn ?? false)
+        _endsOnKey = State(initialValue: schedule?.endsOnKey ?? false)
     }
     
     var body: some View {
@@ -91,6 +93,39 @@ struct ScheduleEditScreen: View {
                         .padding(.horizontal)
                         
                         VStack(alignment: .leading, spacing: 12) {
+                            Text("End Type")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color.brickMuted)
+                            
+                            HStack(spacing: 12) {
+                                Button(action: { endsOnKey = false }) {
+                                    Text("Set end time")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(endsOnKey ? Color.brickInk : Color.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .fill(endsOnKey ? Color.brickCard : Color.brickAccent)
+                                        )
+                                }
+                                
+                                Button(action: { endsOnKey = true }) {
+                                    Text("Until I tap my key")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(endsOnKey ? Color.white : Color.brickInk)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .fill(endsOnKey ? Color.brickAccent : Color.brickCard)
+                                        )
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Time")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(Color.brickMuted)
@@ -115,25 +150,27 @@ struct ScheduleEditScreen: View {
                                     }
                                 }
                                 
-                                Text("to")
-                                    .foregroundColor(Color.brickMuted)
-                                
-                                VStack {
-                                    Text("End")
-                                        .font(.system(size: 14))
+                                if !endsOnKey {
+                                    Text("to")
                                         .foregroundColor(Color.brickMuted)
-                                    HStack {
-                                        Picker("Hour", selection: $endHour) {
-                                            ForEach(0..<24) { Text("\($0)").tag($0) }
+                                    
+                                    VStack {
+                                        Text("End")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Color.brickMuted)
+                                        HStack {
+                                            Picker("Hour", selection: $endHour) {
+                                                ForEach(0..<24) { Text("\($0)").tag($0) }
+                                            }
+                                            .pickerStyle(.wheel)
+                                            .frame(width: 60)
+                                            Text(":")
+                                            Picker("Minute", selection: $endMinute) {
+                                                ForEach(0..<60) { Text(String(format: "%02d", $0)).tag($0) }
+                                            }
+                                            .pickerStyle(.wheel)
+                                            .frame(width: 60)
                                         }
-                                        .pickerStyle(.wheel)
-                                        .frame(width: 60)
-                                        Text(":")
-                                        Picker("Minute", selection: $endMinute) {
-                                            ForEach(0..<60) { Text(String(format: "%02d", $0)).tag($0) }
-                                        }
-                                        .pickerStyle(.wheel)
-                                        .frame(width: 60)
                                     }
                                 }
                             }
@@ -209,6 +246,7 @@ struct ScheduleEditScreen: View {
             updated.endMinute = endMin
             updated.weekdays = selectedDays
             updated.isOn = isOn
+            updated.endsOnKey = endsOnKey
             appState.updateSchedule(updated)
         } else {
             let newSchedule = BlockSchedule(
@@ -217,7 +255,8 @@ struct ScheduleEditScreen: View {
                 startMinute: startMin,
                 endMinute: endMin,
                 modeID: selectedModeID,
-                isOn: isOn
+                isOn: isOn,
+                endsOnKey: endsOnKey
             )
             appState.addSchedule(newSchedule)
         }

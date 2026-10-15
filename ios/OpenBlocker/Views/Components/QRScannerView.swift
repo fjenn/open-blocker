@@ -158,9 +158,14 @@ final class QRCameraViewController: UIViewController, AVCaptureMetadataOutputObj
         }
         session.addOutput(output)
         output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+        var types: [AVMetadataObject.ObjectType] = []
         if output.availableMetadataObjectTypes.contains(.qr) {
-            output.metadataObjectTypes = [.qr]
+            types.append(.qr)
         }
+        if output.availableMetadataObjectTypes.contains(.ean13) {
+            types.append(contentsOf: [.ean13, .ean8, .upce, .code128, .code39])
+        }
+        output.metadataObjectTypes = types
         session.commitConfiguration()
         
         let layer = AVCaptureVideoPreviewLayer(session: session)
@@ -181,7 +186,6 @@ final class QRCameraViewController: UIViewController, AVCaptureMetadataOutputObj
     ) {
         guard !handled,
               let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
-              object.type == .qr,
               let value = object.stringValue,
               !value.isEmpty
         else { return }

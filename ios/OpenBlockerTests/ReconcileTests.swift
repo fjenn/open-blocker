@@ -114,4 +114,92 @@ final class ReconcileTests: XCTestCase {
         )
         XCTAssertEqual(plan, .unchanged)
     }
+    
+    func testOpenEndedScheduleStartsWithNilEnd() {
+        let mode = BlockMode(id: modeID, name: "Work", kind: .block)
+        let schedule = BlockSchedule(
+            id: scheduleID,
+            name: "Hours",
+            weekdays: [5],
+            startMinute: 9 * 60,
+            endMinute: 17 * 60,
+            modeID: modeID,
+            isOn: true,
+            endsOnKey: true
+        )
+        let config = PolicyStore.Config(modes: [mode], schedules: [schedule], activeModeID: modeID)
+        let now = date(2026, 1, 8, 10, 0)
+        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, authorized: true, calendar: calendar)
+        
+        guard case .start(let session) = plan else {
+            return XCTFail("expected start, got \(plan)")
+        }
+        XCTAssertEqual(session.modeID, modeID)
+        XCTAssertNil(session.scheduleEnd, "Open-ended schedule should have nil scheduleEnd")
+    }
+    
+    func testOpenEndedScheduleDoesNotEndAtScheduledTime() {
+        let mode = BlockMode(id: modeID, name: "Work", kind: .block)
+        let schedule = BlockSchedule(
+            id: scheduleID,
+            name: "Hours",
+            weekdays: [5],
+            startMinute: 9 * 60,
+            endMinute: 17 * 60,
+            modeID: modeID,
+            isOn: true,
+            endsOnKey: true
+        )
+        let config = PolicyStore.Config(modes: [mode], schedules: [schedule], activeModeID: modeID)
+        let state = PolicyStore.State(
+            active: ActiveSession(
+                modeID: modeID,
+                source: .schedule(scheduleID),
+                startedAt: date(2026, 1, 8, 9, 0),
+                scheduleEnd: nil
+            )
+        )
+        
+        let plan = Reconcile.plan(
+            config: config,
+            state: state,
+            now: date(2026, 1, 8, 18, 0),
+            authorized: true,
+            calendar: calendar
+        )
+        XCTAssertEqual(plan, .unchanged, "Open-ended schedule should not end at scheduled time")
+    }
+    
+    func testOpenEndedScheduleEndsOnKeyTap() {
+        let mode = BlockMode(id: modeID, name: "Work", kind: .block)
+        let schedule = BlockSchedule(
+            id: scheduleID,
+            name: "Hours",
+            weekdays: [5],
+            startMinute: 9 * 60,
+            endMinute: 17 * 60,
+            modeID: modeID,
+            isOn: true,
+            endsOnKey: true
+        )
+        let config = PolicyStore.Config(modes: [mode], schedules: [schedule], activeModeID: modeID)
+        let state = PolicyStore.State(
+            active: ActiveSession(
+                modeID: modeID,
+                source: .schedule(scheduleID),
+                startedAt: date(2026, 1, 8, 9, 0),
+                scheduleEnd: nil
+            )
+        )
+        
+        // User taps key - ends the session manually
+        let plan = Reconcile.plan(
+            config: config,
+            state: state,
+            now: date(2026, 1, 8, 12, 0),
+            authorized: true,
+            calendar: calendar
+        )
+        XCTAssertEqual(plan, .unchanged)
+    }
 }

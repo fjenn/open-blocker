@@ -34,10 +34,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.openblocker.android.ui.theme.ObColors
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.RowScope
+import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.ModeRepository
 import app.openblocker.android.data.ScheduleRepository
 import app.openblocker.android.data.SessionHistory
 import app.openblocker.android.data.SessionManager
+import app.openblocker.android.data.StoredKey
 import app.openblocker.android.domain.BlockSchedule
 import app.openblocker.android.domain.DurationText
 import app.openblocker.android.domain.FocusStats
@@ -122,6 +127,7 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
     var end by remember { mutableIntStateOf(existing?.endMinute ?: 17 * 60) }
     var modeId by remember { mutableStateOf(existing?.modeId ?: ModeRepository.activeMode()?.id) }
     var isOn by remember { mutableStateOf(existing?.isOn ?: true) }
+    var endsOnKey by remember { mutableStateOf(existing?.endsOnKey ?: false) }
     val labels = listOf("M" to 2, "T" to 3, "W" to 4, "T" to 5, "F" to 6, "S" to 7, "S" to 1)
 
     Column(Modifier.fillMaxSize().background(colors.sheet).testTag("schedule_edit")) {
@@ -156,10 +162,52 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(Space.s))
+            Row(Modifier.fillMaxWidth().padding(horizontal = Space.xxs, vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                Text("End Type", style = ObText.caption, color = colors.inkSecondary)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = Space.xxs).padding(bottom = Space.s), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .background(
+                            if (!endsOnKey) colors.accent else colors.fillQuiet,
+                            androidx.compose.foundation.shape.RoundedCornerShape(Space.s)
+                        )
+                        .clickable { endsOnKey = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Set end time".asCopy(),
+                        style = ObText.subhead.copy(fontWeight = FontWeight.Medium),
+                        color = if (!endsOnKey) androidx.compose.ui.graphics.Color.White else colors.ink
+                    )
+                }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .background(
+                            if (endsOnKey) colors.accent else colors.fillQuiet,
+                            androidx.compose.foundation.shape.RoundedCornerShape(Space.s)
+                        )
+                        .clickable { endsOnKey = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Until I tap my key".asCopy(),
+                        style = ObText.subhead.copy(fontWeight = FontWeight.Medium),
+                        color = if (endsOnKey) androidx.compose.ui.graphics.Color.White else colors.ink
+                    )
+                }
+            }
+            Spacer(Modifier.height(Space.s))
             SettingsGroup {
                 ScheduleTimeRow("Starts", start) { start = (it + 1440) % 1440 }
-                HairlineDivider()
-                ScheduleTimeRow("Ends", end) { end = (it + 1440) % 1440 }
+                if (!endsOnKey) {
+                    HairlineDivider()
+                    ScheduleTimeRow("Ends", end) { end = (it + 1440) % 1440 }
+                }
             }
             Spacer(Modifier.height(Space.s))
             if (modes.isNotEmpty()) {
@@ -241,7 +289,8 @@ fun ScheduleEditSheet(existing: BlockSchedule?, onClose: () -> Unit) {
                     startMinute = start,
                     endMinute = end,
                     modeId = modeId,
-                    isOn = isOn
+                    isOn = isOn,
+                    endsOnKey = endsOnKey
                 )
                 if (existing == null) ScheduleRepository.add(next) else ScheduleRepository.update(next)
                 onClose()
@@ -435,26 +484,65 @@ fun OnboardingScreen(
     initialPage: Int = 0,
     askedAccessibility: Boolean = false
 ) {
-    var page by remember(initialPage) { mutableStateOf(initialPage.coerceIn(0, 2)) }
+    var page by remember(initialPage) { mutableStateOf(initialPage.coerceIn(0, 3)) }
     var asked by remember { mutableStateOf(askedAccessibility) }
+    var selectedKeyType by remember { mutableStateOf(StoredKey.Kind.QR) }
+    var registeredKeyId by remember { mutableStateOf("") }
+    var keyStatus by remember { mutableStateOf("") }
     val colors = obColors()
-    val titles = listOf("Open Blocker", "Accessibility", "Your key")
+    val titles = listOf("Open Blocker", "Accessibility", "Your key", "Add your first key")
     val subs = listOf(
         "Lock distracting apps. Only something you can hold unlocks them again.",
         "Android requires this permission to block apps and websites. Open Blocker doesn't read or track your usage.",
-        "Add an NFC tag, a card, or a printed QR. Hold the key on screen to block any time. Only your real key unblocks."
+        "Choose what kind of key you want to use.",
+        "Pick a type and register it now"
     )
     Column(Modifier.fillMaxSize().background(colors.canvas).testTag("onboarding"), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
-        Box(Modifier.height(260.dp), contentAlignment = Alignment.Center) {
-            when (page) {
-                0 -> app.openblocker.android.ui.components.KeyModelScene(0f, 0.2f, false, modifier = Modifier.size(260.dp))
-                1 -> OnboardingMedallion(Glyph.Hourglass)
-                else -> OnboardingMedallion(Glyph.Key)
+        if (page < 3) {
+            Box(Modifier.height(260.dp), contentAlignment = Alignment.Center) {
+                when (page) {
+                    0 -> app.openblocker.android.ui.components.KeyModelScene(0f, 0.2f, false, modifier = Modifier.size(260.dp))
+                    1 -> OnboardingMedallion(Glyph.Hourglass)
+                    else -> OnboardingMedallion(Glyph.Key)
+                }
+            }
+            Text(titles[page], style = ObText.title, color = colors.ink, modifier = Modifier.padding(top = Space.s))
+            Text(subs[page], style = ObText.body, color = colors.inkSecondary, modifier = Modifier.padding(horizontal = Space.xxxl), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        } else {
+            // Page 3: Key setup
+            Column(Modifier.height(380.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(titles[page], style = ObText.title, color = colors.ink)
+                Text(subs[page], style = ObText.body, color = colors.inkSecondary, modifier = Modifier.padding(horizontal = Space.xxxl, vertical = Space.s), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                
+                // Key type selector
+                Row(Modifier.padding(horizontal = Space.xxxl, vertical = Space.m), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                    KeyTypeButton(StoredKey.Kind.QR, Glyph.Qr, "QR", selectedKeyType, colors) { selectedKeyType = it }
+                    KeyTypeButton(StoredKey.Kind.BARCODE, Glyph.Qr, "Barcode", selectedKeyType, colors) { selectedKeyType = it }
+                }
+                Row(Modifier.padding(horizontal = Space.xxxl), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                    KeyTypeButton(StoredKey.Kind.NFC_TAG, Glyph.Nfc, "NFC Tag", selectedKeyType, colors) { selectedKeyType = it }
+                    KeyTypeButton(StoredKey.Kind.CARD, Glyph.Card, "Card", selectedKeyType, colors) { selectedKeyType = it }
+                }
+                
+                if (keyStatus.isNotEmpty()) {
+                    Text(
+                        keyStatus.asCopy(),
+                        style = ObText.subhead,
+                        color = if (registeredKeyId.isNotEmpty()) colors.success else colors.inkSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = Space.xxxl, vertical = Space.m)
+                    )
+                }
+                
+                if (registeredKeyId.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                        GlyphIcon(Glyph.Check, colors.success, size = 16.dp)
+                        Text("Key registered".asCopy(), style = ObText.body.copy(fontWeight = FontWeight.Medium), color = colors.ink)
+                    }
+                }
             }
         }
-        Text(titles[page], style = ObText.title, color = colors.ink, modifier = Modifier.padding(top = Space.s))
-        Text(subs[page], style = ObText.body, color = colors.inkSecondary, modifier = Modifier.padding(horizontal = Space.xxxl), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         if (page == 1) {
             val note = when {
                 accessibilityOn -> "Accessibility is on."
@@ -477,14 +565,16 @@ fun OnboardingScreen(
         }
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.xs), modifier = Modifier.padding(bottom = Space.xl)) {
-            repeat(3) { i ->
+            repeat(4) { i ->
                 Box(Modifier.size(if (i == page) 20.dp else 8.dp, 8.dp).background(if (i == page) colors.ink else colors.inkTertiary.copy(alpha = 0.5f), CircleShape))
             }
         }
         val title = when (page) {
             0 -> "Continue"
             1 -> if (accessibilityOn || asked) "Continue" else "Allow Accessibility"
-            else -> "Get Started"
+            2 -> "Continue"
+            3 -> if (registeredKeyId.isEmpty()) "Add Key" else "Finish"
+            else -> "Continue"
         }
         PrimaryButton(title, emphasis = ButtonEmphasis.INK, modifier = Modifier.padding(horizontal = Space.xxxl), testTag = "onboarding_continue") {
             when (page) {
@@ -494,6 +584,30 @@ fun OnboardingScreen(
                 } else {
                     asked = true
                     onAllowAccessibility()
+                }
+                2 -> page = 3
+                3 -> {
+                    if (registeredKeyId.isEmpty()) {
+                        // Generate/register key based on type
+                        when (selectedKeyType) {
+                            StoredKey.Kind.QR -> {
+                                val tagId = app.openblocker.android.format.OpenBlockerFormat.generateTagId()
+                                val data = app.openblocker.android.format.OpenBlockerFormat.TagData(tagId = tagId)
+                                val payload = app.openblocker.android.format.OpenBlockerFormat.encodeForQR(data)
+                                registeredKeyId = payload
+                                KeyStore.add(StoredKey(name = "My QR Key", kind = StoredKey.Kind.QR, secret = payload))
+                                keyStatus = "QR code generated and saved"
+                            }
+                            StoredKey.Kind.BARCODE -> {
+                                keyStatus = "Scan a barcode with the scanner"
+                            }
+                            StoredKey.Kind.NFC_TAG, StoredKey.Kind.CARD -> {
+                                keyStatus = "Tap your ${if (selectedKeyType == StoredKey.Kind.NFC_TAG) "NFC tag" else "card"} to register"
+                            }
+                        }
+                    } else {
+                        onFinished()
+                    }
                 }
                 else -> onFinished()
             }
@@ -515,5 +629,34 @@ private fun OnboardingMedallion(glyph: Glyph) {
         contentAlignment = Alignment.Center
     ) {
         GlyphIcon(glyph, icon, size = 60.dp)
+    }
+}
+
+@Composable
+private fun RowScope.KeyTypeButton(
+    kind: StoredKey.Kind,
+    glyph: Glyph,
+    label: String,
+    selected: StoredKey.Kind,
+    colors: ObColors,
+    onClick: (StoredKey.Kind) -> Unit
+) {
+    val isSelected = kind == selected
+    Box(
+        Modifier
+            .weight(1f)
+            .height(90.dp)
+            .background(
+                if (isSelected) colors.surface else colors.sheet,
+                RoundedCornerShape(Space.m)
+            )
+            .clickable { onClick(kind) }
+            .padding(Space.s),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+            GlyphIcon(glyph, if (isSelected) colors.ink else colors.inkSecondary, size = 32.dp)
+            Text(label.asCopy(), style = ObText.footnote.copy(fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal), color = if (isSelected) colors.ink else colors.inkSecondary)
+        }
     }
 }

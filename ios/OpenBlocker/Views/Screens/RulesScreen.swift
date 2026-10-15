@@ -7,12 +7,34 @@ struct RulesScreen: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
+        let isBlocked = appState.isBlocking
+        
         ZStack {
             Color.brickCanvas
                 .ignoresSafeArea()
             
             ScrollView {
                 VStack(spacing: 14) {
+                    if isBlocked {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .fill(Color.brickCard)
+                            
+                            HStack(spacing: 12) {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.brickMuted)
+                                
+                                Text("Rules can't be changed while you're blocked.")
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundColor(Color.brickMuted)
+                                
+                                Spacer()
+                            }
+                            .padding(20)
+                        }
+                    }
+                    
                     ruleToggle(
                         title: "Prevent deleting Open Blocker",
                         subtitle: "While blocked, you can't delete this app.",
@@ -64,6 +86,19 @@ struct RulesScreen: View {
                             }
                         )
                     )
+                    
+                    ruleToggle(
+                        title: "Don't allow adding new keys while blocked",
+                        subtitle: "Prevents adding keys during a block.",
+                        isOn: Binding(
+                            get: { appState.rules.blockAddingKeys },
+                            set: { newValue in
+                                var rules = appState.rules
+                                rules.blockAddingKeys = newValue
+                                appState.rules = rules
+                            }
+                        )
+                    )
                 }
                 .padding(16)
                 
@@ -101,7 +136,9 @@ struct RulesScreen: View {
     }
     
     private func ruleToggle(title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
-        ZStack {
+        let isBlocked = appState.isBlocking
+        
+        return ZStack {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(Color.brickCard)
             
@@ -110,7 +147,7 @@ struct RulesScreen: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
                             .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(Color.brickInk)
+                            .foregroundColor(isBlocked ? Color.brickMuted : Color.brickInk)
                         
                         Text(subtitle)
                             .font(.system(size: 14, weight: .regular))
@@ -122,6 +159,7 @@ struct RulesScreen: View {
                     Toggle("", isOn: isOn)
                         .labelsHidden()
                         .tint(Color.brickAccent)
+                        .disabled(isBlocked)
                 }
             }
             .padding(20)

@@ -101,6 +101,25 @@ struct AboutScreen: View {
                 }
                 .padding(.horizontal, 40)
                 
+                Button(action: {
+                    if let url = URL(string: "https://github.com/fjenn/open-blocker") {
+                        UIApplication.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Image("mark-github")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 16, height: 16)
+                        Text("See the code")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundColor(Color.brickInk)
+                    .frame(maxWidth: .infinity, minHeight: 51)
+                    .background(Capsule().fill(Color.brickButton))
+                }
+                .padding(.horizontal, 40)
+                
                 Spacer()
             }
         }

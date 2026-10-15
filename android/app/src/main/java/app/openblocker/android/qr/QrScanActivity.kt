@@ -140,7 +140,15 @@ class QrScanActivity : ComponentActivity() {
 
     private fun startDecoding(view: DecoratedBarcodeView) {
         try {
-            view.barcodeView.decoderFactory = DefaultDecoderFactory(listOf(BarcodeFormat.QR_CODE))
+            view.barcodeView.decoderFactory = DefaultDecoderFactory(listOf(
+                BarcodeFormat.QR_CODE,
+                BarcodeFormat.EAN_13,
+                BarcodeFormat.EAN_8,
+                BarcodeFormat.UPC_A,
+                BarcodeFormat.UPC_E,
+                BarcodeFormat.CODE_128,
+                BarcodeFormat.CODE_39
+            ))
             view.decodeContinuous { result ->
                 val text = result?.text ?: return@decodeContinuous
                 if (delivered) return@decodeContinuous
@@ -173,11 +181,11 @@ private fun ScannerPane(onViewCreated: (DecoratedBarcodeView) -> Unit) {
             .fillMaxSize()
             .testTag("qr_scan_screen")
     ) {
-        AndroidView(
+            AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
                 DecoratedBarcodeView(context).also { view ->
-                    view.setStatusText("Point the camera at your Open Blocker QR key")
+                    view.setStatusText("Point the camera at your QR code or barcode")
                     onViewCreated(view)
                 }
             }

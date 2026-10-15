@@ -10,10 +10,15 @@ data class BlockSchedule(
     var startMinute: Int,
     var endMinute: Int,
     var modeId: String? = null,
-    var isOn: Boolean = false
+    var isOn: Boolean = false,
+    var endsOnKey: Boolean = false
 ) {
     val timeRangeString: String
-        get() = "${formatClock(startMinute)} - ${formatClock(endMinute)}"
+        get() = if (endsOnKey) {
+            "${formatClock(startMinute)} - Until key tap"
+        } else {
+            "${formatClock(startMinute)} - ${formatClock(endMinute)}"
+        }
 
     val daysString: String
         get() {
