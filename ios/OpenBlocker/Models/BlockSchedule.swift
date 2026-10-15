@@ -32,6 +32,12 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.endsOnKey = endsOnKey
     }
     
+    /// End minute used for scheduling. Open-ended schedules span a full day
+    /// (start + 1439) so DeviceActivity and Reconcile agree on the window.
+    var effectiveEndMinute: Int {
+        endsOnKey ? (startMinute + 1439) % 1440 : endMinute
+    }
+    
     static func formatClock(_ minute: Int) -> String {
         let hour = minute / 60
         let min = minute % 60
