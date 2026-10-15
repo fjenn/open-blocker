@@ -23,9 +23,9 @@ extension Color {
     static let brickPanel = Color.brick(light: 0xD8D4D3, dark: 0x3A3736)
     static let brickCard = Color.brick(light: 0xE3E0E0, dark: 0x484544)
     static let brickInk = Color.brick(light: 0x282828, dark: 0xF0ECEA)
-    static let brickMuted = Color.brick(light: 0x797374, dark: 0xA8A09C)
+    static let brickMuted = Color.brick(light: 0x797374, dark: 0xC4BBB6)
     /// Secondary labels (chart ticks, settings details) with enough contrast in dark mode.
-    static let brickSecondaryLabel = Color.brick(light: 0x5C5756, dark: 0xD4CDC8)
+    static let brickSecondaryLabel = Color.brick(light: 0x5C5756, dark: 0xD9D1CC)
     static let brickButton = Color.brick(light: 0xD9D6D5, dark: 0x5A5553)
     static let brickButtonPressed = Color.brick(light: 0xD2CECD, dark: 0x4A4543)
     static let brickHighlight = Color.brick(light: 0xE9E7E7, dark: 0x6A6563)

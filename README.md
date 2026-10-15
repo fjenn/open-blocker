@@ -2,7 +2,7 @@
 
 **0.2.0-alpha is an early alpha. It has not been tested on real devices.** Both NFC keys and printed QR keys have been tried only on an Android emulator. This is not a daily-driver release. If you install it, you are helping test. Please report what happens (success or failure) in [Issues](../../issues) or [Discussions](../../discussions).
 
-Open Blocker is an open source physical phone blocker. You pick apps to lock, then start or stop a session by tapping an NFC key or scanning a printed QR. The idea is friction: you walk to the key, you do not swipe a toggle.
+Open Blocker is an open source physical phone blocker. You pick apps to lock, then start or stop a session by tapping an NFC key or scanning a printed QR or barcode. The idea is friction: you walk to the key, you do not swipe a toggle.
 
 **License:** MIT  
 **Android:** 0.2.0-alpha (sideload APK)  
@@ -36,7 +36,7 @@ If none of this works on your phone, please open an issue with the phone model, 
 2. **Android 13+:** Settings > Apps > Open Blocker > Allow restricted settings.
 3. Open Open Blocker and enable the Accessibility service.
 4. Pick apps to block.
-5. Pair a key: write or tap an NFC tag, or generate / scan a printed QR (`openblocker://tag/v1/` plus 32 lowercase hex characters).
+5. Pair a key: write or tap an NFC tag, generate / scan a printed QR (`openblocker://tag/v1/` plus 32 lowercase hex characters), or scan any product barcode (EAN-13, EAN-8, UPC, Code128, Code39, etc.).
 6. Starting and ending a session with that key on a real phone is the test. Please file what you see.
 
 **Minimum Android:** 7.0 (API 24)
@@ -78,6 +78,14 @@ A signed GitHub Release APK needs `OPENBLOCKER_KEYSTORE_*` (see [RELEASE.md](REL
 
 Tag format tests: `cd spec/reference && ./gradlew test`
 
+## Features
+
+- **Physical keys**: NFC tags, NFC cards, QR codes, or product barcodes
+- **Blocked-state theming**: App switches to dark mode while blocked for instant visual feedback
+- **My Rules**: Configure restrictions including preventing key addition while blocked
+- **Emergency unblocks**: Limited bypass without your key
+- **Schedules**: Auto-block and unblock at set times
+
 ## Credits
 
-Builds on ideas from [Brick](https://getbrick.com), [Foqos](https://foqos.app) (MIT), [Lock](https://github.com/NathanLenias/lock-app), [nfcGuard](https://github.com/Andebugulin/nfcGuard), and [TapBlok](https://github.com/cajdata/TapBlok). iOS code adapted from Foqos, Careful, and TapBack is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Android QR uses ZXing (Apache 2.0).
+Builds on ideas from [Brick](https://getbrick.com), [Foqos](https://foqos.app) (MIT), [Lock](https://github.com/NathanLenias/lock-app), [nfcGuard](https://github.com/Andebugulin/nfcGuard), and [TapBlok](https://github.com/cajdata/TapBlok). iOS code adapted from Foqos, Careful, and TapBack is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Android QR and barcode scanning uses ZXing (Apache 2.0).

@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -18,6 +19,8 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import app.openblocker.android.data.AppearanceManager
 import app.openblocker.android.data.EmergencyUnblockManager
 import app.openblocker.android.data.PairingStateManager
+import app.openblocker.android.data.SessionManager
+import app.openblocker.android.ui.theme.AppAppearance
 import app.openblocker.android.data.PreferencesManager
 import app.openblocker.android.data.ScheduleRepository
 import app.openblocker.android.nfc.NfcDispatch
@@ -41,7 +44,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val appearance by AppearanceManager.appearance
-            OpenBlockerTheme(appearance = appearance) {
+            val isBlocking by SessionManager.isBlocking.collectAsState()
+            val effectiveAppearance = if (isBlocking) AppAppearance.DARK else appearance
+            OpenBlockerTheme(appearance = effectiveAppearance) {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()

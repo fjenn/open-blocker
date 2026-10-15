@@ -32,5 +32,7 @@ struct MainTabView: View {
         }
         .background(Color.brickCanvas)
         .environmentObject(tabBar)
+        .preferredColorScheme(appState.isBlocking ? .dark : .light)
+        .animation(.easeInOut(duration: 0.3), value: appState.isBlocking)
     }
 }

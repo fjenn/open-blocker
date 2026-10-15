@@ -248,6 +248,7 @@ fun SettingsToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    enabled: Boolean = true,
     testTag: String? = null
 ) {
     val colors = obColors()
@@ -260,9 +261,9 @@ fun SettingsToggleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.s)
     ) {
-        GlyphIcon(glyph, colors.ink, Modifier.width(22.dp), 15.dp)
+        GlyphIcon(glyph, if (enabled) colors.ink else colors.inkSecondary, Modifier.width(22.dp), 15.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title.asCopy(), style = ObText.body.copy(fontWeight = FontWeight.Medium), color = colors.ink)
+            Text(title.asCopy(), style = ObText.body.copy(fontWeight = FontWeight.Medium), color = if (enabled) colors.ink else colors.inkSecondary)
             if (subtitle != null) {
                 Text(subtitle.asCopy(), style = ObText.footnote.copy(fontWeight = FontWeight.Normal), color = colors.inkSecondary)
             }
@@ -270,11 +271,16 @@ fun SettingsToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = colors.accent,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = colors.fillQuiet
+                uncheckedTrackColor = colors.fillQuiet,
+                disabledCheckedThumbColor = Color.White.copy(alpha = 0.5f),
+                disabledCheckedTrackColor = colors.accent.copy(alpha = 0.5f),
+                disabledUncheckedThumbColor = Color.White.copy(alpha = 0.5f),
+                disabledUncheckedTrackColor = colors.fillQuiet.copy(alpha = 0.5f)
             )
         )
     }

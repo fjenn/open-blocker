@@ -18,6 +18,7 @@ data class StoredKey(
 ) {
     enum class Kind(val raw: String, val title: String, val placeholder: String) {
         QR("qr", "QR code", "Fridge QR"),
+        BARCODE("barcode", "Barcode", "Product barcode"),
         NFC_TAG("openBlockerTag", "NFC tag", "Desk tag"),
         CARD("card", "NFC card", "Gym card");
 
@@ -96,12 +97,16 @@ object KeyStore {
     fun count(): Int = _keys.value.size
 
     fun hasQr(): Boolean = _keys.value.any { it.kind == StoredKey.Kind.QR }
+    
+    fun hasBarcode(): Boolean = _keys.value.any { it.kind == StoredKey.Kind.BARCODE }
 
-    fun hasNfc(): Boolean = _keys.value.any { it.kind != StoredKey.Kind.QR }
+    fun hasNfc(): Boolean = _keys.value.any { it.kind == StoredKey.Kind.NFC_TAG || it.kind == StoredKey.Kind.CARD }
 
     fun qrPayloads(): Set<String> = _keys.value.filter { it.kind == StoredKey.Kind.QR }.map { it.secret }.toSet()
+    
+    fun barcodePayloads(): Set<String> = _keys.value.filter { it.kind == StoredKey.Kind.BARCODE }.map { it.secret }.toSet()
 
-    fun nfcSecrets(): Set<String> = _keys.value.filter { it.kind != StoredKey.Kind.QR }.map { it.secret.lowercase() }.toSet()
+    fun nfcSecrets(): Set<String> = _keys.value.filter { it.kind == StoredKey.Kind.NFC_TAG || it.kind == StoredKey.Kind.CARD }.map { it.secret.lowercase() }.toSet()
 
     fun add(key: StoredKey) {
         val next = _keys.value.filterNot { it.secret.equals(key.secret, ignoreCase = true) && it.kind == key.kind } + key
@@ -154,6 +159,7 @@ object KeyStore {
     private fun syncLegacy(key: StoredKey) {
         when (key.kind) {
             StoredKey.Kind.QR -> PreferencesManager.addPairedQrPayload(key.secret)
+            StoredKey.Kind.BARCODE -> {} // No legacy sync for barcodes
             StoredKey.Kind.NFC_TAG -> {
                 if (key.secret.length == 32) {
                     PreferencesManager.addPairedTagId(key.secret)
@@ -167,6 +173,7 @@ object KeyStore {
     private fun dropLegacy(key: StoredKey) {
         when (key.kind) {
             StoredKey.Kind.QR -> PreferencesManager.removePairedQrPayload(key.secret)
+            StoredKey.Kind.BARCODE -> {} // No legacy sync for barcodes
             StoredKey.Kind.NFC_TAG -> {
                 PreferencesManager.removePairedTagId(key.secret)
                 PreferencesManager.removePairedTagUid(key.secret)

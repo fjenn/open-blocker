@@ -202,17 +202,18 @@ private final class ScanDelegate: NSObject, NFCTagReaderSessionDelegate {
     
     func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
         guard let continuation, let tag = tags.first else { return }
-        self.continuation = nil
         
         session.connect(to: tag) { error in
             if let error {
                 session.invalidate(errorMessage: "Connection failed")
+                self.continuation = nil
                 continuation.resume(throwing: NFCScanError.readFailed(error.localizedDescription))
                 return
             }
             
             guard let uid = Self.getUID(for: tag) else {
                 session.invalidate(errorMessage: "Could not read tag")
+                self.continuation = nil
                 continuation.resume(throwing: NFCScanError.readFailed("Could not read tag identifier"))
                 return
             }
@@ -220,6 +221,7 @@ private final class ScanDelegate: NSObject, NFCTagReaderSessionDelegate {
             Self.readOpenBlockerID(from: tag) { id in
                 session.alertMessage = "Done"
                 session.invalidate()
+                self.continuation = nil
                 if let id {
                     continuation.resume(returning: .openBlocker(id: id, uid: uid))
                 } else {
