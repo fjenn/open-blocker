@@ -3,6 +3,8 @@ package app.openblocker.android.ui.screens
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,6 +45,7 @@ import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.StoredKey
 import app.openblocker.android.format.OpenBlockerFormat
 import app.openblocker.android.qr.QrBitmaps
+import app.openblocker.android.qr.QrScanActivity
 import app.openblocker.android.ui.components.ButtonEmphasis
 import app.openblocker.android.ui.components.CardSurface
 import app.openblocker.android.ui.components.Glyph
@@ -85,6 +88,10 @@ fun AddKeySheet(onClose: () -> Unit, modifier: Modifier = Modifier) {
     var nfcGood by remember { mutableStateOf(false) }
     var cardFirst by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    val barcodeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val raw = result.data?.getStringExtra(QrScanActivity.EXTRA_PAYLOAD)?.trim()
+        if (!raw.isNullOrEmpty()) secret = raw
+    }
 
     fun resetSecret() {
         secret = ""
@@ -133,6 +140,9 @@ fun AddKeySheet(onClose: () -> Unit, modifier: Modifier = Modifier) {
             nfcStatus = "Tag ready."
             nfcGood = true
             busy = false
+        },
+        onScanBarcode = {
+            barcodeLauncher.launch(QrScanActivity.intent(context, QrScanActivity.MODE_REGISTER))
         },
         onScanCard = {
             if (secret.isNotEmpty()) {
@@ -188,6 +198,7 @@ fun AddKeyContent(
     onShareQr: () -> Unit,
     onScanTag: () -> Unit,
     onScanCard: () -> Unit,
+    onScanBarcode: () -> Unit = {},
     onClose: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
@@ -252,7 +263,7 @@ fun AddKeyContent(
                         busy = false,
                         busyLabel = "",
                         testTag = "scan_barcode",
-                        onAction = { context.startActivity(Intent(context, QrScanActivity::class.java)) }
+                        onAction = onScanBarcode
                     )
                     StoredKey.Kind.NFC_TAG -> SetupPanel(
                         glyph = Glyph.Nfc,

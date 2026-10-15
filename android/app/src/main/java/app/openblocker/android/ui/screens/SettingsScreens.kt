@@ -31,6 +31,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import app.openblocker.android.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import app.openblocker.android.BuildConfig
 import app.openblocker.android.data.AppearanceManager
 import app.openblocker.android.data.CountManager
@@ -493,7 +497,7 @@ fun NotificationsScreen(onBack: () -> Unit, onRequestNotifications: () -> Unit, 
 fun KeysScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     val keys by app.openblocker.android.data.KeyStore.keys.collectAsState()
     val blocking by SessionManager.isBlocking.collectAsState()
-    KeysContent(keys, blocking, onBack, onAdd)
+    KeysContent(keys, blocking, onBack, onAdd, blockAddingKeys = PreferencesManager.getBlockAddingKeys())
 }
 
 @Composable
@@ -502,10 +506,10 @@ fun KeysContent(
     blocking: Boolean,
     onBack: () -> Unit,
     onAdd: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    blockAddingKeys: Boolean = false
 ) {
     val colors = obColors()
-    val blockAddingKeys = PreferencesManager.getBlockAddingKeys()
     val canAddKeys = !blocking || !blockAddingKeys
     
     Column(modifier.fillMaxSize().background(colors.canvas).testTag("keys_screen")) {
@@ -566,7 +570,8 @@ private fun KeyCardRow(key: app.openblocker.android.data.StoredKey, canDelete: B
     var menu by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     val glyph = when (key.kind) {
-        app.openblocker.android.data.StoredKey.Kind.QR -> Glyph.Qr
+        app.openblocker.android.data.StoredKey.Kind.QR,
+        app.openblocker.android.data.StoredKey.Kind.BARCODE -> Glyph.Qr
         app.openblocker.android.data.StoredKey.Kind.NFC_TAG -> Glyph.Nfc
         app.openblocker.android.data.StoredKey.Kind.CARD -> Glyph.Card
     }
@@ -631,14 +636,29 @@ private fun KeyCardRow(key: app.openblocker.android.data.StoredKey, canDelete: B
 fun RulesScreen(onBack: () -> Unit, onOpenAccessibility: () -> Unit) {
     val context = LocalContext.current
     val on = app.openblocker.android.util.AccessibilityUtil.isAccessibilityServiceEnabled(context)
-    RulesContent(on = on, onBack = onBack, onOpenAccessibility = onOpenAccessibility)
+    val blocking by SessionManager.isBlocking.collectAsState()
+    RulesContent(
+        on = on,
+        blocking = blocking,
+        onBack = onBack,
+        onOpenAccessibility = onOpenAccessibility,
+        initialBlockAddingKeys = PreferencesManager.getBlockAddingKeys(),
+        onBlockAddingKeysChange = { PreferencesManager.setBlockAddingKeys(it) }
+    )
 }
 
 @Composable
-fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Unit, modifier: Modifier = Modifier) {
+fun RulesContent(
+    on: Boolean,
+    blocking: Boolean = false,
+    onBack: () -> Unit,
+    onOpenAccessibility: () -> Unit,
+    modifier: Modifier = Modifier,
+    initialBlockAddingKeys: Boolean = false,
+    onBlockAddingKeysChange: (Boolean) -> Unit = {}
+) {
     val colors = obColors()
-    val blocking by SessionManager.isBlocking.collectAsState()
-    var blockAddingKeys by remember { mutableStateOf(PreferencesManager.getBlockAddingKeys()) }
+    var blockAddingKeys by remember { mutableStateOf(initialBlockAddingKeys) }
     
     Column(modifier.fillMaxSize().background(colors.canvas).testTag("rules_screen")) {
         PushedHeader("My Rules", onBack)
@@ -680,7 +700,7 @@ fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Uni
                     onCheckedChange = { 
                         if (!blocking) {
                             blockAddingKeys = it
-                            PreferencesManager.setBlockAddingKeys(it)
+                            onBlockAddingKeysChange(it)
                         }
                     },
                     subtitle = "Prevents adding keys during a block.",
