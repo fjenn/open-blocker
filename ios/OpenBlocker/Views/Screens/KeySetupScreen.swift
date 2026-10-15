@@ -301,20 +301,24 @@ struct BarcodeKeySetupView: View {
             .disabled(isScanning)
             .padding(.horizontal, 40)
         }
+        .sheet(isPresented: $isScanning) {
+            QRScannerView(
+                onCode: { payload in
+                    isScanning = false
+                    keyId = payload
+                    status = "Barcode scanned. Name it and save."
+                },
+                onCancel: {
+                    isScanning = false
+                    status = "Scan cancelled."
+                }
+            )
+        }
     }
     
     private func scanBarcode() {
         isScanning = true
         status = "Point camera at a barcode..."
-        Task {
-            defer { isScanning = false }
-            do {
-                let scanned = try await appState.nfcScanner.scan()
-                status = "This is an NFC scanner. Use the camera scanner for barcodes."
-            } catch {
-                status = "Use the main scanner to scan barcodes."
-            }
-        }
     }
 }
 
