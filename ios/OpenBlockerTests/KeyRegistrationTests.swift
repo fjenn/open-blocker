@@ -67,7 +67,7 @@ final class KeyRegistrationTests: XCTestCase {
         let uri = OpenBlockerFormat.encodeForQR(OpenBlockerFormat.TagData(tagId: tagId))
         let key = BlockKey(name: "Gym", kind: .qr, secret: uri)
         XCTAssertTrue(key.matches(.qr(payload: uri)))
-        XCTAssertTrue(key.matches(KeyScanner.scannedKey(fromQR: uri)))
+        XCTAssertTrue(key.matches(KeyScanner.scannedKey(fromCode: uri)))
         XCTAssertFalse(key.matches(.qr(payload: "openblocker://tag/v1/ffffffffffffffffffffffffffffffff")))
     }
     
