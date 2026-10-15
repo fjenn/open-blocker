@@ -106,8 +106,11 @@ enum Reconcile {
         // Set override if this was a scheduled session ended early
         if case .schedule(let scheduleID) = session.source,
            reason == .key,
-           let scheduleEnd = session.scheduleEnd {
-            state.override = ScheduleOverride(scheduleID: scheduleID, until: scheduleEnd)
+           let until = session.scheduleEnd ?? activeWindow(at: time, config: config)
+               .flatMap({ $0.schedule.id == scheduleID ? $0.end : nil }) {
+            // Open-ended sessions have no scheduleEnd; suppress the rest of the
+            // current window so the schedule does not restart right after the key tap.
+            state.override = ScheduleOverride(scheduleID: scheduleID, until: until)
         }
     }
     
@@ -120,7 +123,7 @@ enum Reconcile {
         for schedule in config.schedules where schedule.isOn {
             if let span = ScheduleInterval.window(
                 startMinute: schedule.startMinute,
-                endMinute: schedule.endMinute,
+                endMinute: schedule.effectiveEndMinute,
                 weekdays: schedule.weekdays,
                 at: now,
                 calendar: calendar
