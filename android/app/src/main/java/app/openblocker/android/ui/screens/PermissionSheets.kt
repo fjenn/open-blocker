@@ -2,11 +2,14 @@ package app.openblocker.android.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,12 +96,11 @@ fun AccessibilityExplainer(
     )
     val restrictedNote = "If Android says this setting is restricted, open App info for Open Blocker, tap the menu, choose Allow restricted settings, then try again."
     Column(
-        modifier.fillMaxWidth().background(colors.sheet).padding(horizontal = Space.margin).padding(bottom = Space.xs).testTag("accessibility_explainer"),
+        modifier.fillMaxWidth().verticalScroll(rememberScrollState()).background(colors.sheet).padding(horizontal = Space.margin).navigationBarsPadding().padding(bottom = Space.xs).testTag("accessibility_explainer"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Space.m)
     ) {
-        Spacer(Modifier.height(Space.l))
-        IconTile(Glyph.Hourglass, size = 56.dp)
+        Spacer(Modifier.height(Space.s))
         Text("Open Blocker uses Accessibility".asCopy(), style = ObText.title.copy(fontWeight = FontWeight.Medium), color = colors.ink, textAlign = TextAlign.Center)
         Text("Android only lets an app block other apps and websites through the Accessibility service. Here is exactly what Open Blocker does with it.".asCopy(), style = ObText.body, color = colors.inkSecondary, textAlign = TextAlign.Center)
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.s)) {
