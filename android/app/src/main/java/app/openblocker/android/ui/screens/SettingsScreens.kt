@@ -310,7 +310,7 @@ fun PrivacyScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     PrivacyContent(
         onBack = onBack,
         onPolicy = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.vercel.app/privacy")))
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.org/privacy")))
         },
         modifier = modifier
     )
@@ -394,7 +394,7 @@ fun AboutScreen(onBack: () -> Unit) {
         )
         Spacer(Modifier.weight(1f))
         PrimaryButton("Project page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.vercel.app")))
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.org")))
         })
         Spacer(Modifier.height(Space.xxxl))
     }
@@ -412,15 +412,15 @@ fun ContactScreen(onBack: () -> Unit) {
         }
         Text("Bugs, questions, and ideas.", style = ObText.title, color = colors.ink, textAlign = TextAlign.Center)
         Text(
-            "The project page is the public home for Open Blocker. Open an issue or say hello there.",
+            "Send a bug report, a question, or an idea on our feedback page.",
             style = ObText.body,
             color = colors.inkSecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = Space.xxxl)
         )
         Spacer(Modifier.weight(1f))
-        PrimaryButton("Open the project page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.vercel.app")))
+        PrimaryButton("Open the feedback page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.org/feedback")))
         })
         Spacer(Modifier.height(Space.xxxl))
     }
@@ -604,7 +604,7 @@ fun RulesContent(on: Boolean, onBack: () -> Unit, onOpenAccessibility: () -> Uni
                     "Accessibility",
                     checked = on,
                     onCheckedChange = { onOpenAccessibility() },
-                    subtitle = "Android requires this to block apps and websites. Open Blocker doesn't read or track your usage.",
+                    subtitle = "Lets Open Blocker see which app is open and, during a block, the address in supported browsers. Used only on this phone. Never stored or sent.",
                     testTag = "rules_accessibility"
                 )
             }

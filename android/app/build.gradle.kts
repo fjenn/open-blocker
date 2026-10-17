@@ -28,14 +28,14 @@ if (anyKeystoreEnvSet && !hasReleaseKeystore) {
 
 android {
     namespace = "app.openblocker.android"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.openblocker.android"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 2
-        versionName = "0.2.0-alpha"
+        targetSdk = 36
+        versionCode = 100
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -47,7 +47,7 @@ android {
         
         buildConfigField("String", "COUNT_URL", "\"$countUrl\"")
         buildConfigField("String", "COUNT_KEY", "\"$countKey\"")
-        buildConfigField("boolean", "COUNT_ENABLED", "${countUrl.isNotEmpty() && countKey.isNotEmpty()}")
+        buildConfigField("boolean", "COUNT_ENABLED", "${countUrl.isNotEmpty()}")
         
         val testMode = System.getenv("OPENBLOCKER_TEST_MODE") == "1"
         buildConfigField("boolean", "TEST_MODE", "$testMode")
