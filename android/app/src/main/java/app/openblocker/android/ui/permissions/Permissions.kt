@@ -48,9 +48,9 @@ object PermissionCopyCatalog {
         PermissionKind.ACCESSIBILITY -> PermissionCopy(
             kind = kind,
             title = "Accessibility",
-            message = "Android requires Accessibility so we can block apps. We don't read your screen or track usage.",
+            message = "Open Blocker uses Accessibility to see which app is open and, during a block, the address in supported browsers. This stays on your phone. It is never stored or sent.",
             deniedTitle = "Accessibility is off",
-            deniedMessage = "Android requires it to block apps. We don't read your usage. Turn it on in Settings, under Accessibility.",
+            deniedMessage = "Open Blocker needs Accessibility to block apps and websites. Turn it on in Settings, under Accessibility.",
             glyph = app.openblocker.android.ui.components.Glyph.Hourglass
         )
     }

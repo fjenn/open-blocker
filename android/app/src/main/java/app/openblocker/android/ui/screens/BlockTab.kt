@@ -277,7 +277,7 @@ fun BlockTabContent(
     val hint = when {
         state.blocking -> "Lost your key? Settings has emergency unblocks."
         state.readiness == HomeReadiness.NEEDS_ACCESSIBILITY ->
-            "Android requires this to block apps. We don't read your usage."
+            "Needed to block apps and websites. It stays on your phone."
         state.readiness == HomeReadiness.NEEDS_KEY -> "Add a key to start. It is what unblocks you."
         state.readiness == HomeReadiness.NEEDS_APPS -> "This mode has nothing to block yet."
         state.holdHolding -> "Let go to cancel."

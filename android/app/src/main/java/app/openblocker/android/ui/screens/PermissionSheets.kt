@@ -82,21 +82,30 @@ fun AccessibilityExplainer(
     modifier: Modifier = Modifier
 ) {
     val colors = obColors()
-    val body = if (restrictedLikely) {
-        "Android requires Accessibility so we can block apps. We don't read your screen or track usage. On Android 13 and later, first allow restricted settings for this app, then turn on Open Blocker in Accessibility."
-    } else {
-        "Android requires Accessibility so we can block apps. We don't read your screen or track usage. You'll jump to the Accessibility page. Turn on Open Blocker there."
-    }
+    // Prominent disclosure for Google Play's AccessibilityService policy.
+    // Separate from any other disclosure, shown before the system settings page,
+    // and consent is the explicit "Agree" tap.
+    val points = listOf(
+        "What it sees: the name of the app that is open, so a blocked app is covered by the block screen.",
+        "During a block only: the web address in supported browsers (Chrome, Samsung Internet, Firefox, Brave, Edge, Opera, DuckDuckGo, Vivaldi), so websites on your list are blocked.",
+        "How it is used: only to block, only on this phone. Open Blocker does not store, send, or share app names, addresses, or anything else it sees.",
+        "What it does: when you open something on your block list, it goes back or home and shows the block screen. It never taps, types, or changes anything else."
+    )
+    val restrictedNote = "If Android says this setting is restricted, open App info for Open Blocker, tap the menu, choose Allow restricted settings, then try again."
     Column(
         modifier.fillMaxWidth().background(colors.sheet).padding(horizontal = Space.margin).padding(bottom = Space.xs).testTag("accessibility_explainer"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Space.m)
     ) {
-        Spacer(Modifier.height(Space.xl))
+        Spacer(Modifier.height(Space.l))
         IconTile(Glyph.Hourglass, size = 56.dp)
-        Text("Allow Accessibility".asCopy(), style = ObText.title.copy(fontWeight = FontWeight.Medium), color = colors.ink)
-        Text(body.asCopy(), style = ObText.body, color = colors.inkSecondary, textAlign = TextAlign.Center)
-        PrimaryButton("Open Settings", emphasis = ButtonEmphasis.INK, onClick = onContinue)
-        Text("Not now".asCopy(), style = ObText.subhead.copy(fontWeight = FontWeight.SemiBold), color = colors.inkSecondary, modifier = Modifier.clickable(onClick = onNotNow).padding(Space.s))
+        Text("Open Blocker uses Accessibility".asCopy(), style = ObText.title.copy(fontWeight = FontWeight.Medium), color = colors.ink, textAlign = TextAlign.Center)
+        Text("Android only lets an app block other apps and websites through the Accessibility service. Here is exactly what Open Blocker does with it.".asCopy(), style = ObText.body, color = colors.inkSecondary, textAlign = TextAlign.Center)
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.s)) {
+            points.forEach { Text(("\u2022 " + it).asCopy(), style = ObText.subhead, color = colors.ink) }
+            if (restrictedLikely) Text(restrictedNote.asCopy(), style = ObText.footnote, color = colors.inkSecondary)
+        }
+        PrimaryButton("Agree and open Settings", emphasis = ButtonEmphasis.INK, testTag = "accessibility_agree", onClick = onContinue)
+        Text("No thanks".asCopy(), style = ObText.subhead.copy(fontWeight = FontWeight.SemiBold), color = colors.inkSecondary, modifier = Modifier.clickable(onClick = onNotNow).padding(Space.s).testTag("accessibility_decline"))
     }
 }

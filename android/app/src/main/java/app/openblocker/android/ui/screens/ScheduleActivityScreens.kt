@@ -441,7 +441,7 @@ fun OnboardingScreen(
     val titles = listOf("Open Blocker", "Accessibility", "Your key")
     val subs = listOf(
         "Lock distracting apps. Only something you can hold unlocks them again.",
-        "Android requires this permission to block apps and websites. Open Blocker doesn't read or track your usage.",
+        "Android only lets apps block apps and websites through Accessibility. Next, we show exactly what it sees. It stays on your phone.",
         "Add an NFC tag, a card, or a printed QR. Hold the key on screen to block any time. Only your real key unblocks."
     )
     Column(Modifier.fillMaxSize().background(colors.canvas).testTag("onboarding"), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -75,19 +75,22 @@ object CountManager {
         
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val url = URL("${BuildConfig.COUNT_URL}/rest/v1/pings")
+                val url = URL(BuildConfig.COUNT_URL)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.doOutput = true
                 conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("apikey", BuildConfig.COUNT_KEY)
-                conn.setRequestProperty("Authorization", "Bearer ${BuildConfig.COUNT_KEY}")
+                if (BuildConfig.COUNT_KEY.isNotEmpty()) {
+                    conn.setRequestProperty("apikey", BuildConfig.COUNT_KEY)
+                    conn.setRequestProperty("Authorization", "Bearer ${BuildConfig.COUNT_KEY}")
+                }
                 conn.setRequestProperty("Prefer", "return=minimal")
                 
                 val json = JSONObject()
                 json.put("install_id", installId)
                 json.put("event", "first_block")
                 json.put("app_version", BuildConfig.VERSION_NAME)
+                json.put("platform", "android")
                 
                 conn.outputStream.use { os ->
                     os.write(json.toString().toByteArray())
