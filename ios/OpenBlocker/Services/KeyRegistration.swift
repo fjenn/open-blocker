@@ -13,7 +13,7 @@ enum KeyRegistration {
         switch scanned {
         case .card(let uid), .openBlocker(_, let uid):
             return uid.hexString
-        case .qr:
+        case .qr, .barcode:
             return nil
         }
     }

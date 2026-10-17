@@ -35,7 +35,7 @@ targets:
         PRODUCT_MODULE_NAME: OpenBlocker
         INFOPLIST_FILE: OpenBlocker/Info.plist
         SWIFT_VERSION: "5.9"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         DEVELOPMENT_TEAM: ""
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       configs:
@@ -75,7 +75,7 @@ targets:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities:
-          - armv7
+          - arm64
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -90,11 +90,12 @@ targets:
           UISceneConfigurations:
             UIWindowSceneSessionRoleApplication:
               - UISceneConfigurationName: Default Configuration
-        NFCReaderUsageDescription: "Open Blocker uses NFC to read and write tags and cards as your physical key for blocking sessions."
-        NSCameraUsageDescription: "Open Blocker uses the camera to scan QR codes as your physical key for blocking sessions."
+        NFCReaderUsageDescription: "Open Blocker uses NFC to read and set up your key tag or card."
+        NSCameraUsageDescription: "Open Blocker uses the camera to scan your QR or barcode key."
         com.apple.developer.nfc.readersession.iso7816.select-identifiers:
           - D2760000850101
         ITSAppUsesNonExemptEncryption: false
+        COUNT_ENDPOINT: $(COUNT_ENDPOINT)
 
   OpenBlockerMonitor:
     type: app-extension
@@ -116,7 +117,7 @@ targets:
         PRODUCT_MODULE_NAME: OpenBlockerMonitor
         INFOPLIST_FILE: OpenBlockerMonitor/Info.plist
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EXTENSION"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: false
     entitlements:
       path: OpenBlockerMonitor/OpenBlockerMonitor.entitlements
@@ -146,6 +147,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.openblocker.OpenBlockerTests
+        GENERATE_INFOPLIST_FILE: true
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Open Blocker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Open Blocker
         BUNDLE_LOADER: $(TEST_HOST)
 

@@ -1,177 +1,127 @@
-// Schedule tab - simplified for new architecture
-
 import SwiftUI
 
 struct ScheduleTab: View {
     @ObservedObject var appState = AppState.shared
     @State private var showingEditor = false
+    @State private var editing: BlockSchedule?
     
     var body: some View {
-        ZStack {
-            Color.brickCanvas
-                .ignoresSafeArea()
-            
-            VStack {
+        ZStack(alignment: .bottom) {
+            TabScreen(title: "Schedules") {
                 if appState.schedules.isEmpty {
-                    emptyState
+                    EmptyStateView(
+                        systemImage: "calendar",
+                        title: "No schedules yet",
+                        message: "Block automatically at set times, every day or only on the days you pick."
+                    )
+                    .frame(minHeight: 380)
                 } else {
-                    schedulesList
+                    VStack(spacing: Space.s) {
+                        ForEach(appState.schedules) { schedule in
+                            ScheduleCard(schedule: schedule) { edit(schedule) }
+                        }
+                    }
+                    // Room for the floating create button.
+                    Spacer().frame(height: 120)
                 }
             }
-            .accessibilityIdentifier(AccessibilityID.scheduleRoot)
+            
+            CreateScheduleButton { edit(nil) }
+                .padding(.bottom, Space.l)
         }
+        .accessibilityIdentifier(AccessibilityID.scheduleRoot)
         .sheet(isPresented: $showingEditor) {
-            ScheduleEditScreen()
+            ScheduleEditScreen(schedule: editing)
         }
     }
     
-    private var emptyState: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            Text("No schedules yet")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundColor(Color.brickInk)
-            
-            Text("Block apps automatically at set times.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundColor(Color.brickMuted)
-                .multilineTextAlignment(.center)
-            
-            Button(action: { showingEditor = true }) {
-                VStack(spacing: 8) {
-                    Circle()
-                        .fill(Color.brickCard)
-                        .frame(width: 56, height: 56)
-                        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
-                        .overlay(
-                            Image(systemName: "plus")
-                                .font(.system(size: 22))
-                                .foregroundColor(Color.brickInk)
-                        )
-                    
-                    Text("Create schedule")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color.brickMuted)
-                }
-            }
-            
-            Spacer()
-        }
-        .padding()
+    private func edit(_ schedule: BlockSchedule?) {
+        editing = schedule
+        showingEditor = true
     }
+}
+
+/// Floating "Create schedule" caption over a round plus button.
+private struct CreateScheduleButton: View {
+    let action: () -> Void
     
-    private var schedulesList: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                Text("Schedules")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Color.brickInk)
-                    .padding(.top, 84)
-                
-                Spacer()
-                    .frame(height: 40)
-                
-                VStack(spacing: 16) {
-                    ForEach(appState.schedules) { schedule in
-                        ScheduleCard(schedule: schedule)
-                    }
-                }
-                .padding(.horizontal, 24)
-                
-                Button(action: { showingEditor = true }) {
-                    VStack(spacing: 12) {
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: Space.s) {
+                Text("Create schedule")
+                    .textStyle(.footnote)
+                    .foregroundColor(Color.inkSecondary)
+                Image(systemName: "plus")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(Color.ink)
+                    .frame(width: 52, height: 52)
+                    .background(
                         Circle()
-                            .fill(Color.brickCard)
-                            .frame(width: 56, height: 56)
-                            .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
-                            .overlay(
-                                Image(systemName: "plus")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(Color.brickInk)
-                            )
-                        
-                        Text("Create schedule")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(Color.brickMuted)
-                    }
-                }
-                .padding(.top, 50)
+                            .fill(Color.surfaceRaised)
+                            .shadow(color: Color.floatShadow, radius: 14, y: 6)
+                    )
             }
-            .padding(.bottom, BrickLayout.tabScrollInset)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Create schedule")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
 struct ScheduleCard: View {
     let schedule: BlockSchedule
+    var onEdit: () -> Void
     @ObservedObject var appState = AppState.shared
-    
-    private let chipDays: [(label: String, weekday: Int)] = [
-        ("M", 2), ("T", 3), ("W", 4), ("T", 5), ("F", 6), ("S", 7), ("S", 1)
-    ]
+    @State private var deniedPermission: Permission?
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: Space.s) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(schedule.name)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(Color.brickInk)
+                    .textStyle(.body, weight: .semibold)
+                    .foregroundColor(Color.ink)
                     .lineLimit(1)
-                Spacer(minLength: 8)
-                Toggle("", isOn: Binding(
-                    get: { schedule.isOn && schedule.modeID != nil },
-                    set: { newValue in
-                        var updated = schedule
-                        updated.isOn = newValue
+                Text("\(schedule.timeRangeString) · \(schedule.daysString)")
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Text(modeLabel)
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: Space.xs)
+            Toggle(schedule.name, isOn: Binding(
+                get: { schedule.isOn && schedule.modeID != nil },
+                set: { on in
+                    var updated = schedule
+                    updated.isOn = on
+                    guard on else { return appState.updateSchedule(updated) }
+                    Permissions.whenGranted(.screenTime, denied: $deniedPermission) {
                         appState.updateSchedule(updated)
                     }
-                ))
-                .labelsHidden()
-                .tint(Color.brickAccent)
-                .disabled(schedule.modeID == nil)
-            }
-            
-            HStack(spacing: 6) {
-                ForEach(Array(chipDays.enumerated()), id: \.offset) { _, chip in
-                    let on = schedule.weekdays.contains(chip.weekday)
-                    Text(chip.label)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(on ? Color.brickCard : Color.brickMuted)
-                        .frame(width: 26, height: 26)
-                        .background(
-                            Circle()
-                                .fill(on ? Color.brickInk : Color.brickPanel)
-                        )
                 }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(schedule.daysString)
-            
-            Text(schedule.timeRangeString)
-                .font(.system(size: 14, weight: .regular))
-                .foregroundColor(Color.brickInk)
-            
-            if let modeID = schedule.modeID,
-               let mode = appState.modes.first(where: { $0.id == modeID }) {
-                Text(mode.name)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(Color.brickInk)
-            } else {
-                Text("Select mode to enable")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(Color.brickMuted)
-            }
-            
-            Text(schedule.nextRunString())
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Color.brickSecondaryLabel)
+            ))
+            .labelsHidden()
+            .tint(Color.accent)
+            .disabled(schedule.modeID == nil)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.brickCard)
-        )
+        .padding(.horizontal, Space.m)
+        .padding(.vertical, 14)
+        .background(CardBackground(raised: schedule.isOn && schedule.modeID != nil))
+        .contentShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .onTapGesture(perform: onEdit)
+        .accessibilityAction(named: "Edit", onEdit)
+        .permissionSheet($deniedPermission)
+    }
+    
+    private var modeLabel: String {
+        if let id = schedule.modeID, let mode = appState.modes.first(where: { $0.id == id }) {
+            return "Mode: \(mode.name)"
+        }
+        return "Choose a mode to turn it on"
     }
 }
