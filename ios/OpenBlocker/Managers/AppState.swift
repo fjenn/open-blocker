@@ -11,7 +11,9 @@ class AppState: ObservableObject {
     
     @Published var config: PolicyStore.Config
     @Published var state: PolicyStore.State
-    @Published var history: [SessionRecord]
+    @Published var history: [SessionRecord] {
+        didSet { reportCompletedBlocks() }
+    }
     
     @Published var isAuthorized: Bool = false
     @Published var hasSeenOnboarding: Bool = false
@@ -31,10 +33,22 @@ class AppState: ObservableObject {
         }
         #endif
         
-        self.config = PolicyStore.loadConfig()
+        var config = PolicyStore.loadConfig()
+        if let seeded = ModeDefaults.seeded(config) {
+            config = seeded
+            PolicyStore.save(config)
+        }
+        self.config = config
         self.state = PolicyStore.loadState()
         self.history = PolicyStore.loadHistory()
+        EmergencyUnblockManager.renewIfDue()
         self.emergencyStatus = EmergencyUnblockManager.status()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-resetOnboarding") {
+            UserDefaults.standard.removeObject(forKey: "hasSeenOnboarding")
+            UserDefaults.standard.removeObject(forKey: "onboardingAdultWebDefaultApplied")
+        }
+        #endif
         self.hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
         
         #if targetEnvironment(simulator)
@@ -44,9 +58,11 @@ class AppState: ObservableObject {
         #endif
         
         checkAuthorization()
-        EmergencyUnblockManager.refillIfNeeded()
-        ScheduleMonitor.sync(config.schedules)
+        // DeviceActivity registration is IPC; keep it off the launch path.
+        let schedules = config.schedules
+        Task.detached(priority: .utility) { ScheduleMonitor.sync(schedules) }
         reconcile()
+        reportCompletedBlocks() // retries events that failed last time
         
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-demo") {
@@ -77,36 +93,59 @@ class AppState: ObservableObject {
     }
     #endif
     
+    // MARK: - Anonymous count
+    
+    /// One anonymous event per completed block (see CountManager). Never in demo.
+    private func reportCompletedBlocks() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demo") { return }
+        #endif
+        #if targetEnvironment(simulator)
+        // Simulator runs share demo history and test hosts; never send real
+        // counts from them unless explicitly asked to.
+        guard ProcessInfo.processInfo.environment["OB_SEND_COUNTS"] == "1" else { return }
+        #endif
+        let history = history
+        Task { await CountManager.shared.reportCompletedBlocks(in: history) }
+    }
+    
     // MARK: - Authorization
     
     func checkAuthorization() {
-        Task {
-            isAuthorized = await AuthorizationCenter.shared.authorizationStatus == .approved
-        }
+        isAuthorized = Permissions.screenTimeStatus == .granted
     }
     
+    /// Asks for Screen Time. Returns whether iOS granted it (onboarding
+    /// explains a no); builds that can't get it still count as authorized.
     func requestAuthorization() async -> Bool {
-        do {
-            try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-            await MainActor.run {
-                isAuthorized = true
-            }
-            return true
-        } catch {
-            await MainActor.run {
-                isAuthorized = false
-            }
-            return false
-        }
+        let granted = (try? await AuthorizationCenter.shared.requestAuthorization(for: .individual)) != nil
+        isAuthorized = granted || Permissions.screenTimeUnavailable
+        return granted
+    }
+    
+    /// Launch and every return to the app: renew the emergency allowance
+    /// when its period is over, and pick up permission changes from Settings.
+    func appDidBecomeActive() {
+        EmergencyUnblockManager.renewIfDue()
+        emergencyStatus = EmergencyUnblockManager.status()
+        checkAuthorization()
+        reportCompletedBlocks()
+        #if DEBUG
+        Task { await Permissions.logStatuses() }
+        #endif
     }
     
     // MARK: - Reconcile
     
     func reconcile() {
         let wasBlocking = state.active != nil
-        _ = Reconcile.reconcile()
+        let previousSessionID = state.active?.id
+        _ = Reconcile.reconcile(config: config)
         state = PolicyStore.loadState()
-        history = PolicyStore.loadHistory()
+        // History only changes when a session ended.
+        if previousSessionID != nil && state.active?.id != previousSessionID {
+            history = PolicyStore.loadHistory()
+        }
         if wasBlocking && state.active == nil {
             SessionNotify.notifyEnded()
         }
@@ -182,7 +221,13 @@ class AppState: ObservableObject {
         config.keys
     }
     
+    /// Rule "Don't allow adding new keys while blocked" (on by default).
+    var canAddKeys: Bool {
+        !(isBlocking && config.rules.blockAddingKeys)
+    }
+    
     func addKey(_ key: BlockKey) {
+        guard canAddKeys else { return }
         config.keys.append(key)
         saveConfig()
     }
@@ -244,37 +289,28 @@ class AppState: ObservableObject {
         state.active
     }
     
-    func startBlockingWithKey(keyId: UUID) {
-        guard let mode = activeMode else { return }
-        guard !isBlocking else { return }
-        
-        let session = ActiveSession(
-            modeID: mode.id,
-            source: .key(keyId),
-            startedAt: Date()
-        )
-        
-        state.active = session
-        saveState()
-        reconcile()
-        NotificationCenter.default.post(name: .sessionStarted, object: nil)
+    /// Starts a session after a registered key was scanned.
+    @discardableResult
+    func startBlockingWithKey(keyId: UUID) -> Bool {
+        startSession(source: .key(keyId))
     }
     
-    func startBlockingWithHold() {
-        guard let mode = activeMode else { return }
-        guard !isBlocking else { return }
-        guard !keys.isEmpty else { return }
-        
-        let session = ActiveSession(
-            modeID: mode.id,
-            source: .hold,
-            startedAt: Date()
-        )
-        
-        state.active = session
+    /// Starts a session from a full hold on the key. Needs at least one
+    /// registered key, because only a key (or an emergency unblock) ends it.
+    @discardableResult
+    func startBlockingWithHold() -> Bool {
+        guard !keys.isEmpty else { return false }
+        return startSession(source: .hold)
+    }
+    
+    /// The one code path that starts every manual session.
+    private func startSession(source: ActiveSession.Source) -> Bool {
+        guard let mode = activeMode, !isBlocking else { return false }
+        state.active = ActiveSession(modeID: mode.id, source: source, startedAt: Date())
         saveState()
         reconcile()
         NotificationCenter.default.post(name: .sessionStarted, object: nil)
+        return isBlocking
     }
     
     #if DEBUG
@@ -391,7 +427,6 @@ class AppState: ObservableObject {
     
     private func saveConfig() {
         PolicyStore.save(config)
-        config = PolicyStore.loadConfig()
         ScheduleMonitor.sync(config.schedules)
     }
     

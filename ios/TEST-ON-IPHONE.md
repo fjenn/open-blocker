@@ -59,7 +59,7 @@ Do not use `-demo` on the phone if you want to test real keys. Demo seeds fake k
 1. Choose **QR Code**.
 2. Name it.
 3. Tap **Generate QR Code**, then **Save Key**.
-4. Share or print the code. Scanning it later uses the camera (grant camera permission).
+4. Share or print the code. The first scan asks for the camera.
 
 - [ ] Generated QR blocks and unblocks via **Scan QR** on the Block tab
 
@@ -77,8 +77,10 @@ If you have both NFC and QR keys, a sheet asks **Tap NFC key** or **Scan QR**. N
 
 ### Modes
 
-- [ ] Almost None (Allow Only): selected apps work, others shielded
-- [ ] Work Focus / Deep Focus (Block): selected apps shielded, others work
+- [ ] Sleep / Family time (Allow only selected): selected apps work, others shielded
+- [ ] Deep work / Mindfulness (Block selected): selected apps shielded, others work
+- [ ] Detox (the fresh-install starter): every app shielded
+- [ ] New mode from Sleep with "Schedule it" on: a Sleep schedule appears in Schedule, every day 10:00 PM - 7:00 AM
 
 ### Schedules
 
@@ -93,7 +95,7 @@ This auto-start path has not been verified on a phone.
 You must already be blocking. There is no 5-second hold on a giant number.
 
 1. Settings > Emergency Unblock
-2. You should see five dots, **5 left**, and "One returns every 30 days, up to 5."
+2. You should see five dots, **5 left**, "You get 5 every 6 months." and **Resets on** a date six months after the period started.
 3. Tap **Use an emergency unblock**
 4. Confirm **Use** (or Cancel)
 5. Count becomes **4 left**. Home returns to idle.
@@ -101,7 +103,20 @@ You must already be blocking. There is no 5-second hold on a giant number.
 If you tap Use while idle, the screen tells you to start a block first.
 
 - [ ] 5 to 4 after confirm, shield clears, home idle
+- [ ] The reset date stays the same after using one (the period does not restart)
 - [ ] Counter survives force-quit (Keychain on a signed device)
+
+## Permissions
+
+The app asks for each permission the first time it needs it. Nobody should have to find it in iPhone Settings first.
+
+- [ ] Onboarding: **Allow Screen Time** shows Apple's sheet. If you skip it, home shows **Allow Screen Time** before your first block, and opening the app picker or turning on a schedule asks again
+- [ ] First **Scan QR**: iOS asks for the camera, and the scanner opens right after **Allow**
+- [ ] Camera turned off in Settings, then **Scan QR**: a sheet says "Camera is off" with **Open Settings**, which opens Open Blocker's page in Settings
+- [ ] Settings > Notifications > **When a block ends**: iOS asks; if notifications were turned off earlier, the same sheet appears instead
+- [ ] NFC never asks: the scan sheet appears each time
+
+iOS remembers a camera or notification "Don't Allow" across app updates. If the first scan shows "Camera is off" instead of Apple's prompt, the camera was turned off for this app earlier: turn it on in Settings, or delete and reinstall the app to be asked again. Debug builds print each permission's state to the console on launch (`[Permissions] camera is denied`).
 
 ## Activity and rules
 
@@ -114,7 +129,7 @@ If you tap Use while idle, the screen tells you to start a block first.
 - App Group may fall back to Application Support if the group container is missing.
 - Schedules need background time; Low Power Mode can delay them.
 - NFC: unlocked phone, tag at the top back, 1-2 seconds. ISO14443 and ISO15693 only (not FeliCa).
-- QR needs camera permission and enough light.
+- QR needs the camera (asked on first scan) and enough light.
 - Many transit cards, hotel keys and work badges work. Test yours. Many bank cards and phone wallets show a new ID on each tap, so they can't be used.
 
 ## Troubleshooting

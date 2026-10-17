@@ -8,32 +8,20 @@ struct DemoData {
     static func setupDemo() {
         var config = PolicyStore.loadConfig()
         
-        // Create demo modes with demo counts
-        var almostNone = BlockMode(
-            name: "Almost None",
-            kind: .allowOnly,
-            isDefault: true
-        )
-        almostNone.demoAppCount = 8
-        almostNone.demoWebsiteCount = 1
+        // Demo modes use the starter template names, never real users' mode names.
+        var deepWork = ModeTemplate.deepWork.makeMode(isDefault: true)
+        deepWork.demoAppCount = 12
+        deepWork.demoWebsiteCount = 2
         
-        var workFocus = BlockMode(
-            name: "Work Focus",
-            kind: .block,
-            isDefault: true
-        )
-        workFocus.demoAppCount = 12
-        workFocus.demoWebsiteCount = 2
+        var sleep = ModeTemplate.sleep.makeMode(isDefault: true)
+        sleep.demoAppCount = 3
         
-        var deepFocus = BlockMode(
-            name: "Deep Focus",
-            kind: .block,
-            isDefault: true
-        )
-        deepFocus.demoAppCount = 20
+        var mindfulness = ModeTemplate.mindfulness.makeMode(isDefault: true)
+        mindfulness.demoAppCount = 20
         
-        config.modes = [almostNone, workFocus, deepFocus]
-        config.activeModeID = almostNone.id
+        let modes = [deepWork, sleep, mindfulness]
+        config.modes = modes
+        config.activeModeID = deepWork.id
         
         EmergencyUnblockManager.resetToFull()
         
@@ -66,15 +54,15 @@ struct DemoData {
                 weekdays: [2, 3, 4, 5, 6],
                 startMinute: 9 * 60,
                 endMinute: 17 * 60,
-                modeID: workFocus.id,
+                modeID: deepWork.id,
                 isOn: true
             ),
             BlockSchedule(
-                name: "Evening Focus",
+                name: "Bedtime",
                 weekdays: [1, 2, 3, 4, 5, 6, 7],
-                startMinute: 21 * 60,
-                endMinute: 23 * 60,
-                modeID: deepFocus.id,
+                startMinute: 22 * 60,
+                endMinute: 7 * 60,
+                modeID: sleep.id,
                 isOn: false
             )
         ]
@@ -90,7 +78,7 @@ struct DemoData {
         PolicyStore.save(config)
         
         PolicyStore.saveHistory(Self.history(
-            modes: [almostNone, workFocus, deepFocus],
+            modes: modes,
             keyID: config.keys[0].id,
             now: Date(),
             calendar: Calendar.current

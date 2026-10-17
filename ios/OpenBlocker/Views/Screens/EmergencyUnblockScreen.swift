@@ -1,155 +1,114 @@
-// Emergency Unblock screen
-
 import SwiftUI
 
 struct EmergencyUnblockScreen: View {
     @ObservedObject var appState = AppState.shared
-    @Environment(\.dismiss) var dismiss
-    @State private var step: Step = .ready
+    @State private var confirming = false
     @State private var notice: String?
     
-    private enum Step {
-        case ready
-        case confirm
-    }
-    
-    private var remaining: Int {
-        appState.emergencyStatus.remaining
-    }
+    private var remaining: Int { appState.emergencyStatus.remaining }
+    private let maximum = EmergencyAllowance.maxCount
     
     var body: some View {
-        ZStack {
-            Color.brickCanvas
-                .ignoresSafeArea()
-            
-            VStack(spacing: 16) {
-                Spacer(minLength: 8)
+        PushedScreen(title: "Emergency Unblock") {
+            VStack(spacing: Space.m) {
+                Spacer()
+                
+                HStack(spacing: Space.xs) {
+                    ForEach(0..<maximum, id: \.self) { index in
+                        Capsule(style: .continuous)
+                            .fill(index < remaining ? Color.ink : Color.fillQuiet)
+                            .frame(width: 28, height: 8)
+                    }
+                }
+                .animation(Motion.standard, value: remaining)
+                .accessibilityHidden(true)
                 
                 Text("\(remaining) left")
-                    .font(.system(size: 48, weight: .regular))
-                    .foregroundColor(Color.brickInk)
-                    .multilineTextAlignment(.center)
+                    .textStyle(.timer)
+                    .foregroundColor(Color.ink)
+                    .numericTransition()
                     .accessibilityIdentifier(AccessibilityID.emergencyCount)
                     .accessibilityLabel("\(remaining) left")
                 
                 Text("End a block without your key. Honesty, not a lock you cannot break.")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.brickSecondaryLabel)
+                    .textStyle(.body)
+                    .foregroundColor(Color.inkSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 36)
+                    .padding(.horizontal, Space.xxxl)
                 
-                Text("One returns every 30 days, up to 5.")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.brickMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                
-                if remaining == 5 {
-                    Text("Using one starts the 30-day return.")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.brickMuted)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                } else if let nextRefill = appState.emergencyStatus.nextRefillDate {
-                    Text("Next one on \(nextRefill, style: .date)")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.brickMuted)
+                VStack(spacing: 2) {
+                    Text("You get \(maximum) every \(EmergencyAllowance.periodMonths) months.")
+                        .foregroundColor(Color.inkTertiary)
+                    Text("Resets on \(resetDate)")
+                        .foregroundColor(Color.inkSecondary)
+                        .accessibilityIdentifier(AccessibilityID.emergencyReset)
                 }
+                .textStyle(.subhead)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Space.xxxl)
                 
-                if step == .confirm {
+                Spacer()
+                
+                if confirming {
                     confirmPanel
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
-                    Button(action: handleUseTap) {
-                        Text("Use an emergency unblock")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(remaining > 0 ? Color.brickCanvas : Color.brickMuted)
-                            .frame(maxWidth: .infinity, minHeight: 51)
-                            .background(
-                                Capsule()
-                                    .fill(remaining > 0 ? Color.brickInk : Color.brickButton)
-                            )
-                    }
-                    .disabled(remaining == 0)
-                    .padding(.horizontal, 40)
-                    .accessibilityIdentifier(AccessibilityID.emergencyUse)
+                    PrimaryButton(
+                        title: "Use an emergency unblock",
+                        emphasis: .ink,
+                        isEnabled: remaining > 0,
+                        accessibilityID: AccessibilityID.emergencyUse,
+                        action: useTapped
+                    )
+                    .padding(.horizontal, Space.xxxl)
                 }
                 
                 if let notice {
                     Text(notice)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.brickMuted)
+                        .textStyle(.subhead)
+                        .foregroundColor(Color.inkSecondary)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
+                        .padding(.horizontal, Space.xxxl)
                 }
                 
-                Spacer(minLength: 8)
+                Spacer().frame(height: Space.xl)
             }
-            .padding(.horizontal, 8)
+            .animation(Motion.standard, value: confirming)
         }
-        .navigationTitle("Emergency Unblocks")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(Color.brickInk)
-                }
-                .accessibilityIdentifier(AccessibilityID.navBack)
-                .accessibilityLabel("Back")
-            }
-        }
+    }
+    
+    private var resetDate: String {
+        appState.emergencyStatus.resetDate.formatted(date: .abbreviated, time: .omitted)
     }
     
     private var confirmPanel: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Space.m) {
             Text("Unblock without your key?")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Color.brickInk)
-            
-            Text("You get one back every 30 days.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundColor(Color.brickMuted)
-            
-            HStack(spacing: 10) {
-                Button("Cancel") {
-                    step = .ready
+                .textStyle(.headline)
+                .foregroundColor(Color.ink)
+            Text("You'll have \(max(remaining - 1, 0)) left.")
+                .textStyle(.subhead)
+                .foregroundColor(Color.inkSecondary)
+            HStack(spacing: Space.s) {
+                PrimaryButton(title: "Cancel") { confirming = false }
+                PrimaryButton(title: "Use", emphasis: .ink, accessibilityID: AccessibilityID.emergencyConfirm) {
+                    notice = appState.emergencyUnblock() ? "Unblocked." : "Could not use one right now."
+                    confirming = false
                 }
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(Color.brickMuted)
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .background(
-                    Capsule().fill(Color.brickCard)
-                )
-                
-                Button("Use") {
-                    if appState.emergencyUnblock() {
-                        notice = nil
-                    } else {
-                        notice = "Could not use one right now."
-                    }
-                    step = .ready
-                }
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(Color.brickCanvas)
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .background(
-                    Capsule().fill(Color.brickInk)
-                )
-                .accessibilityIdentifier(AccessibilityID.emergencyConfirm)
             }
         }
-        .padding(20)
-        .padding(.horizontal, 24)
+        .padding(Space.l)
+        .background(CardBackground(raised: true))
+        .padding(.horizontal, Space.margin)
     }
     
-    private func handleUseTap() {
+    private func useTapped() {
         guard remaining > 0 else { return }
-        notice = nil
         if appState.isBlocking {
-            step = .confirm
+            notice = nil
+            confirming = true
         } else {
-            notice = "Start a block first, then you can use one of these."
+            notice = "You're not blocked right now. This only works during a block."
         }
     }
 }
