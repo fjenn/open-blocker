@@ -95,7 +95,7 @@ struct BlockMode: Identifiable, Codable, Equatable {
             if allowedAppCount > 0 {
                 parts.append("Allows \(allowedAppCount) app\(allowedAppCount == 1 ? "" : "s")")
             } else {
-                parts.append("No apps chosen")
+                parts.append("Blocks all apps")
             }
         case .block:
             if blockedAppCount > 0 {
@@ -111,10 +111,27 @@ struct BlockMode: Identifiable, Codable, Equatable {
             parts.append("\(websiteCount) website\(websiteCount == 1 ? "" : "s")")
         }
         
-        return parts.isEmpty ? "Empty" : parts.joined(separator: " · ")
+        return parts.isEmpty ? "Nothing chosen yet" : parts.joined(separator: " · ")
     }
     
     static func == (lhs: BlockMode, rhs: BlockMode) -> Bool {
         lhs.id == rhs.id
+    }
+}
+
+/// The mode a fresh install starts with, so holding the key works right
+/// after adding a key: the "Detox" template, which blocks every app.
+/// Rename it any time.
+enum ModeDefaults {
+    static let starterTemplate = ModeTemplate.detox
+    
+    /// A copy of `config` with the starter mode, or nil when it already has modes.
+    static func seeded(_ config: PolicyStore.Config) -> PolicyStore.Config? {
+        guard config.modes.isEmpty else { return nil }
+        var seeded = config
+        let starter = starterTemplate.makeMode(isDefault: true)
+        seeded.modes = [starter]
+        seeded.activeModeID = starter.id
+        return seeded
     }
 }

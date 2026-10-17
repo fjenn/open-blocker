@@ -1,60 +1,42 @@
 import SwiftUI
 
 struct HelpScreen: View {
+    private let faqs: [(String, String)] = [
+        ("How keys work", "A physical key (an NFC tag, a card, or a printed QR) unblocks your phone. You can start a block by holding the key on screen, or by scanning your key. Honesty, not a lock you cannot break."),
+        ("Emergency unblocks", "If your key is out of reach, an emergency unblock ends the session. You get five every six months. The Emergency Unblock page shows when they reset."),
+        ("Why some cards fail", KeyRegistration.rotatingCardMessage),
+        ("Does it track my screen time?", "No. Apple requires Screen Time permission for any app that blocks apps. Open Blocker can't see your usage. Time blocked only counts your own blocks."),
+        ("Screen Time passcode", "Apple's shields are stronger if someone you trust sets a Screen Time passcode.")
+    ]
+    
     var body: some View {
-        BrickPushedScreen(title: "Help") {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    faq(
-                        title: "How keys work",
-                        body: "A physical key (NFC tag, card, or printed QR) starts and stops a block. Open the app and tap it. Honesty, not a lock you cannot break."
-                    )
-                    faq(
-                        title: "Emergency unblocks",
-                        body: "If you cannot tap your key, use an emergency unblock to end a session. You get five. One returns every 30 days."
-                    )
-                    faq(
-                        title: "Why some cards fail",
-                        body: KeyRegistration.rotatingCardMessage
-                    )
-                    faq(
-                        title: "Screen Time passcode",
-                        body: "Apple's shields are stronger if someone you trust sets a Screen Time passcode."
-                    )
-                    
-                    Button(action: {
-                        UIApplication.shared.open(OpenBlockerLinks.screenTimePasscode)
-                    }) {
-                        Text("How to set a Screen Time passcode")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(Color.brickInk)
-                            .frame(maxWidth: .infinity, minHeight: 51)
-                            .background(Capsule().fill(Color.brickButton))
+        PushedScreen(title: "Help") {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Space.s) {
+                    ForEach(faqs, id: \.0) { faq in
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            Text(faq.0)
+                                .textStyle(.headline)
+                                .foregroundColor(Color.ink)
+                            Text(faq.1)
+                                .textStyle(.body)
+                                .foregroundColor(Color.inkSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(Space.l)
+                        .background(CardBackground())
                     }
-                    .padding(.top, 4)
+                    
+                    PrimaryButton(title: "How to set a Screen Time passcode") {
+                        UIApplication.shared.open(OpenBlockerLinks.screenTimePasscode)
+                    }
+                    .padding(.top, Space.s)
                 }
-                .padding(20)
-                .padding(.bottom, 24)
+                .padding(.horizontal, Space.margin)
+                .padding(.bottom, Space.xxxl)
             }
         }
-    }
-    
-    private func faq(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 17, weight: .medium))
-                .foregroundColor(Color.brickInk)
-            Text(body)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundColor(Color.brickSecondaryLabel)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.brickCard)
-        )
     }
 }
 
@@ -68,40 +50,37 @@ struct AboutScreen: View {
     }
     
     var body: some View {
-        BrickPushedScreen(title: "About") {
-            VStack(spacing: 20) {
-                Spacer(minLength: 24)
-                
+        PushedScreen(title: "About") {
+            VStack(spacing: Space.m) {
+                Spacer(minLength: Space.xl)
+                BrandMark(size: 96)
+                    .shadow(color: Color.accent.opacity(0.3), radius: 24, y: 12)
                 Text("Open Blocker")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundColor(Color.brickInk)
-                
+                    .textStyle(.largeTitle)
+                    .foregroundColor(Color.ink)
+                    .padding(.top, Space.xs)
                 Text("Version \(version) (\(build))")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.brickSecondaryLabel)
-                
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
                 Text("MIT License")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.brickSecondaryLabel)
-                
-                Text("A physical key starts and stops a block. Free, open, and honest.")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.brickMuted)
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
+                Text("A physical key unblocks your phone. Free, open, and honest.")
+                    .textStyle(.body)
+                    .foregroundColor(Color.inkSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                
-                Button(action: {
-                    UIApplication.shared.open(OpenBlockerLinks.projectPage)
-                }) {
-                    Text("Project page")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color.brickInk)
-                        .frame(maxWidth: .infinity, minHeight: 51)
-                        .background(Capsule().fill(Color.brickButton))
-                }
-                .padding(.horizontal, 40)
-                
+                    .padding(.horizontal, Space.xxxl)
+                    .padding(.top, Space.xs)
                 Spacer()
+                PrimaryButton(title: "Project page") {
+                    UIApplication.shared.open(OpenBlockerLinks.projectPage)
+                }
+                .padding(.horizontal, Space.xxxl)
+                PrimaryButton(title: "See the code", accessibilityID: "about-see-code", leadingImage: "mark-github") {
+                    UIApplication.shared.open(OpenBlockerLinks.sourceCode)
+                }
+                .padding(.horizontal, Space.xxxl)
+                .padding(.bottom, Space.xxxl)
             }
         }
     }
@@ -109,105 +88,128 @@ struct AboutScreen: View {
 
 struct ContactScreen: View {
     var body: some View {
-        BrickPushedScreen(title: "Contact") {
-            VStack(spacing: 20) {
-                Spacer(minLength: 24)
-                
-                Text("Bugs, questions, and ideas.")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(Color.brickInk)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                
-                Text("The project page is the public home for Open Blocker.")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(Color.brickSecondaryLabel)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                
-                Button(action: {
-                    UIApplication.shared.open(OpenBlockerLinks.projectPage)
-                }) {
-                    Text("Open the project page")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color.brickInk)
-                        .frame(maxWidth: .infinity, minHeight: 51)
-                        .background(Capsule().fill(Color.brickButton))
-                }
-                .padding(.horizontal, 40)
-                
+        PushedScreen(title: "Contact") {
+            VStack(spacing: Space.m) {
                 Spacer()
+                ZStack {
+                    Circle().fill(Color.fillQuiet).frame(width: 88, height: 88)
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(Color.inkSecondary)
+                }
+                Text("Bugs, questions, and ideas.")
+                    .textStyle(.title)
+                    .foregroundColor(Color.ink)
+                    .multilineTextAlignment(.center)
+                Text("Tell us on the feedback page.")
+                    .textStyle(.body)
+                    .foregroundColor(Color.inkSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Space.xxxl)
+                Spacer()
+                PrimaryButton(title: "Send feedback") {
+                    UIApplication.shared.open(OpenBlockerLinks.feedback)
+                }
+                .padding(.horizontal, Space.xxxl)
+                .padding(.bottom, Space.xxxl)
             }
         }
     }
 }
 
-struct NotificationsScreen: View {
-    @State private var enabled = SessionNotify.isEnabled
-    @State private var busy = false
-    @State private var deniedNote: String?
+/// What leaves the phone (one anonymous event per finished block) and why each permission is asked for.
+struct PrivacyScreen: View {
+    private let permissions: [(icon: String, title: String, reason: String)] = [
+        ("hourglass", "Screen Time", "Apple requires this so we can block apps. We don't read or track your usage. Time blocked is our own count."),
+        ("wave.3.right", "NFC", "Reads your key tag or card, and sets up new tags."),
+        ("camera", "Camera", "Scans your QR or barcode key. Nothing is recorded."),
+        ("bell", "Notifications", "Tells you when a block ends, if you turn it on.")
+    ]
     
     var body: some View {
-        BrickPushedScreen(title: "Notifications") {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("When a block ends")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(Color.brickInk)
-                        Text("A local notification when you unlock, use an emergency unblock, or a schedule window ends.")
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(Color.brickSecondaryLabel)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 12)
-                    Toggle("", isOn: Binding(
-                        get: { enabled },
-                        set: { newValue in
-                            busy = true
-                            Task {
-                                let on = await SessionNotify.setEnabled(newValue)
-                                await MainActor.run {
-                                    enabled = on
-                                    busy = false
-                                    if newValue && !on {
-                                        deniedNote = "Notifications were not allowed. You can enable them in iPhone Settings."
-                                    } else {
-                                        deniedNote = nil
-                                    }
-                                }
-                            }
-                        }
-                    ))
-                    .labelsHidden()
-                    .tint(Color.brickAccent)
-                    .disabled(busy)
-                    .accessibilityIdentifier(AccessibilityID.notificationsToggle)
-                }
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.brickCard)
-                )
-                
-                if let deniedNote {
-                    Text(deniedNote)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.brickMuted)
+        PushedScreen(title: "Privacy") {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Space.s) {
+                    card(
+                        title: "Stays on your iPhone",
+                        text: "Your modes, keys, schedules and history stay on your phone. Open Blocker has no accounts and no ads."
+                    )
+                    card(title: "Anonymous count", text: CountManager.disclosure + " Turn it off in Settings any time.")
                     
-                    Button("Open iPhone Settings") {
-                        SessionNotify.openSystemSettings()
+                    Text("Permissions")
+                        .textStyle(.subhead, weight: .semibold)
+                        .foregroundColor(Color.inkSecondary)
+                        .padding(.horizontal, Space.xxs)
+                        .padding(.top, Space.s)
+                    SettingsGroup {
+                        ForEach(permissions.indices, id: \.self) { index in
+                            if index > 0 { HairlineDivider() }
+                            let item = permissions[index]
+                            SettingsRow(icon: item.icon, title: item.title, subtitle: item.reason, showsChevron: false)
+                        }
                     }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(Color.brickInk)
+                    
+                    PrimaryButton(title: "Full privacy policy") {
+                        UIApplication.shared.open(OpenBlockerLinks.privacy)
+                    }
+                    .padding(.top, Space.s)
                 }
-                
+                .padding(.horizontal, Space.margin)
+                .padding(.top, Space.xs)
+                .padding(.bottom, Space.xxl)
+            }
+        }
+    }
+    
+    private func card(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            Text(title)
+                .textStyle(.headline)
+                .foregroundColor(Color.ink)
+            Text(text)
+                .textStyle(.body)
+                .foregroundColor(Color.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Space.l)
+        .background(CardBackground())
+    }
+}
+
+struct NotificationsScreen: View {
+    @State private var enabled = SessionNotify.isEnabled
+    @State private var deniedPermission: Permission?
+    
+    var body: some View {
+        PushedScreen(title: "Notifications") {
+            VStack(alignment: .leading, spacing: Space.m) {
+                SettingsGroup {
+                    ToggleRow(
+                        title: "When a block ends",
+                        subtitle: "A quiet notification when you unblock, use an emergency unblock, or a schedule ends.",
+                        isOn: Binding(get: { enabled }, set: setEnabled),
+                        accessibilityID: AccessibilityID.notificationsToggle
+                    )
+                }
                 Spacer()
             }
-            .padding(20)
-            .task {
-                enabled = SessionNotify.isEnabled
-            }
+            .padding(.horizontal, Space.margin)
+            .padding(.top, Space.xs)
+            .task { enabled = SessionNotify.isEnabled }
+        }
+        .permissionSheet($deniedPermission)
+    }
+    
+    private func setEnabled(_ newValue: Bool) {
+        guard newValue else {
+            SessionNotify.setEnabled(false)
+            enabled = false
+            return
+        }
+        Permissions.whenGranted(.notifications, denied: $deniedPermission) {
+            SessionNotify.setEnabled(true)
+            enabled = true
         }
     }
 }

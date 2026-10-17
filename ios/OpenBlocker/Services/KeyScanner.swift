@@ -9,9 +9,9 @@ enum KeyScanner {
     }
     
     static func route(for keys: [BlockKey]) -> Route {
-        let hasNFC = keys.contains { $0.kind != .qr }
-        let hasQR = keys.contains { $0.kind == .qr }
-        switch (hasNFC, hasQR) {
+        let hasNFC = keys.contains { $0.kind == .openBlockerTag || $0.kind == .card }
+        let hasCode = keys.contains { $0.kind == .qr || $0.kind == .barcode }
+        switch (hasNFC, hasCode) {
         case (false, false):
             return .none
         case (true, false):
@@ -23,7 +23,10 @@ enum KeyScanner {
         }
     }
     
-    static func scannedKey(fromQR payload: String) -> ScannedKey {
-        .qr(payload: KeyRegistration.canonicalizeQR(payload))
+    static func scannedKey(fromCode payload: String) -> ScannedKey {
+        if payload.hasPrefix("openblocker://") {
+            return .qr(payload: KeyRegistration.canonicalizeQR(payload))
+        }
+        return .barcode(payload: payload)
     }
 }

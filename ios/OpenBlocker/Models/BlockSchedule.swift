@@ -10,6 +10,7 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     var endMinute: Int
     var modeID: UUID?
     var isOn: Bool
+    var endsOnKey: Bool
     
     init(
         id: UUID = UUID(),
@@ -18,7 +19,8 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         startMinute: Int,
         endMinute: Int,
         modeID: UUID? = nil,
-        isOn: Bool = false
+        isOn: Bool = false,
+        endsOnKey: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -27,6 +29,13 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.endMinute = endMinute
         self.modeID = modeID
         self.isOn = isOn
+        self.endsOnKey = endsOnKey
+    }
+    
+    /// End minute used for scheduling. Open-ended schedules span a full day
+    /// (start + 1439) so DeviceActivity and Reconcile agree on the window.
+    var effectiveEndMinute: Int {
+        endsOnKey ? (startMinute + 1439) % 1440 : endMinute
     }
     
     static func formatClock(_ minute: Int) -> String {
@@ -38,7 +47,10 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     }
     
     var timeRangeString: String {
-        "\(Self.formatClock(startMinute)) - \(Self.formatClock(endMinute))"
+        if endsOnKey {
+            return "\(Self.formatClock(startMinute)) - Until key tap"
+        }
+        return "\(Self.formatClock(startMinute)) - \(Self.formatClock(endMinute))"
     }
     
     /// Next start after `now`. Overnight windows still start on a selected weekday.
@@ -74,7 +86,7 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     
     var daysString: String {
         if weekdays.count == 7 {
-            return "Everyday"
+            return "Every day"
         }
         
         let dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -100,5 +112,22 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
             ? endMinute - startMinute
             : (24 * 60 - startMinute) + endMinute
         return duration >= 15
+    }
+}
+
+extension BlockSchedule {
+    // Tolerant: schedules saved before open-ended schedules have no `endsOnKey`.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try c.decode(UUID.self, forKey: .id),
+            name: try c.decode(String.self, forKey: .name),
+            weekdays: try c.decode(Set<Int>.self, forKey: .weekdays),
+            startMinute: try c.decode(Int.self, forKey: .startMinute),
+            endMinute: try c.decode(Int.self, forKey: .endMinute),
+            modeID: try c.decodeIfPresent(UUID.self, forKey: .modeID),
+            isOn: try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false,
+            endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false
+        )
     }
 }

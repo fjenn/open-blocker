@@ -11,6 +11,7 @@ struct BlockKey: Identifiable, Codable, Equatable {
         case openBlockerTag
         case card
         case qr
+        case barcode
     }
     
     init(
@@ -35,6 +36,8 @@ struct BlockKey: Identifiable, Codable, Equatable {
             return "creditcard"
         case .qr:
             return "qrcode"
+        case .barcode:
+            return "barcode"
         }
     }
     
@@ -50,6 +53,8 @@ struct BlockKey: Identifiable, Codable, Equatable {
             return secret == uid.hexString
         case (.qr, .qr(let payload)):
             return KeyRegistration.qrPayloadsMatch(secret, payload)
+        case (.barcode, .barcode(let payload)):
+            return secret == payload
         default:
             return false
         }

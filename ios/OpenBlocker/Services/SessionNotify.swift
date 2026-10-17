@@ -1,6 +1,5 @@
 import Foundation
 import UserNotifications
-import UIKit
 
 /// Local notifications when a block or scheduled session ends.
 enum SessionNotify {
@@ -11,32 +10,11 @@ enum SessionNotify {
         UserDefaults.standard.bool(forKey: enabledKey)
     }
     
-    static func setEnabled(_ enabled: Bool) async -> Bool {
-        if enabled {
-            let granted = await requestPermission()
-            UserDefaults.standard.set(granted, forKey: enabledKey)
-            if !granted {
-                await openSystemSettings()
-            }
-            return granted
-        } else {
-            UserDefaults.standard.set(false, forKey: enabledKey)
-            cancelScheduledEnd()
-            return false
-        }
-    }
-    
-    static func requestPermission() async -> Bool {
-        let center = UNUserNotificationCenter.current()
-        do {
-            return try await center.requestAuthorization(options: [.alert, .sound])
-        } catch {
-            return false
-        }
-    }
-    
-    static func authorizationStatus() async -> UNAuthorizationStatus {
-        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    /// Saves the switch. Turning it on asks for permission first
+    /// (Permissions.request), in NotificationsScreen.
+    static func setEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: enabledKey)
+        if !enabled { cancelScheduledEnd() }
     }
     
     static func notifyEnded() {
@@ -77,11 +55,5 @@ enum SessionNotify {
     static func cancelScheduledEnd() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [scheduleEndID])
-    }
-    
-    @MainActor
-    static func openSystemSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        UIApplication.shared.open(url)
     }
 }
