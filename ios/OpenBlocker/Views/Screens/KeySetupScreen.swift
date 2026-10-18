@@ -2,229 +2,249 @@ import SwiftUI
 import CoreImage.CIFilterBuiltins
 
 struct KeySetupScreen: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var appState = AppState.shared
-    @State private var selectedType: BlockKey.Kind = .qr
-    @State private var keyName: String = ""
-    @State private var generatedKeyId: String = ""
-    @State private var qrImage: UIImage?
-    @State private var showingSaveSuccess = false
+    @State private var kind: BlockKey.Kind = .qr
+    @State private var keyName = ""
+    @State private var secret = ""
+    /// Called after a key is saved (onboarding uses it to move on).
+    var onSaved: (() -> Void)? = nil
+    
+    private var trimmedName: String {
+        keyName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private var canSave: Bool {
+        !secret.isEmpty && !trimmedName.isEmpty
+    }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color.brickCanvas
-                    .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Type selector
-                        Picker("Key Type", selection: $selectedType) {
-                            Text("QR Code").tag(BlockKey.Kind.qr)
-                            Text("NFC Tag").tag(BlockKey.Kind.openBlockerTag)
-                            Text("NFC Card").tag(BlockKey.Kind.card)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
-                        
-                        // Name input
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Key Name")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.secondary)
-                            
-                            TextField("e.g. My QR Code", text: $keyName)
-                                .textFieldStyle(.plain)
-                                .padding()
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.brickCard)
-                                )
-                        }
-                        .padding(.horizontal)
-                        
-                        // Type-specific content
-                        Group {
-                            switch selectedType {
-                            case .qr:
-                                QRKeySetupView(
-                                    keyId: $generatedKeyId,
-                                    qrImage: $qrImage
-                                )
-                            case .openBlockerTag:
-                                NFCTagSetupView(keyId: $generatedKeyId)
-                            case .card:
-                                NFCCardSetupView(keyId: $generatedKeyId)
-                            }
-                        }
-                        
-                        // Save button
-                        if !generatedKeyId.isEmpty && !keyName.isEmpty {
-                            Button(action: saveKey) {
-                                Text("Save Key")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 18)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .fill(Color.brickCard)
-                                    )
-                            }
-                            .padding(.horizontal)
+        SheetScaffold(
+            title: "Add Key",
+            trailing: SheetAction(systemImage: "xmark", accessibilityLabel: "Cancel") { dismiss() },
+            primary: SheetAction(title: "Save Key", isEnabled: canSave) { save() }
+        ) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Space.s) {
+                    SegmentedPill(
+                        options: [
+                            ("QR", BlockKey.Kind.qr),
+                            ("Barcode", BlockKey.Kind.barcode),
+                            ("NFC tag", BlockKey.Kind.openBlockerTag),
+                            ("Card", BlockKey.Kind.card)
+                        ],
+                        selection: $kind
+                    )
+                    .onChange(of: kind) { _ in secret = "" }
+                    
+                    SettingsGroup {
+                        FormTextField(label: "Key Name", placeholder: placeholder, text: $keyName)
+                    }
+                    
+                    Group {
+                        switch kind {
+                        case .qr: QRKeySetupView(secret: $secret)
+                        case .barcode: BarcodeKeySetupView(secret: $secret)
+                        case .openBlockerTag: NFCTagSetupView(secret: $secret)
+                        case .card: NFCCardSetupView(secret: $secret)
                         }
                     }
-                    .padding(.top, 20)
-                    .padding(.bottom, 40)
+                    .id(kind)
+                    .padding(.top, Space.xs)
                 }
+                .padding(.horizontal, Space.margin)
+                .padding(.top, Space.xxs)
+                .padding(.bottom, Space.l)
             }
-            .navigationTitle("Add Key")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-            .alert("Key Saved", isPresented: $showingSaveSuccess) {
-                Button("OK") {
-                    dismiss()
-                }
-            } message: {
-                Text("Your key has been saved successfully!")
-            }
+        }
+        .accessibilityIdentifier(AccessibilityID.keySetupRoot)
+    }
+    
+    private var placeholder: String {
+        switch kind {
+        case .qr: return "Fridge QR"
+        case .barcode: return "Cereal box"
+        case .openBlockerTag: return "Desk tag"
+        case .card: return "Gym card"
         }
     }
     
-    private func saveKey() {
-        let key = BlockKey(
-            name: keyName,
-            kind: selectedType,
-            secret: generatedKeyId
-        )
-        appState.addKey(key)
-        showingSaveSuccess = true
+    private func save() {
+        guard appState.canAddKeys else { dismiss(); return }
+        appState.addKey(BlockKey(name: trimmedName, kind: kind, secret: secret))
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        onSaved?()
+        dismiss()
+    }
+}
+
+/// Shared card for the three key types: medallion, copy, status, action.
+private struct SetupPanel<Accessory: View>: View {
+    let icon: String
+    let title: String
+    let message: String
+    var status: String? = nil
+    var statusIsGood = false
+    var actionTitle: String? = nil
+    var actionBusy = false
+    var action: (() -> Void)? = nil
+    @ViewBuilder var accessory: Accessory
+    
+    var body: some View {
+        VStack(spacing: Space.m) {
+            accessory
+            ZStack {
+                Circle().fill(Color.fillQuiet).frame(width: 64, height: 64)
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundColor(Color.ink)
+            }
+            Text(title)
+                .textStyle(.headline)
+                .foregroundColor(Color.ink)
+            Text(message)
+                .textStyle(.subhead)
+                .foregroundColor(Color.inkSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if let status {
+                Label(status, systemImage: statusIsGood ? "checkmark.circle.fill" : "info.circle")
+                    .textStyle(.footnote)
+                    .foregroundColor(statusIsGood ? Color.success : Color.inkSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            if let actionTitle, let action {
+                PrimaryButton(title: actionBusy ? "Hold it near the top of your iPhone" : actionTitle, isEnabled: !actionBusy, action: action)
+                    .padding(.top, Space.xxs)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Space.l)
+        .background(CardBackground())
+    }
+}
+
+extension SetupPanel where Accessory == EmptyView {
+    init(icon: String, title: String, message: String, status: String? = nil, statusIsGood: Bool = false,
+         actionTitle: String? = nil, actionBusy: Bool = false, action: (() -> Void)? = nil) {
+        self.init(icon: icon, title: title, message: message, status: status, statusIsGood: statusIsGood,
+                  actionTitle: actionTitle, actionBusy: actionBusy, action: action, accessory: { EmptyView() })
     }
 }
 
 struct QRKeySetupView: View {
-    @Binding var keyId: String
-    @Binding var qrImage: UIImage?
+    @Binding var secret: String
+    @State private var qrImage: UIImage?
     
     var body: some View {
-        VStack(spacing: 20) {
-            if let image = qrImage {
+        if let image = qrImage {
+            VStack(spacing: Space.m) {
                 Image(uiImage: image)
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 250, height: 250)
-                    .background(Color.white)
-                    .cornerRadius(20)
-                    .shadow(radius: 10)
-            } else {
-                Button(action: generateQRCode) {
-                    VStack(spacing: 12) {
-                        Image(systemName: "qrcode")
-                            .font(.system(size: 60))
-                        Text("Generate QR Code")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    .foregroundColor(.primary)
-                    .frame(width: 250, height: 250)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.brickCard)
-                    )
+                    .padding(Space.l)
+                    .frame(width: 240, height: 240)
+                    .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Color.white))
+                    .shadow(color: Color.floatShadow, radius: 20, y: 8)
+                Text("Print it or save it somewhere you have to walk to. Scan it to unblock.")
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
+                    .multilineTextAlignment(.center)
+                ShareLink(item: Image(uiImage: image), preview: SharePreview("Open Blocker key", image: Image(uiImage: image))) {
+                    Label("Share or print", systemImage: "square.and.arrow.up")
+                        .textStyle(.footnote, weight: .semibold)
+                        .foregroundColor(Color.ink)
+                        .padding(.horizontal, Space.m)
+                        .frame(minHeight: 36)
+                        .background(Capsule(style: .continuous).fill(Color.fillQuiet))
                 }
             }
-            
-            Text("Save this QR code and scan it to block/unblock")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
-            if qrImage != nil {
-                ShareLink(item: Image(uiImage: qrImage!), preview: SharePreview("Open Blocker Key")) {
-                    Label("Share QR Code", systemImage: "square.and.arrow.up")
-                }
-                .buttonStyle(.bordered)
-            }
+            .frame(maxWidth: .infinity)
+        } else {
+            SetupPanel(
+                icon: "qrcode",
+                title: "A printed QR key",
+                message: "Make a code, print it, and keep it away from your phone.",
+                actionTitle: "Make QR code",
+                action: generate
+            )
         }
     }
     
-    private func generateQRCode() {
-        let data = OpenBlockerFormat.TagData(tagId: OpenBlockerFormat.generateTagId())
-        let payload = OpenBlockerFormat.encodeForQR(data)
-        keyId = payload
-        
-        let context = CIContext()
+    private func generate() {
+        let payload = OpenBlockerFormat.encodeForQR(OpenBlockerFormat.TagData(tagId: OpenBlockerFormat.generateTagId()))
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(payload.utf8)
-        
-        if let outputImage = filter.outputImage {
-            let transform = CGAffineTransform(scaleX: 10, y: 10)
-            let scaledImage = outputImage.transformed(by: transform)
-            
-            if let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) {
-                qrImage = UIImage(cgImage: cgImage)
-            }
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
+              let cgImage = CIContext().createCGImage(output, from: output.extent) else {
+            return
         }
+        withAnimation(Motion.standard) {
+            qrImage = UIImage(cgImage: cgImage)
+        }
+        secret = payload
+    }
+}
+
+/// Any barcode you own (a product, a library card) as a key. The raw
+/// barcode value is the secret; scanning it later must give the same value.
+struct BarcodeKeySetupView: View {
+    @Binding var secret: String
+    @State private var showingScanner = false
+    @State private var deniedPermission: Permission?
+    
+    var body: some View {
+        SetupPanel(
+            icon: "barcode",
+            title: "A barcode or QR code you own",
+            message: "Scan one on something you keep away from your phone.",
+            status: secret.isEmpty ? nil : "Barcode ready.",
+            statusIsGood: !secret.isEmpty,
+            actionTitle: secret.isEmpty ? "Scan barcode" : "Scan again",
+            action: {
+                Permissions.whenGranted(.camera, denied: $deniedPermission) {
+                    showingScanner = true
+                }
+            }
+        )
+        .sheet(isPresented: $showingScanner) {
+            QRScannerView(
+                onCode: { payload in
+                    showingScanner = false
+                    if case .barcode(let value) = KeyScanner.scannedKey(fromCode: payload) {
+                        secret = value
+                    }
+                },
+                onCancel: { showingScanner = false }
+            )
+        }
+        .permissionSheet($deniedPermission)
     }
 }
 
 struct NFCTagSetupView: View {
-    @Binding var keyId: String
+    @Binding var secret: String
     @ObservedObject var appState = AppState.shared
     @State private var isScanning = false
-    @State private var status = "Ready to scan"
+    @State private var status: String?
     
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "wave.3.right.circle")
-                .font(.system(size: 80))
-                .foregroundColor(.blue)
-            
-            Text("Write NFC Tag")
-                .font(.title2.weight(.semibold))
-            
-            Text("Hold a blank NTAG213, NTAG215, or NTAG216 tag near your iPhone.")
-                .font(.system(size: 15))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
-            Text(status)
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            
-            Button(action: registerTag) {
-                Text(isScanning ? "Hold your tag..." : "Start NFC Scan")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(isScanning ? Color.gray.opacity(0.5) : Color.brickCard)
-                    )
-            }
-            .disabled(isScanning)
-            .padding(.horizontal, 40)
-            
-            Text("Requires a physical iPhone with NFC")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-        }
+        SetupPanel(
+            icon: "wave.3.right",
+            title: "An NFC sticker",
+            message: "Use a blank NTAG213, 215 or 216. Open Blocker writes its own record onto it.",
+            status: status,
+            statusIsGood: !secret.isEmpty,
+            actionTitle: secret.isEmpty ? "Scan tag" : "Scan again",
+            actionBusy: isScanning,
+            action: register
+        )
     }
     
-    private func registerTag() {
+    private func register() {
         isScanning = true
-        status = "Hold the tag to the top of your iPhone..."
         Task {
             defer { isScanning = false }
             do {
@@ -233,16 +253,15 @@ struct NFCTagSetupView: View {
                     status = "That was not an NFC tag."
                     return
                 }
-                let tagId = OpenBlockerFormat.generateTagId()
                 do {
-                    try await appState.nfcScanner.writeOpenBlockerRecord(tagId: tagId)
-                    status = "UID registered and Open Blocker record written."
+                    try await appState.nfcScanner.writeOpenBlockerRecord(tagId: OpenBlockerFormat.generateTagId())
+                    status = "Tag ready."
                 } catch {
-                    status = "UID registered. Could not write an Open Blocker record; the sticker still works by UID."
+                    status = "Tag ready. It works by its chip ID."
                 }
-                keyId = uid
+                secret = uid
             } catch NFCScanError.userCancelled {
-                status = "Scan cancelled."
+                status = nil
             } catch {
                 status = error.localizedDescription
             }
@@ -251,62 +270,32 @@ struct NFCTagSetupView: View {
 }
 
 struct NFCCardSetupView: View {
-    @Binding var keyId: String
+    @Binding var secret: String
     @ObservedObject var appState = AppState.shared
     @State private var firstScan: String?
     @State private var isScanning = false
-    @State private var status = "Ready for first scan"
+    @State private var status: String?
     
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "creditcard")
-                .font(.system(size: 80))
-                .foregroundColor(.orange)
-            
-            Text("Register NFC Card")
-                .font(.title2.weight(.semibold))
-            
-            Text("Hold your card (transit, hotel key, work badge) near your iPhone twice to confirm it has a stable ID.")
-                .font(.system(size: 15))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
-            Text(status)
-                .font(.system(size: 14))
-                .foregroundColor(statusColor)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            
-            Button(action: scanCard) {
-                Text(isScanning ? "Hold your card..." : (firstScan == nil ? "First Scan" : "Second Scan"))
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(isScanning ? Color.gray.opacity(0.5) : Color.brickCard)
-                    )
-            }
-            .disabled(isScanning)
-            .padding(.horizontal, 40)
-            
-            Text(KeyRegistration.rotatingCardMessage)
-                .font(.system(size: 13))
-                .foregroundColor(.orange)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+        SetupPanel(
+            icon: "creditcard",
+            title: "A card you own",
+            message: "Transit cards, hotel keys and work badges often work. Not every card works. Test yours. Scan it twice so we know its ID is stable.",
+            status: status,
+            statusIsGood: !secret.isEmpty,
+            actionTitle: secret.isEmpty ? (firstScan == nil ? "Scan card" : "Scan it again") : "Start over",
+            actionBusy: isScanning,
+            action: scan
+        )
+    }
+    
+    private func scan() {
+        if !secret.isEmpty {
+            secret = ""
+            firstScan = nil
+            status = nil
+            return
         }
-    }
-    
-    private var statusColor: Color {
-        if keyId.isEmpty == false { return .green }
-        if status == KeyRegistration.rotatingCardMessage { return .orange }
-        return .secondary
-    }
-    
-    private func scanCard() {
         isScanning = true
         Task {
             defer { isScanning = false }
@@ -316,22 +305,21 @@ struct NFCCardSetupView: View {
                     status = "That was not an NFC card."
                     return
                 }
-                if let first = firstScan {
-                    switch KeyRegistration.confirmCard(firstUID: first, secondUID: uid) {
-                    case .match(let confirmed):
-                        keyId = confirmed
-                        status = "Card registered successfully!"
-                    case .rotating:
-                        firstScan = nil
-                        keyId = ""
-                        status = KeyRegistration.rotatingCardMessage
-                    }
-                } else {
+                guard let first = firstScan else {
                     firstScan = uid
-                    status = "First scan complete! Scan again to confirm."
+                    status = "Got it. Scan the same card once more."
+                    return
+                }
+                switch KeyRegistration.confirmCard(firstUID: first, secondUID: uid) {
+                case .match(let confirmed):
+                    secret = confirmed
+                    status = "Card ready."
+                case .rotating:
+                    firstScan = nil
+                    status = KeyRegistration.rotatingCardMessage
                 }
             } catch NFCScanError.userCancelled {
-                status = "Scan cancelled."
+                return
             } catch {
                 status = error.localizedDescription
             }

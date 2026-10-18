@@ -1,144 +1,116 @@
 import SwiftUI
 
 struct KeysManagementScreen: View {
-    @Environment(\.dismiss) var dismiss
     @StateObject private var appState = AppState.shared
     @State private var showingKeySetup = false
     
     var body: some View {
-        ZStack {
-            Color.brickCanvas
-                .ignoresSafeArea()
-            
-            ScrollView {
-                VStack(spacing: 16) {
-                    if appState.keys.isEmpty {
-                        VStack(spacing: 20) {
-                            Image(systemName: "key.fill")
-                                .font(.system(size: 48))
-                                .foregroundColor(Color.brickInk)
-                            
-                            Text("No keys yet")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(Color.brickInk)
-                            
-                            Text("Keys are used for honesty, not security. Set up a physical key to block and unblock.")
-                                .font(.system(size: 15))
-                                .foregroundColor(Color.brickMuted)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
-                        }
-                        .padding(.top, 80)
-                    } else {
-                        ForEach(appState.keys) { key in
-                            KeyCard(key: key)
-                        }
-                    }
-                }
-                .padding()
-                .padding(.bottom, 100)
-            }
-            
-            VStack {
-                Spacer()
-                Button(action: { showingKeySetup = true }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Key")
-                    }
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.brickCard)
-                            .shadow(radius: 10)
+        PushedScreen(title: "My Keys") {
+            ZStack(alignment: .bottom) {
+                if appState.keys.isEmpty {
+                    EmptyStateView(
+                        systemImage: "key.fill",
+                        title: "No keys yet",
+                        message: "A key is the thing you hold: an NFC tag, a card, a printed QR, or a barcode. It is what unblocks you."
                     )
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: Space.s) {
+                            ForEach(appState.keys) { key in
+                                KeyCard(key: key, canDelete: !appState.isBlocking)
+                            }
+                            if appState.isBlocking {
+                                Text(addingLocked
+                                     ? "Keys can't be added or removed while you're blocked."
+                                     : "Keys can't be removed while you're blocked.")
+                                    .textStyle(.footnote, weight: .regular)
+                                    .foregroundColor(Color.inkTertiary)
+                                    .padding(.top, Space.xs)
+                            }
+                        }
+                        .padding(.horizontal, Space.margin)
+                        .padding(.top, Space.xs)
+                        .padding(.bottom, 120)
+                    }
                 }
-                .accessibilityIdentifier(AccessibilityID.addKey)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
-            }
-        }
-        .navigationTitle("My Keys")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(.primary)
+                
+                PrimaryButton(title: "Add Key", emphasis: .ink, accessibilityID: AccessibilityID.addKey) {
+                    guard !addingLocked else { return }
+                    showingKeySetup = true
                 }
-                .accessibilityIdentifier(AccessibilityID.navBack)
-                .accessibilityLabel("Back")
+                .disabled(addingLocked)
+                .opacity(addingLocked ? 0.4 : 1)
+                .padding(.horizontal, Space.xxxl)
+                .padding(.bottom, Space.l)
             }
         }
         .sheet(isPresented: $showingKeySetup) {
             KeySetupScreen()
         }
     }
+    
+    /// Rule "Don't allow adding new keys while blocked".
+    private var addingLocked: Bool {
+        !appState.canAddKeys
+    }
+}
+
+extension BlockKey.Kind {
+    var title: String {
+        switch self {
+        case .openBlockerTag: return "NFC tag"
+        case .card: return "NFC card"
+        case .qr: return "QR code"
+        case .barcode: return "Barcode"
+        }
+    }
 }
 
 struct KeyCard: View {
     let key: BlockKey
+    let canDelete: Bool
     @StateObject private var appState = AppState.shared
-    @State private var showingDeleteConfirm = false
+    @State private var confirmingDelete = false
     
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: key.icon)
-                .font(.system(size: 28))
-                .foregroundColor(.primary)
-                .frame(width: 50, height: 50)
-                .background(
-                    Circle()
-                        .fill(Color.brickPanel)
-                )
-            
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: Space.m) {
+            IconTile(systemName: key.icon, size: 48)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(key.name)
-                    .font(.system(size: 17, weight: .semibold))
-                
-                Text(key.kind == .qr ? "QR Code" : key.kind == .openBlockerTag ? "NFC Tag" : "NFC Card")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                
-                Text("Added \(formattedDate)")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
+                    .textStyle(.headline)
+                    .foregroundColor(Color.ink)
+                Text("\(key.kind.title) · added \(addedText)")
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
             }
-            
             Spacer()
-            
-            Button(role: .destructive, action: { showingDeleteConfirm = true }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
-                    .padding(8)
+            Menu {
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    Label("Remove key", systemImage: "trash")
+                }
+                .disabled(!canDelete)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Color.inkSecondary)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.fillQuiet))
             }
+            .accessibilityLabel("Options for \(key.name)")
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.brickCard)
-        )
-        .confirmationDialog(
-            "Delete \"\(key.name)\"?",
-            isPresented: $showingDeleteConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                appState.deleteKey(key)
-            }
+        .padding(Space.m)
+        .background(CardBackground())
+        .confirmationDialog("Remove \"\(key.name)\"?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Remove", role: .destructive) { appState.deleteKey(key) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("You won't be able to use this key anymore.")
+            Text("It won't unblock this phone anymore.")
         }
     }
     
-    private var formattedDate: String {
+    private var addedText: String {
         let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
+        formatter.unitsStyle = .full
         return formatter.localizedString(for: key.addedAt, relativeTo: Date())
     }
 }

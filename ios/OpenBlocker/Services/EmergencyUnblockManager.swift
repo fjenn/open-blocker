@@ -1,95 +1,105 @@
-// Emergency unblock counter stored in Keychain (survives reinstalls)
+// Emergency unblock allowance stored in Keychain (survives reinstalls)
 // Adapted from Foqos (MIT, (c) 2024 Ali Waseem): Foqos/Utils/StrategyManager.swift emergency unblock concept
 
 import Foundation
 import Security
 
+/// Five emergency unblocks per six-month period. When the period runs out
+/// the allowance goes back to five and a new period starts.
+struct EmergencyAllowance: Equatable {
+    static let maxCount = 5
+    static let periodMonths = 6
+    
+    var remaining: Int
+    var periodStart: Date
+    
+    static func full(startingAt start: Date) -> EmergencyAllowance {
+        EmergencyAllowance(remaining: maxCount, periodStart: start)
+    }
+    
+    /// When the allowance goes back to five.
+    func resetDate(calendar: Calendar = .current) -> Date {
+        calendar.date(byAdding: .month, value: Self.periodMonths, to: periodStart)
+            ?? periodStart.addingTimeInterval(TimeInterval(Self.periodMonths) * 30.5 * 86_400)
+    }
+    
+    /// Full again, with a new period from `now`, once the reset date has passed.
+    func renewed(at now: Date, calendar: Calendar = .current) -> EmergencyAllowance {
+        now >= resetDate(calendar: calendar) ? .full(startingAt: now) : self
+    }
+    
+    /// One fewer, or nil when none are left.
+    func usingOne() -> EmergencyAllowance? {
+        remaining > 0 ? EmergencyAllowance(remaining: remaining - 1, periodStart: periodStart) : nil
+    }
+}
+
 enum EmergencyUnblockManager {
     private static let service = "org.openblocker.emergency"
     private static let countKey = "count"
-    private static let lastRefillKey = "lastRefill"
+    private static let periodStartKey = "periodStart"
     
-    private static let maxCount = 5
-    private static let refillDays = 30
-    
-    struct Status {
+    struct Status: Equatable {
         let remaining: Int
-        let nextRefillDate: Date?
+        let resetDate: Date
     }
     
-    /// Get the current emergency unblock status.
+    /// The current allowance and when it resets.
     static func status() -> Status {
-        let count = getCount()
-        let lastRefill = getLastRefillDate()
-        
-        let nextRefill: Date? = lastRefill.flatMap { Calendar.current.date(byAdding: .day, value: refillDays, to: $0) }
-        
-        return Status(remaining: count, nextRefillDate: nextRefill)
+        let allowance = load()
+        return Status(remaining: allowance.remaining, resetDate: allowance.resetDate())
     }
     
     #if DEBUG
     /// Demo and UI tests start from a full set of 5.
     static func resetToFull() {
-        _ = setCount(maxCount)
-        setLastRefillDate(Date())
+        save(.full(startingAt: Date()))
     }
     #endif
     
-    /// Use one emergency unblock. Returns true if successful (had one to use).
-    static func useOne() -> Bool {
-        let count = getCount()
-        guard count > 0 else { return false }
-        guard setCount(count - 1) else { return false }
-        return getCount() == count - 1
+    /// Use one emergency unblock. Returns true if there was one to use.
+    static func useOne(now: Date = Date()) -> Bool {
+        guard let next = load(now: now).renewed(at: now).usingOne() else { return false }
+        save(next)
+        return load(now: now) == next
     }
     
-    /// Check if a refill is due and apply it.
-    static func refillIfNeeded() {
-        let count = getCount()
-        guard count < maxCount else { return }
-        
-        guard let lastRefill = getLastRefillDate() else {
-            setCount(maxCount)
-            setLastRefillDate(Date())
-            return
-        }
-        
-        let daysSince = Calendar.current.dateComponents([.day], from: lastRefill, to: Date()).day ?? 0
-        if daysSince >= refillDays {
-            setCount(min(count + 1, maxCount))
-            setLastRefillDate(Date())
+    /// Call on launch and when the app comes back: starts the first period,
+    /// and resets to five once six months have passed.
+    static func renewIfDue(now: Date = Date()) {
+        let stored = load(now: now)
+        let renewed = stored.renewed(at: now)
+        if renewed != stored || readPeriodStart() == nil {
+            save(renewed)
         }
     }
     
-    // MARK: - Keychain Access
+    // MARK: - Storage
     
-    private static func getCount() -> Int {
-        guard let data = read(key: countKey),
-              let string = String(data: data, encoding: .utf8),
-              let count = Int(string) else {
-            return maxCount
-        }
-        return count
+    /// The stored allowance. Without a stored period (first launch, or an
+    /// install from before periods), the period starts `now` and the count is kept.
+    private static func load(now: Date = Date()) -> EmergencyAllowance {
+        let count = readInt(countKey) ?? EmergencyAllowance.maxCount
+        return EmergencyAllowance(
+            remaining: min(max(count, 0), EmergencyAllowance.maxCount),
+            periodStart: readPeriodStart() ?? now
+        )
     }
     
-    @discardableResult
-    private static func setCount(_ count: Int) -> Bool {
-        let data = String(count).data(using: .utf8)!
-        return write(key: countKey, data: data)
+    private static func save(_ allowance: EmergencyAllowance) {
+        write(key: countKey, data: Data(String(allowance.remaining).utf8))
+        write(key: periodStartKey, data: Data(String(allowance.periodStart.timeIntervalSince1970).utf8))
     }
     
-    private static func getLastRefillDate() -> Date? {
-        guard let data = read(key: lastRefillKey),
-              let timestamp = String(data: data, encoding: .utf8),
-              let interval = TimeInterval(timestamp) else {
-            return nil
-        }
-        return Date(timeIntervalSince1970: interval)
+    private static func readInt(_ key: String) -> Int? {
+        read(key: key).flatMap { String(data: $0, encoding: .utf8) }.flatMap { Int($0) }
     }
     
-    private static func setLastRefillDate(_ date: Date) {
-        let data = String(date.timeIntervalSince1970).data(using: .utf8)!
-        write(key: lastRefillKey, data: data)
+    private static func readPeriodStart() -> Date? {
+        read(key: periodStartKey)
+            .flatMap { String(data: $0, encoding: .utf8) }
+            .flatMap { TimeInterval($0) }
+            .map { Date(timeIntervalSince1970: $0) }
     }
     
     private static let defaultsPrefix = "org.openblocker.emergency."

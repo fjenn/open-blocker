@@ -1,5 +1,3 @@
-// Activity tab - simplified for new architecture
-
 import SwiftUI
 import Charts
 
@@ -7,125 +5,132 @@ struct ActivityTab: View {
     @ObservedObject var appState = AppState.shared
     
     var body: some View {
-        ZStack {
-            Color.brickCanvas
-                .ignoresSafeArea()
-            
-            if isEmptyActivity {
-                emptyState
-            } else {
-            ScrollView {
-                VStack(spacing: 16) {
-                    Text("Weekly Activity")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(Color.brickInk)
-                        .padding(.top, 24)
-                    
-                    let weekStart = Self.mondayWeekStart()
-                    let weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"]
-                    let weekDays: [Date] = (0..<7).compactMap { index in
-                        Calendar.current.date(byAdding: .day, value: index, to: weekStart)
-                    }
-                    let weekDurations = weekDays.map { appState.focusStats(on: $0).duration }
-                    let dailyHours = weekDurations.map { $0 / 3600.0 }
-                    let avgSeconds = weekDurations.reduce(0, +) / 7
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Average per day")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(Color.brickMuted)
-                        
-                        let hours = Int(avgSeconds) / 3600
-                        let minutes = (Int(avgSeconds) % 3600) / 60
-                        
-                        Text("\(hours)h \(minutes)m")
-                            .font(.system(size: 50, weight: .light))
-                            .foregroundColor(Color.brickInk)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24)
-                    
-                    let yMax = Self.chartYMax(for: dailyHours)
-                    let yStep = yMax <= 2 ? 1.0 : (yMax <= 4 ? 1.0 : 2.0)
-                    let yTicks = Array(stride(from: 0.0, through: yMax, by: yStep))
-                    
-                    Chart {
-                        ForEach(Array(weekDays.enumerated()), id: \.offset) { index, day in
-                            BarMark(
-                                x: .value("Day", day, unit: .day),
-                                y: .value("Hours", dailyHours[index]),
-                                width: .ratio(0.7)
-                            )
-                            .foregroundStyle(Color.brickChart)
-                            .cornerRadius(8)
-                        }
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: weekDays) { value in
-                            AxisValueLabel {
-                                if let date = value.as(Date.self),
-                                   let index = weekDays.firstIndex(of: date) {
-                                    Text(weekdayLabels[index])
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(Color.brickSecondaryLabel)
-                                }
-                            }
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(position: .trailing, values: yTicks) { value in
-                            AxisGridLine()
-                                .foregroundStyle(Color.brickSecondaryLabel.opacity(0.35))
-                            AxisValueLabel {
-                                if let hours = value.as(Double.self) {
-                                    Text(hours.truncatingRemainder(dividingBy: 1) == 0
-                                         ? "\(Int(hours))"
-                                         : String(format: "%.1f", hours))
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(Color.brickSecondaryLabel)
-                                }
-                            }
-                        }
-                    }
-                    .chartYScale(domain: 0.0...yMax)
-                    .frame(height: 128)
-                    .padding(.horizontal, 24)
-                    
-                    ForEach(0..<7, id: \.self) { dayOffset in
-                        let calendar = Calendar.current
-                        let day = calendar.date(byAdding: .day, value: -dayOffset, to: Date())!
-                        let stats = appState.focusStats(on: day)
-                        
-                        DayCard(date: day, duration: stats.duration, sessionCount: stats.sessions)
-                    }
-                    .padding(.horizontal, 24)
+        Group {
+            if isEmpty {
+                ZStack {
+                    ScreenCanvas()
+                    EmptyStateView(
+                        systemImage: "chart.bar.fill",
+                        title: "No sessions yet",
+                        message: "Hold the key to block, and your time will show up here."
+                    )
                 }
-                .padding(.bottom, BrickLayout.tabScrollInset)
-            }
-            .accessibilityIdentifier(AccessibilityID.activityScroll)
+            } else {
+                TabScreen(title: "Weekly activity", subtitle: "Time blocked this week") {
+                    content
+                }
             }
         }
+        .accessibilityIdentifier(AccessibilityID.activityScroll)
     }
     
-    private var isEmptyActivity: Bool {
+    private var isEmpty: Bool {
         !appState.isBlocking && appState.history.isEmpty
     }
     
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Text("No sessions yet")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundColor(Color.brickInk)
-            Text("Block with a key and it will show up here.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundColor(Color.brickMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
+    private var content: some View {
+        let weekStart = Self.mondayWeekStart()
+        let days = Self.days(from: weekStart)
+        let lastWeek = Self.days(from: Calendar.current.date(byAdding: .day, value: -7, to: weekStart) ?? weekStart)
+        let durations = days.map { appState.focusStats(on: $0).duration }
+        let hours = durations.map { $0 / 3600 }
+        let average = durations.reduce(0, +) / 7
+        let lastAverage = lastWeek.map { appState.focusStats(on: $0).duration }.reduce(0, +) / 7
+        let yMax = Self.chartYMax(for: hours)
+        let recent: [DayStat] = (0..<7).compactMap { offset in
+            guard let day = Calendar.current.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
+            let stats = appState.focusStats(on: day)
+            return DayStat(date: day, duration: stats.duration, sessions: stats.sessions)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier(AccessibilityID.activityScroll)
+        let longestDay = max(recent.map(\.duration).max() ?? 0, 1)
+        
+        return VStack(alignment: .leading, spacing: Space.xl) {
+            VStack(alignment: .leading, spacing: Space.xxs) {
+                Text("Avg blocked time")
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.inkSecondary)
+                Text(DurationText.hoursMinutes(average))
+                    .textStyle(.largeTitle)
+                    .foregroundColor(Color.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .numericTransition()
+                if let change = WeekChange(current: average, previous: lastAverage) {
+                    Label(change.text, systemImage: change.symbol)
+                        .textStyle(.footnote)
+                        .foregroundColor(Color.inkSecondary)
+                }
+            }
+            
+            Chart {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                    BarMark(
+                        x: .value("Day", day, unit: .day),
+                        y: .value("Hours", hours[index]),
+                        width: .ratio(0.42)
+                    )
+                    .foregroundStyle(Color.ink.opacity(Calendar.current.isDateInToday(day) ? 0.9 : 0.55))
+                    .cornerRadius(4)
+                }
+                if average > 0 {
+                    RuleMark(y: .value("Average", average / 3600))
+                        .foregroundStyle(Color.inkTertiary)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                        .annotation(position: .trailing, alignment: .center, spacing: 4) {
+                            Text("AVG")
+                                .textStyle(.caption)
+                                .foregroundColor(Color.inkInverse)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.inkSecondary))
+                        }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: days) { value in
+                    AxisValueLabel(centered: true) {
+                        if let date = value.as(Date.self) {
+                            VStack(spacing: 1) {
+                                Text(date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                                    .textStyle(.caption, weight: .medium)
+                                Text(date.formatted(.dateTime.day()))
+                                    .textStyle(.caption, weight: .regular)
+                            }
+                            .foregroundColor(Calendar.current.isDateInToday(date) ? Color.ink : Color.inkTertiary)
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .trailing, values: [0, yMax / 2, yMax]) { value in
+                    AxisGridLine().foregroundStyle(Color.hairline)
+                    AxisValueLabel {
+                        if let hours = value.as(Double.self), hours > 0 {
+                            Text(hours == floor(hours) ? "\(Int(hours))h" : "\(Int(hours * 60))m")
+                                .textStyle(.caption, weight: .regular)
+                                .foregroundColor(Color.inkTertiary)
+                        }
+                    }
+                }
+            }
+            .chartYScale(domain: 0...yMax)
+            .frame(height: 170)
+            
+            VStack(spacing: Space.s) {
+                ForEach(recent) { day in
+                    DayCard(
+                        date: day.date,
+                        duration: day.duration,
+                        sessionCount: day.sessions,
+                        share: day.duration / longestDay
+                    )
+                }
+            }
+        }
+    }
+    
+    private static func days(from start: Date) -> [Date] {
+        (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: start) }
     }
     
     private static func mondayWeekStart() -> Date {
@@ -144,43 +149,81 @@ struct ActivityTab: View {
     }
 }
 
+private struct DayStat: Identifiable {
+    let date: Date
+    let duration: TimeInterval
+    let sessions: Int
+    var id: Date { date }
+}
+
+/// "80% from last week" with an arrow. Nil when there is nothing to compare.
+struct WeekChange: Equatable {
+    let percent: Int
+    let isUp: Bool
+    
+    init?(current: TimeInterval, previous: TimeInterval) {
+        guard previous > 0 else { return nil }
+        let change = (current - previous) / previous
+        percent = Int((abs(change) * 100).rounded())
+        isUp = change >= 0
+    }
+    
+    var text: String { "\(percent)% from last week" }
+    var symbol: String { isUp ? "arrow.up.right" : "arrow.down.right" }
+}
+
 struct DayCard: View {
     let date: Date
     let duration: TimeInterval
     let sessionCount: Int
+    /// This day's time as a share of the longest day shown (0...1).
+    let share: Double
+    
+    private var isToday: Bool { Calendar.current.isDateInToday(date) }
     
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.brickCard)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                let isToday = Calendar.current.isDateInToday(date)
-                HStack(spacing: 6) {
-                    if isToday {
-                        Circle()
-                            .fill(Color.brickAccent)
-                            .frame(width: 6, height: 6)
-                    }
-                    
-                    Text(isToday ? "TODAY" : date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased())
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color.brickMuted)
-                        .tracking(0.6)
+        VStack(alignment: .leading, spacing: Space.xs) {
+            HStack(spacing: 5) {
+                if isToday {
+                    Circle().fill(Color.ink).frame(width: 5, height: 5)
                 }
-                
-                let hours = Int(duration) / 3600
-                let minutes = (Int(duration) % 3600) / 60
-                Text("\(hours)h \(minutes)m")
-                    .font(.system(size: 24, weight: .regular))
-                    .foregroundColor(Color.brickInk)
-                
-                Text("\(sessionCount) session\(sessionCount == 1 ? "" : "s")")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(Color.brickMuted)
+                Text(isToday ? "Today" : date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                    .textStyle(.caption)
+                    .foregroundColor(Color.inkSecondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(DurationText.hoursMinutes(duration))
+                        .textStyle(.title)
+                        .foregroundColor(Color.ink)
+                    Text("\(sessionCount) session\(sessionCount == 1 ? "" : "s")")
+                        .textStyle(.subhead)
+                        .foregroundColor(Color.inkSecondary)
+                }
+                Spacer(minLength: Space.l)
+                ShareBar(share: share)
+                    .frame(width: 96)
+                    .padding(.bottom, 6)
+            }
         }
+        .padding(Space.m)
+        .background(CardBackground(raised: isToday))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ShareBar: View {
+    let share: Double
+    
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.fillQuiet)
+                Capsule()
+                    .fill(Color.ink)
+                    .frame(width: max(share > 0 ? 3 : 0, geo.size.width * min(max(share, 0), 1)))
+            }
+        }
+        .frame(height: 3)
     }
 }
