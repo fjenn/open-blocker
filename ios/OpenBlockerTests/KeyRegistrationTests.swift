@@ -67,7 +67,7 @@ final class KeyRegistrationTests: XCTestCase {
         let uri = OpenBlockerFormat.encodeForQR(OpenBlockerFormat.TagData(tagId: tagId))
         let key = BlockKey(name: "Gym", kind: .qr, secret: uri)
         XCTAssertTrue(key.matches(.qr(payload: uri)))
-        XCTAssertTrue(key.matches(KeyScanner.scannedKey(fromQR: uri)))
+        XCTAssertTrue(key.matches(KeyScanner.scannedKey(fromCode: uri)))
         XCTAssertFalse(key.matches(.qr(payload: "openblocker://tag/v1/ffffffffffffffffffffffffffffffff")))
     }
     
@@ -100,5 +100,69 @@ final class KeyRegistrationTests: XCTestCase {
         try await scanner.writeOpenBlockerRecord(tagId: tagId)
         XCTAssertEqual(scanner.writeCallCount, 1)
         XCTAssertEqual(scanner.lastWrittenTagId, tagId)
+    }
+    
+    // MARK: Barcode keys
+    
+    func testBarcodeKeyMatchesSamePayloadOnly() {
+        let key = BlockKey(name: "Cereal", kind: .barcode, secret: "4006381333931")
+        XCTAssertEqual(KeyScanner.scannedKey(fromCode: "4006381333931"), .barcode(payload: "4006381333931"))
+        XCTAssertTrue(key.matches(KeyScanner.scannedKey(fromCode: "4006381333931")))
+        XCTAssertFalse(key.matches(.barcode(payload: "0000000000000")))
+        XCTAssertFalse(key.matches(.qr(payload: "4006381333931")))
+        XCTAssertEqual(key.kind.title, "Barcode")
+    }
+    
+    func testBarcodeRoutesToCamera() {
+        let barcode = BlockKey(name: "Cereal", kind: .barcode, secret: "1")
+        let nfc = BlockKey(name: "Desk", kind: .openBlockerTag, secret: "aa")
+        XCTAssertEqual(KeyScanner.route(for: [barcode]), .qr)
+        XCTAssertEqual(KeyScanner.route(for: [barcode, nfc]), .choose)
+    }
+    
+    // MARK: Non-matching NFC tags
+    
+    func testNonMatchingTagKeepsScanningUntilARegisteredKey() async throws {
+        let registered = Data([0x04, 0xAA, 0xBB, 0xCC])
+        let stranger = Data([0x04, 0x11, 0x22, 0x33])
+        let key = BlockKey(name: "Desk", kind: .card, secret: registered.hexString)
+        let scanner = MockNFCScanner(results: [.success(.card(uid: stranger)), .success(.card(uid: registered))])
+        let scanned = try await scanner.scan(keyMatcher: { key.matches($0) })
+        XCTAssertEqual(scanned, .card(uid: registered))
+        XCTAssertEqual(scanner.rejectedCount, 1)
+    }
+    
+    func testOnlyNonMatchingTagsNeverCompleteTheScan() async {
+        let key = BlockKey(name: "Desk", kind: .card, secret: "ffff")
+        let scanner = MockNFCScanner(results: [.success(.card(uid: Data([0x01, 0x02])))])
+        do {
+            _ = try await scanner.scan(keyMatcher: { key.matches($0) })
+            XCTFail("a non-matching tag must not complete the scan")
+        } catch NFCScanError.userCancelled {
+        } catch {
+            XCTFail("unexpected \(error)")
+        }
+    }
+    
+    // MARK: Existing (non-Open Blocker) QR codes
+    
+    func testExistingQRCodeWorksAsAKey() {
+        // A QR code from anywhere (a menu, a Wi-Fi sticker) is read by the same
+        // camera scanner and stored as a code key with its raw value.
+        let menu = "https://example.com/menu?table=4"
+        let scanned = KeyScanner.scannedKey(fromCode: menu)
+        XCTAssertEqual(scanned, .barcode(payload: menu))
+        let key = BlockKey(name: "Menu", kind: .barcode, secret: menu)
+        XCTAssertTrue(key.matches(KeyScanner.scannedKey(fromCode: menu)))
+        XCTAssertFalse(key.matches(KeyScanner.scannedKey(fromCode: "https://example.com/menu?table=5")))
+        XCTAssertEqual(KeyScanner.route(for: [key]), .qr, "opens the camera to unblock")
+    }
+    
+    func testAppGeneratedQRStaysAQRKey() throws {
+        let tagId = try OpenBlockerFormat.hexToBytes("550e8400e29b41d4a716446655440000")
+        let uri = OpenBlockerFormat.encodeForQR(OpenBlockerFormat.TagData(tagId: tagId))
+        guard case .qr = KeyScanner.scannedKey(fromCode: uri) else {
+            return XCTFail("openblocker:// codes must stay QR keys")
+        }
     }
 }

@@ -9,23 +9,74 @@ struct QRScannerView: View {
     var onCancel: () -> Void
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                #if targetEnvironment(simulator)
-                SimulatorQRFallback(onCode: onCode)
-                #else
-                QRCameraPreview(onCode: onCode)
-                #endif
-            }
-            .navigationTitle("Scan QR code")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+        ZStack {
+            Color.black.ignoresSafeArea()
+            #if targetEnvironment(simulator)
+            SimulatorQRFallback(onCode: onCode)
+            #else
+            QRCameraPreview(onCode: onCode)
+                .ignoresSafeArea()
+            Viewfinder()
+            #endif
+            
+            VStack {
+                ZStack {
+                    Text("Scan your QR key")
+                        .textStyle(.headline)
+                        .foregroundColor(.white)
+                    HStack {
+                        Spacer()
+                        Button(action: onCancel) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: Metrics.headerButton, height: Metrics.headerButton)
+                                .background(Circle().fill(.ultraThinMaterial))
+                        }
+                        .accessibilityLabel("Cancel")
+                    }
                 }
+                .padding(.horizontal, Space.margin)
+                .padding(.top, Space.l)
+                Spacer()
             }
         }
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+/// Four rounded corner brackets around the scan area.
+private struct Viewfinder: View {
+    var body: some View {
+        VStack(spacing: Space.xl) {
+            CornerBrackets()
+                .stroke(Color.white.opacity(0.95), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                .frame(width: 250, height: 250)
+            Text("Fit the code inside the frame.")
+                .textStyle(.subhead)
+                .foregroundColor(.white.opacity(0.8))
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct CornerBrackets: Shape {
+    func path(in rect: CGRect) -> Path {
+        let arm: CGFloat = 44
+        let r: CGFloat = 28
+        var path = Path()
+        for (corner, dx, dy) in [
+            (CGPoint(x: rect.minX, y: rect.minY), 1.0, 1.0),
+            (CGPoint(x: rect.maxX, y: rect.minY), -1.0, 1.0),
+            (CGPoint(x: rect.maxX, y: rect.maxY), -1.0, -1.0),
+            (CGPoint(x: rect.minX, y: rect.maxY), 1.0, -1.0)
+        ] {
+            path.move(to: CGPoint(x: corner.x, y: corner.y + dy * arm))
+            path.addLine(to: CGPoint(x: corner.x, y: corner.y + dy * r))
+            path.addQuadCurve(to: CGPoint(x: corner.x + dx * r, y: corner.y), control: corner)
+            path.addLine(to: CGPoint(x: corner.x + dx * arm, y: corner.y))
+        }
+        return path
     }
 }
 
@@ -35,31 +86,34 @@ private struct SimulatorQRFallback: View {
     @State private var payload = ""
     
     var body: some View {
-        VStack(spacing: 16) {
-            Text("The simulator has no camera. Paste an Open Blocker QR payload to test matching.")
-                .font(.system(size: 15))
+        VStack(spacing: Space.m) {
+            Image(systemName: "qrcode.viewfinder")
+                .font(.system(size: 54, weight: .light))
                 .foregroundColor(.white.opacity(0.8))
+            Text("The simulator has no camera. Paste an Open Blocker QR payload to test matching.")
+                .textStyle(.subhead)
+                .foregroundColor(.white.opacity(0.75))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            
-            TextField("openblocker://tag/v1/…", text: $payload)
+                .padding(.horizontal, Space.xl)
+            TextField("openblocker://tag/v1/...", text: $payload)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .padding()
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
-                .padding(.horizontal, 24)
-            
-            Button("Use payload") {
+                .foregroundColor(.white)
+                .padding(.horizontal, Space.m)
+                .frame(minHeight: 52)
+                .background(RoundedRectangle(cornerRadius: Radius.input, style: .continuous).fill(Color.white.opacity(0.12)))
+                .padding(.horizontal, Space.xl)
+            Button {
                 let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return }
-                onCode(trimmed)
+                if !trimmed.isEmpty { onCode(trimmed) }
+            } label: {
+                Text("Use payload")
+                    .textStyle(.button)
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, minHeight: Metrics.buttonHeight)
+                    .background(Capsule(style: .continuous).fill(Color.white))
             }
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundColor(.black)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Space.xxxl)
         }
     }
 }
@@ -116,22 +170,12 @@ final class QRCameraViewController: UIViewController, AVCaptureMetadataOutputObj
         }
     }
     
+    /// The scanner only opens after Permissions granted the camera.
     private func requestCamera() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
+        if AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
             startSession()
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                DispatchQueue.main.async {
-                    if granted {
-                        self?.startSession()
-                    } else {
-                        self?.statusLabel.text = "Camera access is required to scan QR keys."
-                    }
-                }
-            }
-        default:
-            statusLabel.text = "Camera access is required to scan QR keys. Enable it in Settings."
+        } else {
+            statusLabel.text = "Camera is off for Open Blocker."
         }
     }
     
@@ -158,9 +202,9 @@ final class QRCameraViewController: UIViewController, AVCaptureMetadataOutputObj
         }
         session.addOutput(output)
         output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-        if output.availableMetadataObjectTypes.contains(.qr) {
-            output.metadataObjectTypes = [.qr]
-        }
+        // QR keys plus common barcodes (barcode keys).
+        let wanted: [AVMetadataObject.ObjectType] = [.qr, .ean13, .ean8, .upce, .code128, .code39, .code93, .itf14, .dataMatrix, .pdf417]
+        output.metadataObjectTypes = wanted.filter { output.availableMetadataObjectTypes.contains($0) }
         session.commitConfiguration()
         
         let layer = AVCaptureVideoPreviewLayer(session: session)
@@ -181,7 +225,6 @@ final class QRCameraViewController: UIViewController, AVCaptureMetadataOutputObj
     ) {
         guard !handled,
               let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
-              object.type == .qr,
               let value = object.stringValue,
               !value.isEmpty
         else { return }

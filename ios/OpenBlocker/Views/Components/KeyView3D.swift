@@ -1,282 +1,276 @@
-// 3D key view using SceneKit with the real CAD model
+// The hero key: our puck (KeyModel.usdz) rendered in SceneKit with a matte
+// soft-touch material, a soft studio light from the top left, an idle spin,
+// and a darker fill that rises across the face in screen space while you hold.
 
 import SwiftUI
 import SceneKit
 import SceneKit.ModelIO
 import simd
+import UIKit
 
-struct KeyView3D: View, Animatable {
-    var progress: CGFloat
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var rotationAngle: Float = 0
-    @State private var pressScale: CGFloat = 1.0
-    @GestureState private var dragRotation: Float = 0
+struct KeyView3D: View {
+    var progress: Double
+    var yaw: Float
+    var isDragging: Bool
+    var reduceMotion: Bool
     
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        SceneKitKeyView(
-            rotationAngle: $rotationAngle,
-            dragRotation: dragRotation,
-            fillLevel: progress > 0.001 ? Float(progress) : -1,
-            isDark: colorScheme == .dark
-        )
-        .scaleEffect(pressScale)
-        .gesture(
-            DragGesture()
-                .updating($dragRotation) { value, state, _ in
-                    state = Float(value.translation.width) * 0.004
-                }
-                .onEnded { value in
-                    rotationAngle += Float(value.translation.width) * 0.004
-                    rotationAngle = max(-0.35, min(0.35, rotationAngle))
-                }
-        )
-        .simultaneousGesture(
-            TapGesture()
-                .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        pressScale = 0.96
-                    }
-                    withAnimation(.easeOut(duration: 0.2).delay(0.15)) {
-                        pressScale = 1.0
-                    }
-                }
-        )
-        .accessibilityLabel(progress >= 1 ? "Blocked" : "Not blocked")
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            ZStack {
+                // Soft contact shadow, thrown a little to the bottom right.
+                Ellipse()
+                    .fill(Color.black.opacity(colorScheme == .dark ? 0.6 : 0.2))
+                    .frame(width: side * 0.6, height: side * 0.11)
+                    .blur(radius: side * 0.05)
+                    .offset(x: side * 0.04, y: side * 0.3)
+                
+                SceneKitKeyView(
+                    yaw: yaw,
+                    animatesYaw: !isDragging,
+                    fillLevel: FillLevel.shaderLevel(for: progress),
+                    spins: !reduceMotion
+                )
+                .frame(width: side, height: side)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 }
 
 struct SceneKitKeyView: UIViewRepresentable {
-    @Binding var rotationAngle: Float
-    var dragRotation: Float
+    var yaw: Float
+    var animatesYaw: Bool
     var fillLevel: Float
-    var isDark: Bool
+    var spins: Bool
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
+    private static let spinKey = "idleSpin"
+    
+    func makeCoordinator() -> Coordinator { Coordinator() }
     
     func makeUIView(context: Context) -> SCNView {
-        let sceneView = SCNView()
-        sceneView.backgroundColor = .clear
-        sceneView.isOpaque = false
-        sceneView.allowsCameraControl = false
-        sceneView.autoenablesDefaultLighting = false
-        sceneView.antialiasingMode = .multisampling4X
-        sceneView.clipsToBounds = false
-        sceneView.isPlaying = true
+        let view = SCNView()
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.allowsCameraControl = false
+        view.autoenablesDefaultLighting = false
+        view.antialiasingMode = .multisampling4X
+        view.clipsToBounds = false
+        view.isPlaying = true
+        view.isUserInteractionEnabled = false
         
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
+        scene.lightingEnvironment.contents = Self.studioEnvironment()
+        scene.lightingEnvironment.intensity = KeyPalette.environmentIntensity
         
+        // pivot = drag yaw, spinner = idle spin, model inside.
         let pivot = SCNNode()
-        pivot.name = "keyPivot"
-        
-        if let modelURL = Bundle.main.url(forResource: "KeyModel", withExtension: "usdz") {
-            do {
-                let modelScene = try SCNScene(url: modelURL, options: nil)
-                for child in modelScene.rootNode.childNodes {
-                    pivot.addChildNode(child.clone())
-                }
-                Self.applyPBRMaterial(to: pivot)
-                let materials = Self.collectMaterials(from: pivot)
-                Self.installFillShader(on: materials)
-                context.coordinator.materials = materials
-                print("[KeyView3D] Loaded KeyModel.usdz, children: \(pivot.childNodes.count), materials: \(materials.count)")
-            } catch {
-                print("[KeyView3D] Failed to load model: \(error)")
-            }
-        } else {
-            print("[KeyView3D] KeyModel.usdz not found in bundle")
+        let spinner = SCNNode()
+        pivot.addChildNode(spinner)
+        if !Self.loadModel(into: spinner) {
+            spinner.addChildNode(Self.fallbackPuck())
         }
-        
+        Self.applyMaterials(to: spinner)
+        let materials = Self.collectMaterials(from: spinner)
+        Self.installFillShader(on: materials)
         scene.rootNode.addChildNode(pivot)
-        context.coordinator.pivot = pivot
         
-        let ambient = SCNNode()
-        ambient.light = SCNLight()
-        ambient.light?.type = .ambient
-        ambient.light?.color = UIColor.white
-        ambient.light?.intensity = 300
-        scene.rootNode.addChildNode(ambient)
-        
+        // Key light from the top left, a weak fill from the right.
         let keyLight = SCNNode()
-        keyLight.name = "keyLight"
         keyLight.light = SCNLight()
         keyLight.light?.type = .directional
-        keyLight.light?.color = UIColor.white
-        keyLight.light?.intensity = 900
-        keyLight.light?.castsShadow = false
-        // Upper left so the ring emboss still reads
-        keyLight.eulerAngles = SCNVector3(-0.85, 0.65, 0)
+        keyLight.light?.intensity = 700
+        keyLight.eulerAngles = SCNVector3(-0.95, -0.7, 0)
         scene.rootNode.addChildNode(keyLight)
         
-        let cameraNode = SCNNode()
-        cameraNode.name = "keyCamera"
-        cameraNode.camera = SCNCamera()
-        cameraNode.camera?.fieldOfView = 30
-        cameraNode.camera?.automaticallyAdjustsZRange = true
-        cameraNode.camera?.wantsHDR = false
-        cameraNode.camera?.wantsExposureAdaptation = false
-        scene.rootNode.addChildNode(cameraNode)
-        context.coordinator.camera = cameraNode
+        let fillLight = SCNNode()
+        fillLight.light = SCNLight()
+        fillLight.light?.type = .directional
+        fillLight.light?.intensity = 160
+        fillLight.eulerAngles = SCNVector3(-0.4, 0.9, 0)
+        scene.rootNode.addChildNode(fillLight)
         
-        Self.frameCamera(cameraNode, around: pivot)
+        let camera = SCNNode()
+        camera.camera = SCNCamera()
+        camera.camera?.automaticallyAdjustsZRange = true
+        camera.camera?.wantsHDR = false
+        scene.rootNode.addChildNode(camera)
+        Self.frameCamera(camera, around: pivot)
         
-        sceneView.scene = scene
-        sceneView.pointOfView = cameraNode
+        // Screen-space extent of the puck so the fill runs bottom to top of the view.
+        let (minY, maxY) = Self.viewSpaceYExtent(of: spinner, camera: camera)
+        for material in materials {
+            material.setValue(NSNumber(value: minY), forKey: "fillMinY")
+            material.setValue(NSNumber(value: maxY), forKey: "fillMaxY")
+        }
         
-        return sceneView
+        context.coordinator.pivot = pivot
+        context.coordinator.spinner = spinner
+        context.coordinator.materials = materials
+        
+        view.scene = scene
+        view.pointOfView = camera
+        return view
     }
     
-    func updateUIView(_ uiView: SCNView, context: Context) {
-        let yaw = dragRotation + rotationAngle
-        context.coordinator.pivot?.eulerAngles.y = yaw
-        if uiView.pointOfView == nil {
-            uiView.pointOfView = context.coordinator.camera
+    func updateUIView(_ view: SCNView, context: Context) {
+        let coordinator = context.coordinator
+        
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = animatesYaw ? 0.9 : 0
+        SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeOut)
+        coordinator.pivot?.eulerAngles.y = yaw
+        SCNTransaction.commit()
+        
+        if let spinner = coordinator.spinner {
+            let spinning = spinner.action(forKey: Self.spinKey) != nil
+            if spins && !spinning {
+                let turn = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 30)
+                spinner.runAction(.repeatForever(turn), forKey: Self.spinKey)
+            } else if !spins && spinning {
+                spinner.removeAction(forKey: Self.spinKey)
+            }
         }
-        let clay: UIColor = isDark
-            ? UIColor(red: 0.45, green: 0.42, blue: 0.39, alpha: 1)
-            : UIColor(red: 0.835, green: 0.80, blue: 0.745, alpha: 1)
-        for material in context.coordinator.materials {
-            material.diffuse.contents = clay
-            material.setValue(NSNumber(value: Float(fillLevel)), forKey: "fillLevel")
+        
+        for material in coordinator.materials {
+            material.setValue(NSNumber(value: fillLevel), forKey: "fillLevel")
         }
     }
     
-    static func applyPBRMaterial(to node: SCNNode) {
+    // MARK: Model
+    
+    private static func loadModel(into node: SCNNode) -> Bool {
+        guard let url = Bundle.main.url(forResource: "KeyModel", withExtension: "usdz"),
+              let model = try? SCNScene(url: url, options: nil) else {
+            return false
+        }
+        for child in model.rootNode.childNodes {
+            node.addChildNode(child.clone())
+        }
+        return !node.childNodes.isEmpty
+    }
+    
+    private static func fallbackPuck() -> SCNNode {
+        let cylinder = SCNCylinder(radius: 0.5, height: 0.2)
+        return SCNNode(geometry: cylinder)
+    }
+    
+    private static func applyMaterials(to node: SCNNode) {
         node.castsShadow = false
         if var geometry = node.geometry {
             geometry.wantsAdaptiveSubdivision = false
-            geometry = smoothedGeometry(geometry)
+            let mesh = MDLMesh(scnGeometry: geometry)
+            mesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0.85)
+            geometry = SCNGeometry(mdlMesh: mesh)
             let material = SCNMaterial()
             material.lightingModel = .physicallyBased
-            material.diffuse.contents = UIColor(red: 0.835, green: 0.80, blue: 0.745, alpha: 1)
-            material.roughness.contents = NSNumber(value: 0.62)
+            material.diffuse.contents = KeyPalette.body
+            // Matte soft-touch: very rough, no clear coat.
+            material.roughness.contents = NSNumber(value: 0.82)
             material.metalness.contents = NSNumber(value: 0.0)
-            material.locksAmbientWithDiffuse = false
-            material.ambient.contents = UIColor.black
             geometry.materials = [material]
             node.geometry = geometry
         }
-        for child in node.childNodes {
-            applyPBRMaterial(to: child)
-        }
+        node.childNodes.forEach(applyMaterials)
     }
     
-    static func smoothedGeometry(_ geometry: SCNGeometry) -> SCNGeometry {
-        let mesh = MDLMesh(scnGeometry: geometry)
-        mesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0.8)
-        return SCNGeometry(mdlMesh: mesh)
+    private static func collectMaterials(from node: SCNNode) -> [SCNMaterial] {
+        (node.geometry?.materials ?? []) + node.childNodes.flatMap(collectMaterials)
     }
     
-    static func frameCamera(_ cameraNode: SCNNode, around node: SCNNode) {
-        let (center, radius) = worldBoundingSphere(of: node)
-        cameraNode.camera?.fieldOfView = 30
-        cameraNode.camera?.automaticallyAdjustsZRange = true
-        // 55 degrees above the table so the disc face is a wide ellipse
-        let elevation = 55 * Float.pi / 180
-        let azimuth = 18 * Float.pi / 180
-        let direction = simd_normalize(simd_float3(
-            sin(azimuth) * cos(elevation),
-            sin(elevation),
-            cos(azimuth) * cos(elevation)
-        ))
-        // Fill most of the square view so the pebble is ~60% of the card
-        let fovRadians = 30 * Float.pi / 180
-        let discRadius: Float = 0.5
-        let fillFraction: Float = 0.86
-        let distance = discRadius / tan(fovRadians * 0.5 * fillFraction)
-        let centerSIMD = simd_float3(center.x, center.y, center.z)
-        cameraNode.simdPosition = centerSIMD + direction * distance
-        cameraNode.look(
-            at: SCNVector3(center.x, center.y, center.z),
-            up: SCNVector3(0, 1, 0),
-            localFront: SCNVector3(0, 0, -1)
-        )
-        print("[KeyView3D] Camera elev=55 deg dist=\(distance) r=\(radius)")
-    }
+    // MARK: Fill shader
     
-    static func worldBoundingSphere(of node: SCNNode) -> (SCNVector3, Float) {
-        let (minB, maxB) = node.boundingBox
-        let corners = [
-            SCNVector3(minB.x, minB.y, minB.z),
-            SCNVector3(minB.x, minB.y, maxB.z),
-            SCNVector3(minB.x, maxB.y, minB.z),
-            SCNVector3(minB.x, maxB.y, maxB.z),
-            SCNVector3(maxB.x, minB.y, minB.z),
-            SCNVector3(maxB.x, minB.y, maxB.z),
-            SCNVector3(maxB.x, maxB.y, minB.z),
-            SCNVector3(maxB.x, maxB.y, maxB.z)
-        ]
-        let world = corners.map { node.convertPosition($0, to: nil) }
-        var minP = world[0]
-        var maxP = world[0]
-        for p in world {
-            minP.x = min(minP.x, p.x); minP.y = min(minP.y, p.y); minP.z = min(minP.z, p.z)
-            maxP.x = max(maxP.x, p.x); maxP.y = max(maxP.y, p.y); maxP.z = max(maxP.z, p.z)
-        }
-        let center = SCNVector3(
-            (minP.x + maxP.x) * 0.5,
-            (minP.y + maxP.y) * 0.5,
-            (minP.z + maxP.z) * 0.5
-        )
-        let dx = maxP.x - minP.x
-        let dy = maxP.y - minP.y
-        let dz = maxP.z - minP.z
-        let radius = sqrt(dx * dx + dy * dy + dz * dz) * 0.5
-        return (center, radius)
-    }
-    
-    static func collectMaterials(from node: SCNNode) -> [SCNMaterial] {
-        var materials: [SCNMaterial] = []
-        if let geometry = node.geometry {
-            materials.append(contentsOf: geometry.materials)
-        }
-        for child in node.childNodes {
-            materials.append(contentsOf: collectMaterials(from: child))
-        }
-        return materials
-    }
-    
+    /// The fill rises in view space (screen up), so it stays level while the
+    /// puck spins. A hairline of shade marks the edge; no slosh, it is a
+    /// calm, linear rise.
     static let fillSurfaceShader = """
     #pragma arguments
     float fillLevel;
+    float fillMinY;
+    float fillMaxY;
+    float4 fillColor;
     #pragma body
-    float3 mp = (scn_node.inverseModelViewTransform * float4(_surface.position, 1.0)).xyz;
-    // View-space Y is screen-up, so fillLevel 0.5 is a straight tide
-    // across the top face and rim. mp keeps the object-space form.
-    float t = clamp((_surface.position.y / 0.4) + 0.5, 0.0, 1.0);
-    t = mix(clamp(mp.y + 0.5, 0.0, 1.0), t, 1.0);
-    float m = smoothstep(fillLevel - 0.02, fillLevel + 0.02, t);
-    _surface.diffuse.rgb = mix(_surface.diffuse.rgb * 0.55, _surface.diffuse.rgb, m);
+    float span = max(fillMaxY - fillMinY, 0.0001);
+    float t = (_surface.position.y - fillMinY) / span;
+    float dry = smoothstep(fillLevel - 0.004, fillLevel + 0.004, t);
+    float edge = (1.0 - smoothstep(0.0, 0.012, abs(t - fillLevel))) * step(0.0, fillLevel) * step(fillLevel, 1.0);
+    _surface.diffuse.rgb = mix(fillColor.rgb, _surface.diffuse.rgb, dry);
+    _surface.diffuse.rgb *= 1.0 - 0.12 * edge;
     """
     
-    static func installFillShader(on materials: [SCNMaterial]) {
+    private static func installFillShader(on materials: [SCNMaterial]) {
         for material in materials {
-            material.shaderModifiers = [
-                .surface: fillSurfaceShader
-            ]
-            material.setValue(NSNumber(value: Float(-1.0)), forKey: "fillLevel")
+            material.shaderModifiers = [.surface: fillSurfaceShader]
+            material.setValue(NSNumber(value: FillLevel.hidden), forKey: "fillLevel")
+            material.setValue(NSNumber(value: Float(-0.5)), forKey: "fillMinY")
+            material.setValue(NSNumber(value: Float(0.5)), forKey: "fillMaxY")
+            material.setValue(KeyPalette.fill, forKey: "fillColor")
         }
     }
     
-    class Coordinator {
+    // MARK: Lighting
+    
+    /// Small studio HDRI stand-in: bright softbox above, warm floor below.
+    private static func studioEnvironment() -> UIImage {
+        let size = CGSize(width: 512, height: 256)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            let colors = [
+                UIColor(white: 0.98, alpha: 1).cgColor,
+                UIColor(white: 0.80, alpha: 1).cgColor,
+                UIColor(red: 0.52, green: 0.50, blue: 0.47, alpha: 1).cgColor,
+                UIColor(red: 0.28, green: 0.27, blue: 0.26, alpha: 1).cgColor
+            ] as CFArray
+            let stops: [CGFloat] = [0, 0.38, 0.55, 1]
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: stops) {
+                cg.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+            }
+            UIColor.white.setFill()
+            cg.fill(CGRect(x: 120, y: 20, width: 140, height: 46))
+            UIColor(white: 1, alpha: 0.6).setFill()
+            cg.fill(CGRect(x: 360, y: 40, width: 60, height: 30))
+        }
+    }
+    
+    // MARK: Camera
+    
+    private static func frameCamera(_ camera: SCNNode, around node: SCNNode) {
+        let (minB, maxB) = node.boundingBox
+        let center = simd_float3((minB.x + maxB.x) / 2, (minB.y + maxB.y) / 2, (minB.z + maxB.z) / 2)
+        let radius = max(maxB.x - minB.x, maxB.z - minB.z) / 2
+        let fov: Float = 26
+        camera.camera?.fieldOfView = CGFloat(fov)
+        let elevation: Float = 50 * .pi / 180
+        let direction = simd_normalize(simd_float3(0, sin(elevation), cos(elevation)))
+        let distance = max(radius, 0.1) / tan(fov * .pi / 180 * 0.5 * 0.78)
+        camera.simdPosition = center + direction * distance
+        camera.look(at: SCNVector3(center.x, center.y, center.z), up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+    }
+    
+    private static func viewSpaceYExtent(of node: SCNNode, camera: SCNNode) -> (Float, Float) {
+        let (minB, maxB) = node.boundingBox
+        var lo = Float.greatestFiniteMagnitude
+        var hi = -Float.greatestFiniteMagnitude
+        for x in [minB.x, maxB.x] {
+            for y in [minB.y, maxB.y] {
+                for z in [minB.z, maxB.z] {
+                    let p = node.convertPosition(SCNVector3(x, y, z), to: camera)
+                    lo = min(lo, p.y)
+                    hi = max(hi, p.y)
+                }
+            }
+        }
+        // A round puck's real silhouette is inside its bounding box corners.
+        let inset = (hi - lo) * 0.06
+        return (lo + inset, hi - inset)
+    }
+    
+    final class Coordinator {
         var pivot: SCNNode?
-        var camera: SCNNode?
+        var spinner: SCNNode?
         var materials: [SCNMaterial] = []
     }
-}
-
-#Preview {
-    VStack {
-        KeyView3D(progress: 0)
-            .frame(width: 240, height: 240)
-    }
-    .padding()
-    .background(Color.brickCanvas)
 }

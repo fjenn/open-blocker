@@ -2,76 +2,149 @@ import SwiftUI
 
 struct OnboardingView: View {
     @StateObject private var appState = AppState.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var page = 0
     @State private var screenTimeNote: String?
     @State private var requesting = false
+    @State private var showingKeySetup = false
+    
+    private let pageCount = 4
     
     var body: some View {
-        VStack(spacing: 0) {
-            TabView(selection: $page) {
-                OnboardingPage(
-                    title: "Open Blocker",
-                    subtitle: "A physical key starts and stops a block. Honesty, not a lock you cannot break.",
-                    systemImage: "lock.shield"
-                )
-                .tag(0)
+        ZStack {
+            ScreenCanvas()
+            VStack(spacing: 0) {
+                TabView(selection: $page) {
+                    OnboardingPage(
+                        title: "Open Blocker",
+                        subtitle: "Lock distracting apps. Only something you can hold unlocks them again."
+                    ) {
+                        KeyView3D(progress: 0, yaw: 0, isDragging: false, reduceMotion: reduceMotion)
+                            .frame(width: 260, height: 260)
+                    }
+                    .tag(0)
+                    
+                    OnboardingPage(
+                        title: "Screen Time",
+                        subtitle: "Apple requires this permission for any app that blocks apps. Open Blocker doesn't read or track your screen time.",
+                        note: screenTimeNote
+                    ) {
+                        medallion("hourglass")
+                    }
+                    .tag(1)
+                    
+                    OnboardingPage(
+                        title: "Block adult websites?",
+                        subtitle: "Uses Apple's adult content filter while you're blocked.",
+                        footer: AnyView(
+                            SettingsGroup {
+                                ToggleRow(
+                                    title: "Block adult websites",
+                                    isOn: Binding(
+                                        get: { appState.rules.blockAdultWeb },
+                                        set: { value in
+                                            var rules = appState.rules
+                                            rules.blockAdultWeb = value
+                                            appState.rules = rules
+                                        }
+                                    ),
+                                    accessibilityID: "onboarding-adult-toggle"
+                                )
+                            }
+                            .padding(.horizontal, Space.xl)
+                        )
+                    ) {
+                        medallion("hand.raised.fill")
+                    }
+                    .tag(2)
+                    
+                    OnboardingPage(
+                        title: "Add your key",
+                        subtitle: "Only your key unblocks.",
+                        note: appState.keys.isEmpty ? nil : "Key added."
+                    ) {
+                        medallion("key.fill")
+                    }
+                    .tag(3)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 
-                OnboardingPage(
-                    title: "Screen Time",
-                    subtitle: "Apple's Screen Time permission is what actually hides apps while you are blocked.",
-                    systemImage: "hourglass",
-                    note: screenTimeNote
-                )
-                .tag(1)
+                HStack(spacing: Space.xs) {
+                    ForEach(0..<pageCount, id: \.self) { index in
+                        Capsule()
+                            .fill(index == page ? Color.ink : Color.inkTertiary.opacity(0.5))
+                            .frame(width: index == page ? 20 : 8, height: 8)
+                    }
+                }
+                .animation(Motion.standard, value: page)
+                .padding(.bottom, Space.xl)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Page \(page + 1) of \(pageCount)")
                 
-                OnboardingPage(
-                    title: "Your key",
-                    subtitle: "Add an NFC tag, a card, or a printed QR on the next screen. You will tap it to block and unblock.",
-                    systemImage: "key.fill"
+                PrimaryButton(
+                    title: buttonTitle,
+                    emphasis: .ink,
+                    isEnabled: !requesting,
+                    accessibilityID: AccessibilityID.onboardingContinue,
+                    action: advance
                 )
-                .tag(2)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { index in
-                    Capsule()
-                        .fill(index == page ? Color.brickInk : Color.brickMuted)
-                        .frame(width: index == page ? 18 : 8, height: 8)
+                .padding(.horizontal, Space.xxxl)
+                .padding(.bottom, isKeyStep ? Space.s : Space.xxxl)
+                
+                if isKeyStep {
+                    Button("Skip for now") { appState.completeOnboarding() }
+                        .textStyle(.subhead, weight: .semibold)
+                        .foregroundColor(Color.inkSecondary)
+                        .frame(minHeight: 44)
+                        .padding(.bottom, Space.l)
+                        .accessibilityIdentifier("onboarding-skip-key")
                 }
             }
-            .padding(.bottom, 20)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Page \(page + 1) of 3")
-            
-            Button(action: advance) {
-                Text(buttonTitle)
-                    .brickText(size: 17, weight: .medium, relativeTo: .body)
-                    .foregroundColor(Color.brickInk)
-                    .frame(maxWidth: .infinity, minHeight: 51)
-                    .background(
-                        Capsule()
-                            .fill(Color.brickButton)
-                    )
-                    .shadow(color: .black.opacity(requesting ? 0 : 0.12), radius: 8, y: 4)
-            }
-            .disabled(requesting)
-            .padding(.horizontal, 40)
-            .padding(.bottom, 40)
-            .accessibilityIdentifier(AccessibilityID.onboardingContinue)
         }
-        .background(Color.brickCanvas.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("onboarding-root")
+        .onAppear(perform: applyOnboardingDefaults)
+        .sheet(isPresented: $showingKeySetup) {
+            KeySetupScreen(onSaved: { appState.completeOnboarding() })
+        }
+    }
+    
+    /// Fresh installs start with "Block adult websites" on; the onboarding
+    /// step (and My Rules) can turn it off. Applied once.
+    private func applyOnboardingDefaults() {
+        let key = "onboardingAdultWebDefaultApplied"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        var rules = appState.rules
+        rules.blockAdultWeb = true
+        appState.rules = rules
+    }
+    
+    /// Last step: add a key (unless one already exists).
+    private var isKeyStep: Bool {
+        page == pageCount - 1 && appState.keys.isEmpty
+    }
+    
+    private func medallion(_ systemName: String) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.surfaceRaised)
+                .frame(width: 168, height: 168)
+                .shadow(color: Color.floatShadow, radius: 30, y: 14)
+            Image(systemName: systemName)
+                .font(.system(size: 60, weight: .light))
+                .foregroundColor(Color.ink)
+        }
+        .frame(height: 260)
     }
     
     private var buttonTitle: String {
         if requesting { return "Asking..." }
         switch page {
-        case 0:
-            return "Continue"
-        case 1:
-            return screenTimeNote == nil ? "Allow Screen Time" : "Continue"
-        default:
-            return "Get Started"
+        case 0: return "Continue"
+        case 1: return screenTimeNote == nil ? "Allow Screen Time" : "Continue"
+        case 2: return "Continue"
+        default: return appState.keys.isEmpty ? "Add Key" : "Get Started"
         }
     }
     
@@ -83,61 +156,63 @@ struct OnboardingView: View {
                 await MainActor.run {
                     requesting = false
                     if ok {
-                        screenTimeNote = "Screen Time is on. Blocking can use Apple's shields."
+                        screenTimeNote = "Screen Time is on."
                     } else {
                         #if targetEnvironment(simulator)
-                        screenTimeNote = "The simulator cannot grant Screen Time. On your iPhone, Apple's permission sheet will appear here."
+                        screenTimeNote = "The simulator can't grant Screen Time. On iPhone, Apple's permission sheet appears here."
                         #else
-                        screenTimeNote = "Screen Time was not granted. You can try again later from iPhone Settings."
+                        screenTimeNote = "Screen Time wasn't allowed. Open Blocker will ask again before your first block."
                         #endif
                     }
                 }
             }
             return
         }
-        if page < 2 {
-            withAnimation { page += 1 }
+        if page < pageCount - 1 {
+            withAnimation(Motion.standard) { page += 1 }
+        } else if appState.keys.isEmpty {
+            showingKeySetup = true
         } else {
             appState.completeOnboarding()
         }
     }
 }
 
-struct OnboardingPage: View {
+private struct OnboardingPage<Hero: View>: View {
     let title: String
     let subtitle: String
-    let systemImage: String
     var note: String? = nil
+    var footer: AnyView? = nil
+    @ViewBuilder var hero: Hero
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Space.l) {
             Spacer()
-            
-            Image(systemName: systemImage)
-                .font(.system(size: 64, weight: .regular))
-                .foregroundColor(Color.brickInk)
-            
+            hero
             Text(title)
-                .brickText(size: 28, weight: .medium, relativeTo: .title)
-                .foregroundColor(Color.brickInk)
+                .textStyle(.title)
+                .foregroundColor(Color.ink)
                 .multilineTextAlignment(.center)
-            
+                .padding(.top, Space.s)
             Text(subtitle)
-                .brickText(size: 16, relativeTo: .body)
-                .foregroundColor(Color.brickMuted)
+                .textStyle(.body)
+                .foregroundColor(Color.inkSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 36)
-            
+                .padding(.horizontal, Space.xxxl)
             if let note {
-                Text(note)
-                    .brickText(size: 15, relativeTo: .callout)
-                    .foregroundColor(Color.brickInk)
+                Label(note, systemImage: "info.circle")
+                    .textStyle(.subhead)
+                    .foregroundColor(Color.ink)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                    .padding(.top, 4)
+                    .padding(.horizontal, Space.m)
+                    .padding(.vertical, Space.s)
+                    .background(Capsule(style: .continuous).fill(Color.fillQuiet))
+                    .padding(.horizontal, Space.xl)
                     .accessibilityIdentifier(AccessibilityID.onboardingNote)
             }
-            
+            if let footer {
+                footer.padding(.top, Space.xs)
+            }
             Spacer()
         }
     }

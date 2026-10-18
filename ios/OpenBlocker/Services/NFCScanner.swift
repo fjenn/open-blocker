@@ -7,7 +7,7 @@ import CoreNFC
 #endif
 
 protocol NFCScannerProtocol {
-    func scan() async throws -> ScannedKey
+    func scan(keyMatcher: ((ScannedKey) -> Bool)?) async throws -> ScannedKey
     func writeOpenBlockerRecord(tagId: Data) async throws
 }
 
@@ -72,17 +72,28 @@ final class MockNFCScanner: NFCScannerProtocol {
         case failure(NFCScanError)
     }
     
-    func scan() async throws -> ScannedKey {
+    func scan(keyMatcher: ((ScannedKey) -> Bool)? = nil) async throws -> ScannedKey {
         scanCallCount += 1
         if scanDelay > 0 {
             try await Task.sleep(nanoseconds: UInt64(scanDelay * 1_000_000_000))
         }
-        let index = min(scanCallCount - 1, results.count - 1)
         guard !results.isEmpty else {
             throw NFCScanError.readFailed("Mock NFC scanner has no results")
         }
-        return try results[index].get()
+        let index = min(scanCallCount - 1, results.count - 1)
+        guard let keyMatcher else { return try results[index].get() }
+        // Like the real reader: unknown tags keep the session polling
+        // ("Ready to scan"); only a matching tag completes it.
+        for result in results[index...] {
+            let key = try result.get()
+            if keyMatcher(key) { return key }
+            rejectedCount += 1
+        }
+        throw NFCScanError.userCancelled
     }
+    
+    /// Tags the matcher rejected (the session kept polling instead of finishing).
+    private(set) var rejectedCount = 0
     
     func writeOpenBlockerRecord(tagId: Data) async throws {
         writeCallCount += 1
@@ -101,7 +112,7 @@ final class CoreNFCScanner: NSObject, NFCScannerProtocol {
     private var scanDelegate: ScanDelegate?
     private var writeDelegate: WriteDelegate?
     
-    func scan() async throws -> ScannedKey {
+    func scan(keyMatcher: ((ScannedKey) -> Bool)? = nil) async throws -> ScannedKey {
         guard NFCNDEFReaderSession.readingAvailable else {
             throw NFCScanError.unavailable
         }
@@ -112,7 +123,7 @@ final class CoreNFCScanner: NSObject, NFCScannerProtocol {
         }
         
         return try await withCheckedThrowingContinuation { continuation in
-            let delegate = ScanDelegate(continuation: continuation)
+            let delegate = ScanDelegate(continuation: continuation, keyMatcher: keyMatcher)
             self.scanDelegate = delegate
             
             let newSession = NFCTagReaderSession(
@@ -124,6 +135,7 @@ final class CoreNFCScanner: NSObject, NFCScannerProtocol {
                 continuation.resume(throwing: NFCScanError.unavailable)
                 return
             }
+            delegate.session = newSession
             self.session = newSession
             newSession.alertMessage = "Hold the top of your iPhone near your key."
             newSession.begin()
@@ -175,9 +187,12 @@ final class CoreNFCScanner: NSObject, NFCScannerProtocol {
 
 private final class ScanDelegate: NSObject, NFCTagReaderSessionDelegate {
     private var continuation: CheckedContinuation<ScannedKey, Error>?
+    private let keyMatcher: ((ScannedKey) -> Bool)?
+    weak var session: NFCTagReaderSession?
     
-    init(continuation: CheckedContinuation<ScannedKey, Error>) {
+    init(continuation: CheckedContinuation<ScannedKey, Error>, keyMatcher: ((ScannedKey) -> Bool)?) {
         self.continuation = continuation
+        self.keyMatcher = keyMatcher
     }
     
     func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {}
@@ -202,28 +217,48 @@ private final class ScanDelegate: NSObject, NFCTagReaderSessionDelegate {
     
     func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
         guard let continuation, let tag = tags.first else { return }
-        self.continuation = nil
         
         session.connect(to: tag) { error in
             if let error {
                 session.invalidate(errorMessage: "Connection failed")
+                self.continuation = nil
                 continuation.resume(throwing: NFCScanError.readFailed(error.localizedDescription))
                 return
             }
             
             guard let uid = Self.getUID(for: tag) else {
                 session.invalidate(errorMessage: "Could not read tag")
+                self.continuation = nil
                 continuation.resume(throwing: NFCScanError.readFailed("Could not read tag identifier"))
                 return
             }
             
             Self.readOpenBlockerID(from: tag) { id in
-                session.alertMessage = "Done"
-                session.invalidate()
-                if let id {
-                    continuation.resume(returning: .openBlocker(id: id, uid: uid))
+                let scannedKey: ScannedKey = if let id {
+                    .openBlocker(id: id, uid: uid)
                 } else {
-                    continuation.resume(returning: .card(uid: uid))
+                    .card(uid: uid)
+                }
+                
+                // Check if we have a matcher and if the key matches
+                if let matcher = self.keyMatcher {
+                    if matcher(scannedKey) {
+                        // Match found - success!
+                        session.alertMessage = "Done"
+                        session.invalidate()
+                        self.continuation = nil
+                        continuation.resume(returning: scannedKey)
+                    } else {
+                        // No match - restart polling to scan another tag
+                        session.alertMessage = "Unknown key. Try another."
+                        session.restartPolling()
+                    }
+                } else {
+                    // No matcher - accept any tag (registration mode)
+                    session.alertMessage = "Done"
+                    session.invalidate()
+                    self.continuation = nil
+                    continuation.resume(returning: scannedKey)
                 }
             }
         }
@@ -359,3 +394,10 @@ private final class WriteDelegate: NSObject, NFCNDEFReaderSessionDelegate {
     }
 }
 #endif
+
+extension NFCScannerProtocol {
+    /// Accepts any tag (key registration).
+    func scan() async throws -> ScannedKey {
+        try await scan(keyMatcher: nil)
+    }
+}

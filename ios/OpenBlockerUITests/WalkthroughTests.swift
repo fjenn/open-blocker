@@ -42,14 +42,17 @@ final class WalkthroughTests: XCTestCase {
         
         tap("settings-keys", labeled: "My Keys")
         pause(0.6)
-        tap("add-key", labeled: "Add Key")
-        XCTAssertTrue(
-            app.staticTexts["Key Name"].waitForExistence(timeout: 4) ||
-            app.navigationBars["Add Key"].waitForExistence(timeout: 1),
-            "Add Key sheet missing"
-        )
+        // Rule "Don't allow adding new keys while blocked" is on by default.
+        let addKey = element("add-key")
+        XCTAssertTrue(addKey.waitForExistence(timeout: 4), "Add Key button missing")
+        XCTAssertFalse(addKey.isEnabled, "adding keys should be locked while blocked")
+        XCTAssertTrue(app.staticTexts["Keys can't be added or removed while you're blocked."].exists)
         pause(0.9)
-        app.buttons["Cancel"].firstMatch.tap()
+        goBack()
+        
+        tap("settings-rules", labeled: "My Rules")
+        XCTAssertTrue(app.staticTexts["Rules are locked while you're blocked."].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts["Don't allow adding new keys while blocked"].exists)
         goBack()
         
         tap("settings-rules", labeled: "My Rules")
@@ -82,7 +85,7 @@ final class WalkthroughTests: XCTestCase {
         pause(0.5)
         tap("mode-edit", labeled: "Edit")
         XCTAssertTrue(
-            app.staticTexts["Mode Name"].waitForExistence(timeout: 4),
+            app.staticTexts["Edit mode"].waitForExistence(timeout: 4),
             "mode edit screen missing"
         )
         pause(0.9)
@@ -137,23 +140,42 @@ final class WalkthroughTests: XCTestCase {
     }
     
     private func isIdle(_ button: XCUIElement) -> Bool {
-        button.label.contains("Tap or hold to block")
+        button.label.contains("hold to block")
     }
     
     private func waitForIdleButton() -> Bool {
         let button = element("block-button")
-        return button.waitForExistence(timeout: 4) && waitForLabel(button, containing: "Tap or hold to block")
+        return button.waitForExistence(timeout: 4) && waitForLabel(button, containing: "hold to block")
     }
     
     private func waitForUnblockButton() -> Bool {
         let button = element("block-button")
-        return button.waitForExistence(timeout: 4) && waitForLabel(button, containing: "Tap to unblock")
+        return button.waitForExistence(timeout: 4) && waitForLabel(button, containing: "Scan your key to unblock")
     }
     
     private func waitForLabel(_ element: XCUIElement, containing text: String) -> Bool {
         let predicate = NSPredicate(format: "label CONTAINS %@", text)
         let expect = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter().wait(for: [expect], timeout: 4) == .completed
+    }
+    
+    /// Re-tapping the selected tab pops back to that tab's root page.
+    func testRetapSelectedTabPopsToRoot() {
+        tap("tab-settings")
+        tap("settings-help", labeled: "Help")
+        XCTAssertTrue(app.staticTexts["How keys work"].waitForExistence(timeout: 4), "Help page missing")
+        XCTAssertFalse(element("settings-keys").isHittable, "should be on a subpage")
+        
+        tap("tab-settings")
+        XCTAssertTrue(element("settings-keys").waitForExistence(timeout: 4), "Settings root missing after re-tap")
+        XCTAssertTrue(element("settings-keys").isHittable)
+        XCTAssertFalse(app.staticTexts["How keys work"].exists, "Help page should be popped")
+        
+        // Other tabs still switch normally and re-tap is harmless at the root.
+        tap("tab-schedule")
+        XCTAssertTrue(element("schedule-root").waitForExistence(timeout: 4))
+        tap("tab-schedule")
+        XCTAssertTrue(element("schedule-root").waitForExistence(timeout: 4))
     }
     
     private func element(_ id: String) -> XCUIElement {
@@ -195,5 +217,42 @@ final class WalkthroughTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: seconds + 2)
+    }
+}
+
+/// Onboarding is the root screen until it's finished: no swipe-to-dismiss,
+/// no tab bar behind it.
+final class OnboardingGateUITests: XCTestCase {
+    func testOnboardingCannotBeDismissedAndOffersAdultFilter() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-resetOnboarding"]
+        app.launch()
+        
+        let root = app.descendants(matching: .any)["onboarding-root"].firstMatch
+        XCTAssertTrue(root.waitForExistence(timeout: 10), "onboarding should show on a fresh install")
+        XCTAssertFalse(app.descendants(matching: .any)["tab-block"].exists, "app must not be reachable behind onboarding")
+        
+        app.swipeDown(velocity: .fast)
+        app.swipeDown(velocity: .fast)
+        XCTAssertTrue(root.exists, "swipe down must not dismiss onboarding")
+        XCTAssertFalse(app.descendants(matching: .any)["tab-block"].exists)
+        
+        let next = app.descendants(matching: .any)["onboarding-continue"].firstMatch
+        let adultTitle = app.staticTexts["Block adult websites?"]
+        // Intro -> Screen Time. The simulator's Screen Time prompt can't be
+        // answered from a UI test, so page past it with a swipe.
+        next.tap()
+        XCTAssertTrue(app.staticTexts["Screen Time"].waitForExistence(timeout: 4))
+        app.swipeLeft()
+        _ = adultTitle.waitForExistence(timeout: 4)
+        XCTAssertTrue(adultTitle.exists, "adult websites step missing")
+        let toggle = app.switches["onboarding-adult-toggle"].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 4))
+        XCTAssertEqual(toggle.value as? String, "1", "on by default")
+        
+        next.tap()                                   // -> add your key
+        XCTAssertTrue(app.staticTexts["Add your key"].waitForExistence(timeout: 4))
+        XCTAssertFalse(app.descendants(matching: .any)["tab-block"].exists, "still gated until finished")
     }
 }

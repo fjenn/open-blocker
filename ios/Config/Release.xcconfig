@@ -4,3 +4,8 @@
 // Optional: Set these for anonymous counting (leave empty to disable)
 COUNT_URL = 
 COUNT_KEY = 
+
+// Anonymous block count: the one HTTPS endpoint that receives "block_completed"
+// events. Empty = nothing is sent. Write "//" as "/$()/" in xcconfig, e.g.
+// COUNT_ENDPOINT = https:/$()/openblocker.org/api/count
+COUNT_ENDPOINT = https:/$()/openblocker.org/api/count

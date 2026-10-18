@@ -17,7 +17,7 @@ enum ScheduleMonitor {
         for schedule in schedules where schedule.isOn {
             let bounds = ScheduleInterval.deviceActivityBounds(
                 startMinute: schedule.startMinute,
-                endMinute: schedule.endMinute
+                endMinute: schedule.effectiveEndMinute
             )
             let activity = DeviceActivitySchedule(
                 intervalStart: bounds.start,

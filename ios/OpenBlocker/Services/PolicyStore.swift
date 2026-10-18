@@ -8,7 +8,9 @@ enum PolicyStore {
     
     // MARK: - File URLs
     
-    private static var containerURL: URL {
+    /// Resolved once per process: the lookup is an IPC call and used to run
+    /// (and log) several times during launch.
+    private static let containerURL: URL = {
         // Try App Group container first, fall back to Application Support for unsigned builds
         if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             print("[PolicyStore] Using App Group: \(groupURL.path)")
@@ -20,7 +22,7 @@ enum PolicyStore {
             print("[PolicyStore] ⚠️ App Group unavailable, using fallback: \(fallbackURL.path)")
             return fallbackURL
         }
-    }
+    }()
     
     private static var configURL: URL {
         containerURL.appendingPathComponent("config.json")
@@ -62,17 +64,44 @@ enum PolicyStore {
         }
     }
     
+    /// The last error from `loadConfig`, if the file existed but could not be decoded.
+    static private(set) var lastConfigLoadError: Error?
+    
     static func loadConfig() -> Config {
-        let url = configURL
+        loadConfig(from: configURL)
+    }
+    
+    /// Loads a config. A missing file gives an empty Config. A file that exists
+    /// but fails to decode is never thrown away silently: the raw bytes are
+    /// copied to `config.corrupt-<timestamp>.json` next to it and the error is
+    /// logged, before an empty Config is returned.
+    static func loadConfig(from url: URL) -> Config {
+        lastConfigLoadError = nil
+        guard let data = try? Data(contentsOf: url) else {
+            print("[PolicyStore] No config file yet at \(url.lastPathComponent)")
+            return Config()
+        }
         do {
-            let data = try Data(contentsOf: url)
-            let config = try JSONDecoder().decode(Config.self, from: data)
+            let config = try decodeConfig(data)
             print("[PolicyStore] ✓ Loaded config: \(config.modes.count) modes, \(config.keys.count) keys, \(config.schedules.count) schedules")
             return config
         } catch {
-            print("[PolicyStore] No config found or decode error: \(error.localizedDescription)")
+            lastConfigLoadError = error
+            let stamp = Int(Date().timeIntervalSince1970)
+            let backup = url.deletingLastPathComponent()
+                .appendingPathComponent("config.corrupt-\(stamp).json")
+            do {
+                try data.write(to: backup, options: .atomic)
+                print("[PolicyStore] ❌ Config decode failed: \(error). Raw file backed up to \(backup.path)")
+            } catch let backupError {
+                print("[PolicyStore] ❌ Config decode failed: \(error). Backup also failed: \(backupError)")
+            }
             return Config()
         }
+    }
+    
+    static func decodeConfig(_ data: Data) throws -> Config {
+        try JSONDecoder().decode(Config.self, from: data)
     }
     
     static func save(_ config: Config) {
@@ -230,4 +259,31 @@ struct Rules: Codable {
     var blockInstalls: Bool = false
     var blockPurchases: Bool = false
     var blockAdultWeb: Bool = false
+    var blockAddingKeys: Bool = true
+}
+
+extension Rules {
+    // Tolerant: configs from older builds lack newer keys.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        preventDelete = try c.decodeIfPresent(Bool.self, forKey: .preventDelete) ?? true
+        blockInstalls = try c.decodeIfPresent(Bool.self, forKey: .blockInstalls) ?? false
+        blockPurchases = try c.decodeIfPresent(Bool.self, forKey: .blockPurchases) ?? false
+        blockAdultWeb = try c.decodeIfPresent(Bool.self, forKey: .blockAdultWeb) ?? false
+        blockAddingKeys = try c.decodeIfPresent(Bool.self, forKey: .blockAddingKeys) ?? true
+    }
+}
+
+extension PolicyStore.Config {
+    // Tolerant: any missing top-level key falls back to its default.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            modes: try c.decodeIfPresent([BlockMode].self, forKey: .modes) ?? [],
+            keys: try c.decodeIfPresent([BlockKey].self, forKey: .keys) ?? [],
+            schedules: try c.decodeIfPresent([BlockSchedule].self, forKey: .schedules) ?? [],
+            rules: try c.decodeIfPresent(Rules.self, forKey: .rules) ?? Rules(),
+            activeModeID: try c.decodeIfPresent(UUID.self, forKey: .activeModeID)
+        )
+    }
 }

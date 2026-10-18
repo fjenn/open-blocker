@@ -14,6 +14,7 @@ struct OpenBlockerApp: App {
 
 struct AppRootView: View {
     @StateObject private var appState = AppState.shared
+    @Environment(\.scenePhase) private var scenePhase
     
     #if DEBUG
     private var isDemoMode: Bool {
@@ -62,6 +63,10 @@ struct AppRootView: View {
             }
             #endif
         }
+        .appAppearance()
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { appState.appDidBecomeActive() }
+        }
     }
     
     #if DEBUG
@@ -100,8 +105,10 @@ struct DebugScreenLauncher: View {
                     switch screen {
                     case "modes":
                         ModesScreen()
-                    case "mode-edit":
+                    case "mode-edit", "mode-new":
                         ModeEditScreen()
+                    case "mode-rename":
+                        ModeEditScreen(mode: appState.activeMode)
                     case "schedule-edit":
                         ScheduleEditScreen()
                     case "keys":
@@ -112,6 +119,8 @@ struct DebugScreenLauncher: View {
                         EmergencyUnblockScreen()
                     case "rules":
                         RulesScreen()
+                    case "about":
+                        AboutScreen()
                     case "onboarding":
                         OnboardingView()
                     default:
