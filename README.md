@@ -1,16 +1,23 @@
 # Open Blocker
 
-**0.2.0-alpha is an early alpha. It has not been tested on real devices.** Both NFC keys and printed QR keys have been tried only on an Android emulator. This is not a daily-driver release. If you install it, you are helping test. Please report what happens (success or failure) in [Issues](../../issues) or [Discussions](../../discussions).
+Open Blocker is a free, open source physical phone blocker. You pick apps to lock, and they stay locked until you scan your key. The idea is friction: you walk to the key, you do not swipe a toggle.
 
-Open Blocker is an open source physical phone blocker. You pick apps to lock, then start or stop a session by tapping an NFC key or scanning a printed QR. The idea is friction: you walk to the key, you do not swipe a toggle.
+Your key can be:
+
+- **iPhone:** an NFC tag or sticker, many NFC cards you already carry, a printed QR code, or a barcode (for example the one on a book).
+- **Android:** an NFC tag, an NFC card, or a printed Open Blocker QR code. No barcodes yet.
 
 **License:** MIT  
-**Android:** 0.2.0-alpha (sideload APK)  
-**iPhone:** source is in `ios/`. There is no App Store build yet. Apple Screen Time / Family Controls distribution approval is still pending. Join the waitlist: https://openblocker.vercel.app/waitlist
+**iPhone:** 1.0.0 was submitted to the App Store on Oct 17, 2026 and is in Apple's review. A public TestFlight beta is coming soon. This build has been tested on a real iPhone.  
+**Android:** 0.2.0-alpha (sideload APK). Tested on an emulator only. Real-phone NFC testing is still pending.  
+**Waitlist:** https://openblocker.org/#waitlist  
+**Privacy:** https://openblocker.org/privacy · **Terms:** https://openblocker.org/terms
 
 ## Android alpha (emulator only so far)
 
-Download `open-blocker-0.2.0-alpha.apk` from [Releases](../../releases). Check the SHA-256 next to the file.
+Download `openblocker-0.2.0-alpha.apk` from [Releases](../../releases). Check the SHA-256 next to the file.
+
+**0.2.0-alpha is an early alpha and is not a daily-driver release.** If you install it, you are helping test. Please report what happens (success or failure) in [Issues](../../issues) or [Discussions](../../discussions).
 
 This alpha has been run on an API 34 Android emulator (home, app picker, Accessibility, block overlay, QR registration / camera permission / scanner preview). It has **not** been tested on a wide range of real phones. NFC tag write/read, pairing a real card, scanning a real printed QR to start or end a session, and wrong-key reject on hardware are **unverified**.
 
@@ -20,8 +27,8 @@ This alpha is not on Google Play yet, so Google Play Protect does not recognise 
 
 **Only install the APK from the official [v0.2.0-alpha release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha).** Do not install a copy forwarded to you in a chat app. Check the SHA-256 before installing. This is an early alpha.
 
-1. On the phone, open the [release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha) in your browser and download `open-blocker-0.2.0-alpha.apk`. Download it directly rather than opening a copy from WhatsApp or another messaging app.
-2. Verify the file. Its SHA-256 must match the value in `open-blocker-0.2.0-alpha.apk.sha256` on the same release page. On a computer: `shasum -a 256 open-blocker-0.2.0-alpha.apk` (macOS) or `sha256sum open-blocker-0.2.0-alpha.apk` (Linux). If it does not match, delete the file and do not install it.
+1. On the phone, open the [release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha) in your browser and download `openblocker-0.2.0-alpha.apk`. Download it directly rather than opening a copy from WhatsApp or another messaging app.
+2. Verify the file. Its SHA-256 must match the value in `openblocker-0.2.0-alpha.apk.sha256` on the same release page. On a computer: `shasum -a 256 openblocker-0.2.0-alpha.apk` (macOS) or `sha256sum openblocker-0.2.0-alpha.apk` (Linux). If it does not match, delete the file and do not install it.
 3. Allow the app you open the APK with (your browser, or the Files / My Files app) to install unknown apps: Settings > Apps > [that app] > Install unknown apps > Allow.
 4. If an older Open Blocker build (for example a debug build) is already on the phone, uninstall it first. Android will not install over an app signed with a different key and reports that as "App not installed" too.
 5. Open the APK and tap Install.
@@ -61,11 +68,20 @@ No NFC hardware is required if you print a QR from the app. For a physical tag:
 
 ## iPhone
 
-App source lives in `ios/`. The App Store version is waiting on Apple's Screen Time (Family Controls distribution) approval. Join the waitlist: https://openblocker.vercel.app/waitlist
+App source lives in `ios/`. Apple approved the Family Controls (Distribution) entitlement, and version 1.0.0 was submitted to the App Store on Oct 17, 2026. It is in Apple's review now. A public TestFlight beta is coming. It has been tested on a real iPhone through TestFlight. Join the waitlist to hear when it is out: https://openblocker.org/#waitlist
+
+On iPhone, an NFC tag or sticker (NTAG213/215/216), many NFC cards, a printed QR code, or a barcode works as a key. Cards with a changing ID (many bank cards and phone wallets) are rejected on purpose.
 
 ## Privacy
 
-Nothing leaves the device unless you turn on the optional "Count me" ping. See [PRIVACY.md](PRIVACY.md).
+No account, no ads, no tracking. Your keys, app choices and settings stay on your phone.
+
+**Share anonymous count:**
+
+- **iPhone (1.0.0):** on by default. You can turn it off in Settings. After each completed block it sends a random install ID, the event name `block_completed`, a random event ID, the app version and the platform. No app names or usage data. It is used only to count how many people completed at least one block and how many blocks were completed in total.
+- **Android (0.2.0-alpha):** the setting is also on by default, but the released APK has no count server set, so it sends nothing.
+
+Full policy: https://openblocker.org/privacy
 
 ## Build from source
 
