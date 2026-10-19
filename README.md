@@ -2,13 +2,15 @@
 
 Open Blocker is a free, open source physical phone blocker. You pick apps to lock, and they stay locked until you scan your key. The idea is friction: you walk to the key, you do not swipe a toggle.
 
+**iPhone public beta is live:** https://testflight.apple.com/join/dX8Umvct (opens in TestFlight). App Store release coming.
+
 Your key can be:
 
 - **iPhone:** an NFC tag or sticker, many NFC cards you already carry, a printed QR code, or a barcode (for example the one on a book).
 - **Android:** an NFC tag, an NFC card, or a printed Open Blocker QR code. No barcodes yet.
 
 **License:** MIT  
-**iPhone:** 1.0.0 was submitted to the App Store on Oct 17, 2026 and is in Apple's review. A public TestFlight beta is coming soon. This build has been tested on a real iPhone.  
+**iPhone:** 1.0.0 was submitted to the App Store on Oct 17, 2026. App Store release coming; public beta available now: https://testflight.apple.com/join/dX8Umvct. This build has been tested on a real iPhone.  
 **Android:** 0.2.0-alpha (sideload APK). Tested on an emulator only. Real-phone NFC testing is still pending.  
 **Waitlist:** https://openblocker.org/#waitlist  
 **Privacy:** https://openblocker.org/privacy · **Terms:** https://openblocker.org/terms
@@ -68,7 +70,7 @@ No NFC hardware is required if you print a QR from the app. For a physical tag:
 
 ## iPhone
 
-App source lives in `ios/`. Apple approved the Family Controls (Distribution) entitlement, and version 1.0.0 was submitted to the App Store on Oct 17, 2026. It is in Apple's review now. A public TestFlight beta is coming. It has been tested on a real iPhone through TestFlight. Join the waitlist to hear when it is out: https://openblocker.org/#waitlist
+App source lives in `ios/`. Apple approved the Family Controls (Distribution) entitlement, and version 1.0.0 was submitted to the App Store on Oct 17, 2026. App Store release coming; public beta available now: https://testflight.apple.com/join/dX8Umvct. It has been tested on a real iPhone through TestFlight. Join the waitlist to hear when it is out: https://openblocker.org/#waitlist
 
 On iPhone, an NFC tag or sticker (NTAG213/215/216), many NFC cards, a printed QR code, or a barcode works as a key. Cards with a changing ID (many bank cards and phone wallets) are rejected on purpose.
 
