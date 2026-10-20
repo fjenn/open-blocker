@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,7 @@ import app.openblocker.android.ui.theme.Space
 import app.openblocker.android.ui.theme.asCopy
 import app.openblocker.android.ui.theme.obColors
 import java.text.SimpleDateFormat
+import kotlin.math.roundToInt
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -346,48 +348,67 @@ fun ActivityTabContent(
             Text("Avg blocked time".asCopy(), style = ObText.subhead, color = colors.inkSecondary)
             Text(DurationText.hoursMinutes((averageHours * 3600).toLong()).asCopy(), style = ObText.largeTitle, color = colors.ink)
             Spacer(Modifier.height(Space.m))
-            Canvas(Modifier.fillMaxWidth().height(170.dp)) {
-                val barW = size.width / 16f
-                val chartH = size.height * 0.72f
-                val baseY = size.height * 0.82f
-                hours.forEachIndexed { i, h ->
-                    val x = size.width * (i + 0.5f) / 7f
-                    val bh = ((h / yMax).toFloat() * chartH).coerceAtLeast(0f)
-                    drawRoundRect(
-                        color = colors.ink.copy(alpha = if (i == 6) 0.9f else 0.55f),
-                        topLeft = Offset(x - barW / 2, baseY - bh),
-                        size = Size(barW, bh),
-                        cornerRadius = CornerRadius(4f, 4f)
-                    )
-                }
-                if (averageHours > 0) {
-                    val avgY = baseY - (averageHours / yMax).toFloat() * chartH
-                    var x = 0f
-                    while (x < size.width - 44f) {
-                        drawLine(colors.inkTertiary, Offset(x, avgY), Offset(x + 6f, avgY), strokeWidth = 2f)
-                        x += 10f
+            // The AVG pill sits in a right gutter at the height of the dashed average
+            // line (like the iOS chart's trailing annotation), so it never covers the
+            // Sunday bar or the Sunday day label.
+            val chartHeight = 170.dp
+            val avgGutter = 40.dp
+            val baseFrac = 0.82f
+            val chartFrac = 0.72f
+            Box(Modifier.fillMaxWidth().height(chartHeight).testTag("activity_chart")) {
+                Canvas(Modifier.fillMaxSize().padding(end = avgGutter)) {
+                    val barW = size.width / 16f
+                    val chartH = size.height * chartFrac
+                    val baseY = size.height * baseFrac
+                    hours.forEachIndexed { i, h ->
+                        val x = size.width * (i + 0.5f) / 7f
+                        val bh = ((h / yMax).toFloat() * chartH).coerceAtLeast(0f)
+                        drawRoundRect(
+                            color = colors.ink.copy(alpha = if (i == 6) 0.9f else 0.55f),
+                            topLeft = Offset(x - barW / 2, baseY - bh),
+                            size = Size(barW, bh),
+                            cornerRadius = CornerRadius(4f, 4f)
+                        )
                     }
-                }
-            }
-            Box(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    (0 until 7).forEach { i ->
-                        val cal = Calendar.getInstance().apply { timeInMillis = weekStart; add(Calendar.DAY_OF_YEAR, i) }
-                        val isToday = cal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().apply { timeInMillis = nowMs }.get(Calendar.DAY_OF_YEAR)
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(dayLabel.format(cal.time).uppercase(Locale.getDefault()).asCopy(), style = ObText.caption.copy(fontWeight = FontWeight.Medium), color = if (isToday) colors.ink else colors.inkTertiary)
-                            Text(dayNum.format(cal.time).asCopy(), style = ObText.caption.copy(fontWeight = FontWeight.Normal), color = if (isToday) colors.ink else colors.inkTertiary)
+                    if (averageHours > 0) {
+                        val avgY = baseY - (averageHours / yMax).toFloat() * chartH
+                        var x = 0f
+                        while (x < size.width) {
+                            drawLine(colors.inkTertiary, Offset(x, avgY), Offset(minOf(x + 6f, size.width), avgY), strokeWidth = 2f)
+                            x += 10f
                         }
                     }
                 }
-                Box(
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 2.dp)
-                        .background(colors.inkSecondary, CircleShape)
-                        .padding(horizontal = 5.dp, vertical = 2.dp)
-                ) {
-                    Text("AVG".asCopy(), style = ObText.caption, color = colors.inkInverse)
+                if (averageHours > 0) {
+                    val avgFrac = (averageHours / yMax).toFloat().coerceIn(0f, 1f)
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints)
+                                val lineY = chartHeight.toPx() * (baseFrac - chartFrac * avgFrac)
+                                val maxY = (chartHeight.toPx() - placeable.height).coerceAtLeast(0f)
+                                val y = (lineY - placeable.height / 2f).coerceIn(0f, maxY)
+                                layout(placeable.width, placeable.height) {
+                                    placeable.placeRelative(0, y.roundToInt())
+                                }
+                            }
+                            .background(colors.inkSecondary, CircleShape)
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                            .testTag("activity_avg")
+                    ) {
+                        Text("AVG".asCopy(), style = ObText.caption, color = colors.inkInverse, maxLines = 1)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(end = avgGutter)) {
+                (0 until 7).forEach { i ->
+                    val cal = Calendar.getInstance().apply { timeInMillis = weekStart; add(Calendar.DAY_OF_YEAR, i) }
+                    val isToday = cal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().apply { timeInMillis = nowMs }.get(Calendar.DAY_OF_YEAR)
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(dayLabel.format(cal.time).uppercase(Locale.getDefault()).asCopy(), style = ObText.caption.copy(fontWeight = FontWeight.Medium), color = if (isToday) colors.ink else colors.inkTertiary, maxLines = 1)
+                        Text(dayNum.format(cal.time).asCopy(), style = ObText.caption.copy(fontWeight = FontWeight.Normal), color = if (isToday) colors.ink else colors.inkTertiary, maxLines = 1)
+                    }
                 }
             }
             Spacer(Modifier.height(Space.xl))
