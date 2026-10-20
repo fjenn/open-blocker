@@ -172,7 +172,7 @@ Beta App Review typically takes 24-48 hours.
 
 1. Once approved, go to **External Testing** > your group
 2. Click **Public Link** to get the shareable TestFlight link
-3. Share this link (e.g., `https://testflight.apple.com/join/XXXXXXXX`)
+3. iPhone app coming soon to the App Store.
 
 Anyone with the link can install the app (up to 10,000 testers).
 
