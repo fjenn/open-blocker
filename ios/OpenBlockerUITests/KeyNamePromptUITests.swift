@@ -24,7 +24,11 @@ final class KeyNamePromptUITests: XCTestCase {
         
         let hint = app.staticTexts["Add a name"]
         XCTAssertTrue(hint.waitForExistence(timeout: 3), "empty name should show a hint")
-        pause(1.2)
+        let shot = XCUIScreen.main.screenshot()
+        let shotURL = URL(fileURLWithPath: "/tmp/open-blocker-fresh/artifacts/ios-1.0.1/add_key_empty_name_error.png")
+        try? FileManager.default.createDirectory(at: shotURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? shot.pngRepresentation.write(to: shotURL)
+        pause(1.6)
         
         let name = app.textFields["key-name"]
         XCTAssertTrue(name.waitForExistence(timeout: 2))
