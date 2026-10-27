@@ -17,7 +17,7 @@ None of these steps has been run on hardware yet. See `STATUS.md`.
 1. Connect the iPhone, unlock it, Trust the computer.
 2. `cd ~/Projects/Coding/open-blocker/ios && xcodegen generate && open "Open Blocker.xcodeproj"`
 3. Select the OpenBlocker target > Signing & Capabilities > Automatically manage signing > your Team.
-4. Family Controls, App Group `group.org.openblocker.OpenBlocker`, and NFC (TAG+NDEF) are already in the entitlements. If Xcode reports the Family Controls capability is not enabled on the team, that request is yours to finish in the Apple developer account. Do not skip the prompt on the phone.
+4. Family Controls, App Group `group.org.openblocker.OpenBlocker`, and NFC (TAG) are already in the entitlements. If Xcode reports the Family Controls capability is not enabled on the team, that request is yours to finish in the Apple developer account. Do not skip the prompt on the phone.
 5. Choose your iPhone as the run destination. Product > Run.
 6. First launch only: iPhone Settings > General > VPN & Device Management > trust the developer certificate, then open Open Blocker.
 

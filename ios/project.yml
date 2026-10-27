@@ -52,7 +52,6 @@ targets:
           - group.org.openblocker.OpenBlocker
         com.apple.developer.nfc.readersession.formats:
           - TAG
-          - NDEF
     dependencies:
       - target: OpenBlockerMonitor
         embed: true
