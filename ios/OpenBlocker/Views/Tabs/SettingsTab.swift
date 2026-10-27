@@ -77,7 +77,12 @@ struct SettingsTab: View {
                     section {
                         link(HelpScreen(), icon: "questionmark.circle", title: "Help", id: AccessibilityID.settingsHelp)
                         HairlineDivider()
-                        link(ContactScreen(), icon: "envelope", title: "Contact", id: AccessibilityID.settingsContact)
+                        externalLink(
+                            OpenBlockerLinks.feedback,
+                            icon: "envelope",
+                            title: "Contact & feedback",
+                            id: AccessibilityID.settingsContact
+                        )
                         HairlineDivider()
                         link(AboutScreen(), icon: "info.circle", title: "About", id: AccessibilityID.settingsAbout)
                         HairlineDivider()
@@ -132,5 +137,16 @@ struct SettingsTab: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+    
+    private func externalLink(_ url: URL, icon: String, title: String, id: String) -> some View {
+        Button {
+            UIApplication.shared.open(url)
+        } label: {
+            SettingsRow(icon: icon, title: title)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+        .accessibilityHint("Opens in Safari")
     }
 }
