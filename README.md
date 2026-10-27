@@ -2,7 +2,9 @@
 
 Open Blocker is a free, open source physical phone blocker. You pick apps to lock, and they stay locked until you scan your key. The idea is friction: you walk to the key, you do not swipe a toggle.
 
-iPhone app coming soon to the App Store.
+The iPhone app is on the [App Store](https://apps.apple.com/app/id6824046126).
+
+[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/id6824046126)
 
 Your key can be:
 
@@ -10,9 +12,8 @@ Your key can be:
 - **Android:** an NFC tag, an NFC card, or a printed Open Blocker QR code. No barcodes yet.
 
 **License:** MIT  
-**iPhone:** 1.0.0 was submitted to the App Store on Oct 17, 2026. iPhone app coming soon to the App Store. This build has been tested on a real iPhone.  
-**Android:** 0.2.0-alpha (sideload APK). Tested on an emulator only. Real-phone NFC testing is still pending.  
-**Waitlist:** https://openblocker.org/#waitlist  
+**iPhone:** 1.0.0 is on the [App Store](https://apps.apple.com/app/id6824046126) (live as of Oct 26, 2026). Tested on a real iPhone.  
+**Android:** 0.2.0-alpha APK on [GitHub Releases](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha). Coming to Google Play. Tested on an emulator only. Real-phone NFC testing is still pending.  
 **Privacy:** https://openblocker.org/privacy · **Terms:** https://openblocker.org/terms
 
 ## Android alpha (emulator only so far)
@@ -25,7 +26,7 @@ This alpha has been run on an API 34 Android emulator (home, app picker, Accessi
 
 ### Installing the Android alpha
 
-This alpha is not on Google Play yet, so Google Play Protect does not recognise it and may warn about it or block it. On a Samsung test phone, opening the APK from WhatsApp showed "App not installed", Play Protect blocked it, and tapping "Install anyway" still failed. The steps below are what to try. Menu names vary a little between Android versions and phone makers.
+This alpha is not on Google Play yet (coming to Google Play). Google Play Protect does not recognise it and may warn about it or block it. On a Samsung test phone, opening the APK from WhatsApp showed "App not installed", Play Protect blocked it, and tapping "Install anyway" still failed. The steps below are what to try. Menu names vary a little between Android versions and phone makers.
 
 **Only install the APK from the official [v0.2.0-alpha release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha).** Do not install a copy forwarded to you in a chat app. Check the SHA-256 before installing. This is an early alpha.
 
@@ -70,7 +71,7 @@ No NFC hardware is required if you print a QR from the app. For a physical tag:
 
 ## iPhone
 
-App source lives in `ios/`. Apple approved the Family Controls (Distribution) entitlement, and version 1.0.0 was submitted to the App Store on Oct 17, 2026. iPhone app coming soon to the App Store. It has been tested on a real iPhone through TestFlight. Join the waitlist to hear when it is out: https://openblocker.org/#waitlist
+App source lives in `ios/`. Version 1.0.0 is on the [App Store](https://apps.apple.com/app/id6824046126). Apple approved the Family Controls (Distribution) entitlement. It has been tested on a real iPhone.
 
 On iPhone, an NFC tag or sticker (NTAG213/215/216), many NFC cards, a printed QR code, or a barcode works as a key. Cards with a changing ID (many bank cards and phone wallets) are rejected on purpose.
 
@@ -80,8 +81,8 @@ No account, no ads, no tracking. Your keys, app choices and settings stay on you
 
 **Share anonymous count:**
 
-- **iPhone (1.0.0):** on by default. You can turn it off in Settings. After each completed block it sends a random install ID, the event name `block_completed`, a random event ID, the app version and the platform. No app names or usage data. It is used only to count how many people completed at least one block and how many blocks were completed in total.
-- **Android (0.2.0-alpha):** the setting is also on by default, but the released APK has no count server set, so it sends nothing.
+- **iPhone (1.0.0):** on by default. You can turn it off in Settings. After each completed block (ended by your key, a schedule end, or a passage window) it sends a random install ID, the event name `block_completed`, a random event ID, the app version, and the platform. Emergency unblocks and lost Screen Time access are not sent. No app names or usage data. Used only to count how many people completed at least one block and how many blocks were completed in total.
+- **Android (0.2.0-alpha on GitHub Releases):** the setting is also on by default. The released APK is built without a count server URL, so it sends nothing. Current source sends one `first_block` ping only if you build with `OPENBLOCKER_COUNT_URL`.
 
 Full policy: https://openblocker.org/privacy
 
