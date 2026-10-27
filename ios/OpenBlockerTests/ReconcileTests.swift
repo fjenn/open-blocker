@@ -202,6 +202,202 @@ final class ReconcileTests: XCTestCase {
         )
         XCTAssertEqual(plan, .unchanged)
     }
+    
+    // MARK: - Key unblock during a scheduled window (1.0.1 bug)
+    
+    /// Hour into a 09:00–17:00 window: key end must clear the session and set
+    /// an override through 17:00 so shields stay off for the rest of the window.
+    func testKeyUnblockDuringScheduledWindowClearsAndSuppresses() {
+        let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
+        let windowEnd = date(2026, 1, 8, 17, 0)
+        let unblockAt = date(2026, 1, 8, 10, 0)
+        let active = PolicyStore.State(active: ActiveSession(
+            modeID: modeID,
+            source: .schedule(scheduleID),
+            startedAt: date(2026, 1, 8, 9, 0),
+            scheduleEnd: windowEnd
+        ))
+        
+        let ended = Reconcile.ending(active, config: config, reason: .key, at: unblockAt, calendar: calendar)
+        guard let ended else {
+            return XCTFail("key end should clear the active scheduled session")
+        }
+        XCTAssertNil(ended.active, "session cleared — shields must come down")
+        XCTAssertEqual(ended.lastEnd, unblockAt)
+        XCTAssertEqual(ended.override?.scheduleID, scheduleID)
+        XCTAssertEqual(ended.override?.until, windowEnd)
+        
+        // Same window: Monitor intervalDidStart / foreground reconcile must not re-arm.
+        let midWindow = Reconcile.plan(
+            config: config,
+            state: ended,
+            now: date(2026, 1, 8, 14, 0),
+            authorized: true,
+            calendar: calendar
+        )
+        XCTAssertEqual(midWindow, .unchanged, "must not re-arm inside the same window")
+    }
+    
+    func testKeyUnblockDoesNotRestartTimerViaLastEnd() {
+        // Regression: without an override, plan() would .start again with
+        // startedAt = lastEnd, which resets the "Blocked for" clock.
+        let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
+        let unblockAt = date(2026, 1, 8, 10, 0)
+        let ended = Reconcile.ending(
+            PolicyStore.State(active: ActiveSession(
+                modeID: modeID,
+                source: .schedule(scheduleID),
+                startedAt: date(2026, 1, 8, 9, 0),
+                scheduleEnd: date(2026, 1, 8, 17, 0)
+            )),
+            config: config,
+            reason: .key,
+            at: unblockAt,
+            calendar: calendar
+        )!
+        
+        let plan = Reconcile.plan(
+            config: config,
+            state: ended,
+            now: unblockAt,
+            authorized: true,
+            calendar: calendar
+        )
+        if case .start = plan {
+            XCTFail("key unblock must not immediately start a new session (timer restart)")
+        } else {
+            XCTAssertEqual(plan, .unchanged)
+        }
+    }
+    
+    func testNextOccurrenceStillBlocksAfterKeyUnblock() {
+        let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
+        let ended = Reconcile.ending(
+            PolicyStore.State(active: ActiveSession(
+                modeID: modeID,
+                source: .schedule(scheduleID),
+                startedAt: date(2026, 1, 8, 9, 0),
+                scheduleEnd: date(2026, 1, 8, 17, 0)
+            )),
+            config: config,
+            reason: .key,
+            at: date(2026, 1, 8, 10, 0),
+            calendar: calendar
+        )!
+        
+        // Next Friday 10:00 — override expired at previous Friday 17:00.
+        let nextWeek = date(2026, 1, 15, 10, 0)
+        let plan = Reconcile.plan(
+            config: config,
+            state: ended,
+            now: nextWeek,
+            authorized: true,
+            calendar: calendar
+        )
+        guard case .start(let session) = plan else {
+            return XCTFail("next occurrence should block, got \(plan)")
+        }
+        XCTAssertEqual(session.modeID, modeID)
+        if case .schedule(let id) = session.source {
+            XCTAssertEqual(id, scheduleID)
+        } else {
+            XCTFail("expected schedule source")
+        }
+        XCTAssertEqual(session.scheduleEnd, date(2026, 1, 15, 17, 0))
+    }
+    
+    func testScheduledEndStillAutoUnblocksAfterPriorKeyLogic() {
+        // Auto end at window end is unchanged by the key-override path.
+        let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
+        let end = date(2026, 1, 8, 17, 0)
+        let state = PolicyStore.State(active: ActiveSession(
+            modeID: modeID,
+            source: .schedule(scheduleID),
+            startedAt: date(2026, 1, 8, 9, 0),
+            scheduleEnd: end
+        ))
+        XCTAssertEqual(
+            Reconcile.plan(config: config, state: state, now: end, authorized: true, calendar: calendar),
+            .end(.scheduleEnd, at: end)
+        )
+        
+        // After a natural schedule end (no key override), the next day still starts.
+        let afterEnd = Reconcile.ending(state, config: config, reason: .scheduleEnd, at: end, calendar: calendar)!
+        XCTAssertNil(afterEnd.override, "scheduleEnd must not suppress the next window")
+        let nextDay = Reconcile.plan(
+            config: config,
+            state: afterEnd,
+            now: date(2026, 1, 15, 10, 0),
+            authorized: true,
+            calendar: calendar
+        )
+        guard case .start = nextDay else {
+            return XCTFail("next occurrence after auto-end should block, got \(nextDay)")
+        }
+    }
+    
+    func testKeyUnblockOfManualSessionDoesNotSetScheduleOverride() {
+        let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
+        let ended = Reconcile.ending(
+            PolicyStore.State(active: ActiveSession(
+                modeID: modeID,
+                source: .hold,
+                startedAt: date(2026, 1, 8, 10, 0)
+            )),
+            config: config,
+            reason: .key,
+            at: date(2026, 1, 8, 11, 0),
+            calendar: calendar
+        )!
+        XCTAssertNil(ended.active)
+        XCTAssertNil(ended.override)
+        
+        // A live schedule window with no override should still start.
+        let plan = Reconcile.plan(
+            config: config,
+            state: ended,
+            now: date(2026, 1, 8, 11, 0),
+            authorized: true,
+            calendar: calendar
+        )
+        guard case .start = plan else {
+            return XCTFail("ending a manual session must not suppress an active schedule, got \(plan)")
+        }
+    }
+    
+    func testKeyUnblockOfOpenEndedScheduleSuppressesRestOfWindow() {
+        let mode = BlockMode(id: modeID, name: "Work", kind: .block)
+        let schedule = BlockSchedule(
+            id: scheduleID,
+            name: "Hours",
+            weekdays: [5],
+            startMinute: 9 * 60,
+            endMinute: 17 * 60,
+            modeID: modeID,
+            isOn: true,
+            endsOnKey: true
+        )
+        let config = PolicyStore.Config(modes: [mode], schedules: [schedule], activeModeID: modeID)
+        let unblockAt = date(2026, 1, 8, 12, 0)
+        let ended = Reconcile.ending(
+            PolicyStore.State(active: ActiveSession(
+                modeID: modeID,
+                source: .schedule(scheduleID),
+                startedAt: date(2026, 1, 8, 9, 0),
+                scheduleEnd: nil
+            )),
+            config: config,
+            reason: .key,
+            at: unblockAt,
+            calendar: calendar
+        )!
+        XCTAssertNil(ended.active)
+        XCTAssertNotNil(ended.override, "open-ended key end must still suppress the current window")
+        XCTAssertEqual(
+            Reconcile.plan(config: config, state: ended, now: date(2026, 1, 8, 15, 0), authorized: true, calendar: calendar),
+            .unchanged
+        )
+    }
 }
 
 /// Configs written by older builds (no `rules.blockAddingKeys`, no

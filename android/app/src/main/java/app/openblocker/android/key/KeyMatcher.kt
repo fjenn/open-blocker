@@ -3,6 +3,7 @@ package app.openblocker.android.key
 import android.content.Context
 import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.PreferencesManager
+import app.openblocker.android.data.ScheduleRepository
 import app.openblocker.android.data.SessionManager
 import app.openblocker.android.data.StoredKey
 import app.openblocker.android.format.OpenBlockerFormat
@@ -23,6 +24,9 @@ object KeyMatcher {
     fun applyPairedKey(context: Context) {
         AppHaptics.success(context)
         if (SessionManager.isBlocking.value) {
+            // Same as iOS stopBlockingWithKey: if this is a scheduled window,
+            // suppress re-arm for the rest of it before clearing the session.
+            ScheduleRepository.suppressAfterKeyUnblock()
             SessionManager.endSession()
         } else {
             SessionManager.startSession(SessionManager.SOURCE_KEY)

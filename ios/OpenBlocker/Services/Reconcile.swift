@@ -84,6 +84,49 @@ enum Reconcile {
         }
     }
     
+    /// Pure: clear the active session and, for a key end of a scheduled window,
+    /// suppress re-arming until that window's end. History append is the caller's job.
+    static func ending(
+        _ state: PolicyStore.State,
+        config: PolicyStore.Config,
+        reason: SessionRecord.EndReason,
+        at time: Date,
+        calendar: Calendar = .current
+    ) -> PolicyStore.State? {
+        guard let session = state.active else { return nil }
+        var next = state
+        next.active = nil
+        next.lastEnd = time
+        if let override = scheduleOverride(
+            afterEnding: session,
+            reason: reason,
+            at: time,
+            config: config,
+            calendar: calendar
+        ) {
+            next.override = override
+        }
+        return next
+    }
+    
+    /// After a key ends a scheduled session early, suppress the rest of that
+    /// window so Monitor `intervalDidStart` / app reconcile cannot re-arm it.
+    /// The next occurrence (override expired) still starts normally.
+    static func scheduleOverride(
+        afterEnding session: ActiveSession,
+        reason: SessionRecord.EndReason,
+        at time: Date,
+        config: PolicyStore.Config,
+        calendar: Calendar = .current
+    ) -> ScheduleOverride? {
+        guard reason == .key else { return nil }
+        guard case .schedule(let scheduleID) = session.source else { return nil }
+        let until = session.scheduleEnd ?? activeWindow(at: time, config: config, calendar: calendar)
+            .flatMap({ $0.schedule.id == scheduleID ? $0.end : nil })
+        guard let until else { return nil }
+        return ScheduleOverride(scheduleID: scheduleID, until: until)
+    }
+    
     /// End the current session and record it to history.
     private static func endSession(
         _ state: inout PolicyStore.State,
@@ -102,17 +145,8 @@ enum Reconcile {
         )
         PolicyStore.appendToHistory(record)
         
-        state.active = nil
-        state.lastEnd = time
-        
-        // Set override if this was a scheduled session ended early
-        if case .schedule(let scheduleID) = session.source,
-           reason == .key,
-           let until = session.scheduleEnd ?? activeWindow(at: time, config: config)
-               .flatMap({ $0.schedule.id == scheduleID ? $0.end : nil }) {
-            // Open-ended sessions have no scheduleEnd; suppress the rest of the
-            // current window so the schedule does not restart right after the key tap.
-            state.override = ScheduleOverride(scheduleID: scheduleID, until: until)
+        if let ended = ending(state, config: config, reason: reason, at: time) {
+            state = ended
         }
     }
     
