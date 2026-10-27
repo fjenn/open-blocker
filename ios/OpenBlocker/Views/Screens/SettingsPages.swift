@@ -86,37 +86,6 @@ struct AboutScreen: View {
     }
 }
 
-struct ContactScreen: View {
-    var body: some View {
-        PushedScreen(title: "Contact") {
-            VStack(spacing: Space.m) {
-                Spacer()
-                ZStack {
-                    Circle().fill(Color.fillQuiet).frame(width: 88, height: 88)
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(Color.inkSecondary)
-                }
-                Text("Bugs, questions, and ideas.")
-                    .textStyle(.title)
-                    .foregroundColor(Color.ink)
-                    .multilineTextAlignment(.center)
-                Text("Tell us on the feedback page.")
-                    .textStyle(.body)
-                    .foregroundColor(Color.inkSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Space.xxxl)
-                Spacer()
-                PrimaryButton(title: "Send feedback") {
-                    UIApplication.shared.open(OpenBlockerLinks.feedback)
-                }
-                .padding(.horizontal, Space.xxxl)
-                .padding(.bottom, Space.xxxl)
-            }
-        }
-    }
-}
-
 /// What leaves the phone (one anonymous event per finished block) and why each permission is asked for.
 struct PrivacyScreen: View {
     private let permissions: [(icon: String, title: String, reason: String)] = [

@@ -54,20 +54,11 @@ The anonymous count helps us understand how many people use Open Blocker success
 
 The ping is sent to a Supabase database with Row Level Security enabled. Anonymous users can only insert, never read. The data is aggregated periodically to count unique installs by day and version.
 
-### Optional Review Prompt (iPhone Only)
+### Optional Rating Prompt (iPhone Only)
 
-After your 3rd session start, the iPhone app may ask you for a short review. This is optional. If you send one, we receive:
+After your 3rd successful unblock with your physical key (NFC or QR; not an emergency unblock), the iPhone app may show Apple's standard rating prompt. This is handled by StoreKit. We do not collect review text, a rating, or an email. The prompt is asked at most once per app version.
 
-- Review text
-- Install ID (the same random UUID from the count feature)
-- App version (e.g., "1.0.0")
-- Platform ("ios")
-- Email address (only if you type one; optional)
-- Server timestamp (added by the server)
-
-The Android app does not have review prompts.
-
-If you provide an email address, we use it only to follow up on your review. You can request deletion at any time.
+The Android app does not have a rating prompt.
 
 ## Permissions
 

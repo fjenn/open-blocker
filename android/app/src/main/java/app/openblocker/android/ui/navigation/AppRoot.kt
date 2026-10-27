@@ -1,6 +1,8 @@
 package app.openblocker.android.ui.navigation
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,7 +53,6 @@ import app.openblocker.android.ui.screens.AddKeySheet
 import app.openblocker.android.ui.screens.AnyCardPairingScreen
 import app.openblocker.android.ui.screens.AppPickerScreen
 import app.openblocker.android.ui.screens.BlockTab
-import app.openblocker.android.ui.screens.ContactScreen
 import app.openblocker.android.ui.screens.DebugScreen
 import app.openblocker.android.ui.screens.EmergencyUnblockScreen
 import app.openblocker.android.ui.screens.HelpScreen
@@ -89,7 +90,6 @@ private object Routes {
     const val SETTINGS_EMERGENCY = "settings/emergency"
     const val SETTINGS_PRIVACY = "settings/privacy"
     const val SETTINGS_HELP = "settings/help"
-    const val SETTINGS_CONTACT = "settings/contact"
     const val SETTINGS_ABOUT = "settings/about"
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_KEYS = "settings/keys"
@@ -160,7 +160,6 @@ fun AppRoot() {
             "rules" -> nav.navigate(Routes.SETTINGS_RULES)
             "help" -> nav.navigate(Routes.SETTINGS_HELP)
             "about" -> nav.navigate(Routes.SETTINGS_ABOUT)
-            "contact" -> nav.navigate(Routes.SETTINGS_CONTACT)
             "notifications" -> nav.navigate(Routes.SETTINGS_NOTIFICATIONS)
         }
     }
@@ -257,7 +256,11 @@ fun AppRoot() {
                                     onEmergency = { nav.navigate(Routes.SETTINGS_EMERGENCY) },
                                     onNotifications = { nav.navigate(Routes.SETTINGS_NOTIFICATIONS) },
                                     onHelp = { nav.navigate(Routes.SETTINGS_HELP) },
-                                    onContact = { nav.navigate(Routes.SETTINGS_CONTACT) },
+                                    onContact = {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.org/feedback"))
+                                        )
+                                    },
                                     onAbout = { nav.navigate(Routes.SETTINGS_ABOUT) },
                                     onPrivacy = { nav.navigate(Routes.SETTINGS_PRIVACY) }
                                 )
@@ -270,7 +273,6 @@ fun AppRoot() {
             composable(Routes.SETTINGS_EMERGENCY) { EmergencyUnblockScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SETTINGS_PRIVACY) { PrivacyScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SETTINGS_HELP) { HelpScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.SETTINGS_CONTACT) { ContactScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SETTINGS_ABOUT) { AboutScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SETTINGS_NOTIFICATIONS) {
                 NotificationsScreen(
