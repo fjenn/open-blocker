@@ -4,6 +4,7 @@ import XCTest
 /// show the shake, red outline, and "Add a name" hint.
 final class KeyNamePromptUITests: XCTestCase {
     func testEmptyNameShowsHintThenClearsOnType() {
+        continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-demo", "-screen", "key-setup"]
         app.launch()
@@ -14,14 +15,13 @@ final class KeyNamePromptUITests: XCTestCase {
         XCTAssertTrue(makeQR.waitForExistence(timeout: 4))
         makeQR.tap()
         
-        let save = app.descendants(matching: .any)["save-key"].firstMatch
+        let save = app.buttons["Save Key"]
         XCTAssertTrue(save.waitForExistence(timeout: 4))
         XCTAssertTrue(save.isEnabled, "Save Key should stay tappable after the key is ready")
         save.tap()
         
-        let hint = app.descendants(matching: .any)["key-name-hint"].firstMatch
+        let hint = app.staticTexts["Add a name"]
         XCTAssertTrue(hint.waitForExistence(timeout: 3), "empty name should show a hint")
-        XCTAssertEqual(hint.label, "Add a name")
         
         let name = app.textFields["key-name"]
         XCTAssertTrue(name.waitForExistence(timeout: 2))
