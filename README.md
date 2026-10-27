@@ -1,89 +1,106 @@
 # Open Blocker
 
-Open Blocker is a free, open source physical phone blocker. You pick apps to lock, and they stay locked until you scan your key. The idea is friction: you walk to the key, you do not swipe a toggle.
+A free, open-source phone blocker you can only unlock with a physical key, like an NFC tag, a card or a printed QR code.
 
-iPhone app coming soon to the App Store.
+<p align="center">
+  <img src="docs/images/og.jpg" alt="Open Blocker: lock your phone with a physical key" width="640">
+</p>
 
-Your key can be:
+<p align="center">
+  <a href="https://openblocker.org"><strong>Website</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://apps.apple.com/app/id6824046126"><strong>App Store</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha"><strong>Android APK</strong></a>
+</p>
 
-- **iPhone:** an NFC tag or sticker, many NFC cards you already carry, a printed QR code, or a barcode (for example the one on a book).
-- **Android:** an NFC tag, an NFC card, or a printed Open Blocker QR code. No barcodes yet.
+<p align="center">
+  <a href="https://apps.apple.com/app/id6824046126"><img alt="Download on the App Store" src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"></a>
+</p>
 
-**License:** MIT  
-**iPhone:** 1.0.0 was submitted to the App Store on Oct 17, 2026. iPhone app coming soon to the App Store. This build has been tested on a real iPhone.  
-**Android:** 0.2.0-alpha (sideload APK). Tested on an emulator only. Real-phone NFC testing is still pending.  
-**Waitlist:** https://openblocker.org/#waitlist  
-**Privacy:** https://openblocker.org/privacy · **Terms:** https://openblocker.org/terms
+**iPhone:** 1.0.0 is on the [App Store](https://apps.apple.com/app/id6824046126) (live as of Oct 26, 2026).  
+**Android:** 0.2.0-alpha APK on [GitHub Releases](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha). Coming to Google Play.  
+**License:** MIT · **Privacy:** [openblocker.org/privacy](https://openblocker.org/privacy) · **Terms:** [openblocker.org/terms](https://openblocker.org/terms)
 
-## Android alpha (emulator only so far)
+## Demo
 
-Download `openblocker-0.2.0-alpha.apk` from [Releases](../../releases). Check the SHA-256 next to the file.
+Scan your key. The apps stay locked until you walk back and scan again.
 
-**0.2.0-alpha is an early alpha and is not a daily-driver release.** If you install it, you are helping test. Please report what happens (success or failure) in [Issues](../../issues) or [Discussions](../../discussions).
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Scanning an NFC key to start a block on iPhone" width="280">
+</p>
 
-This alpha has been run on an API 34 Android emulator (home, app picker, Accessibility, block overlay, QR registration / camera permission / scanner preview). It has **not** been tested on a wide range of real phones. NFC tag write/read, pairing a real card, scanning a real printed QR to start or end a session, and wrong-key reject on hardware are **unverified**.
+Full iPhone walkthrough (about 80 seconds): [review-demo-take3.mp4](https://openblocker-review.vercel.app/review-demo-take3.mp4)
 
-### Installing the Android alpha
+## Screenshots
 
-This alpha is not on Google Play yet, so Google Play Protect does not recognise it and may warn about it or block it. On a Samsung test phone, opening the APK from WhatsApp showed "App not installed", Play Protect blocked it, and tapping "Install anyway" still failed. The steps below are what to try. Menu names vary a little between Android versions and phone makers.
+<p align="center">
+  <img src="docs/images/home.jpg" alt="Home: tap your key or hold to block" width="220">
+  <img src="docs/images/blocked.jpg" alt="Home while a block is on" width="220">
+  <img src="docs/images/modes.jpg" alt="Modes for work, sleep and family" width="220">
+  <img src="docs/images/schedules.jpg" alt="Schedules that start a block for you" width="220">
+</p>
 
-**Only install the APK from the official [v0.2.0-alpha release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha).** Do not install a copy forwarded to you in a chat app. Check the SHA-256 before installing. This is an early alpha.
+<p align="center">
+  <img src="docs/images/key.jpg" alt="3D render of the Open Blocker key" width="280">
+  <img src="docs/images/case.jpg" alt="Printable 25 mm key case" width="280">
+</p>
 
-1. On the phone, open the [release page](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha) in your browser and download `openblocker-0.2.0-alpha.apk`. Download it directly rather than opening a copy from WhatsApp or another messaging app.
-2. Verify the file. Its SHA-256 must match the value in `openblocker-0.2.0-alpha.apk.sha256` on the same release page. On a computer: `shasum -a 256 openblocker-0.2.0-alpha.apk` (macOS) or `sha256sum openblocker-0.2.0-alpha.apk` (Linux). If it does not match, delete the file and do not install it.
-3. Allow the app you open the APK with (your browser, or the Files / My Files app) to install unknown apps: Settings > Apps > [that app] > Install unknown apps > Allow.
-4. If an older Open Blocker build (for example a debug build) is already on the phone, uninstall it first. Android will not install over an app signed with a different key and reports that as "App not installed" too.
-5. Open the APK and tap Install.
-6. If Play Protect blocks it, tap "More details", then "Install anyway".
-7. If it still fails, temporarily turn off Play Protect scanning: open the Play Store, tap your profile picture, then Play Protect, then the settings gear, and turn off "Scan apps with Play Protect". Install the APK, then turn "Scan apps with Play Protect" back on right away.
+Stills and key renders are from [openblocker.org](https://openblocker.org). The 25 mm case files are in [`hardware/`](hardware/).
 
-If none of this works on your phone, please open an issue with the phone model, Android version, and the exact message you saw.
+## How it works
 
-### Try it (testers)
+```
+Pick the apps you want locked
+        │
+        ▼
+ Scan your key (NFC tag, card, printed QR, or a barcode on iPhone)
+        │
+        ▼
+ Those apps stay locked
+        │
+        ▼
+ Walk back to the key and scan again to unlock
+```
 
-1. Install the APK (see "Installing the Android alpha" above).
-2. **Android 13+:** Settings > Apps > Open Blocker > Allow restricted settings.
-3. Open Open Blocker and enable the Accessibility service.
-4. Pick apps to block.
-5. Pair a key: write or tap an NFC tag, or generate / scan a printed QR (`openblocker://tag/v1/` plus 32 lowercase hex characters).
-6. Starting and ending a session with that key on a real phone is the test. Please file what you see.
+The idea is friction. You do not swipe a toggle.
 
-**Minimum Android:** 7.0 (API 24)
+- **iPhone** uses Apple's Screen Time / Family Controls APIs.
+- **Android** uses Accessibility to show a block screen (and to read supported browser address bars for website rules).
+- The same Open Blocker tag format works on both: NDEF `openblocker.org:tag`, or QR `openblocker://tag/v1/{32 hex}`. Spec: [`spec/SPEC.md`](spec/SPEC.md).
 
-A determined person can get around the Android block (safe mode, uninstall, turning off Accessibility, ADB). This is friction for people who want to focus, not a lock. NFC tags and QR codes can be copied. There is no anti-clone claim.
+Not every card works. Test yours. NFC tags and QR codes can be copied. This is friction for people who want to focus, not a lock. On Android a determined person can get around the block (safe mode, uninstall, turning off Accessibility, ADB).
 
-Not every card works. Test yours.
+## Features
 
-## Open tag spec
-
-The tag format is documented in [spec/SPEC.md](spec/SPEC.md): NDEF external type `openblocker.org:tag`, 16-byte random ID, optional Android Application Record. QR encoding is the same ID as `openblocker://tag/v1/{32 hex}`, error correction H. Any app can implement it.
-
-From reading Foqos's code, the same tag also works as your key in Foqos on iPhone (UID matching). That has not been tested on an iPhone.
-
-## Printable key
-
-No NFC hardware is required if you print a QR from the app. For a physical tag:
-
-- NTAG213 sticker, 25 mm round
-- Optional 10 x 2 mm disc magnet
-- 3D case: [hardware/](hardware/) (`case.scad`, `openblocker-key-25mm.stl`). Print flat, no supports.
-
-## iPhone
-
-App source lives in `ios/`. Apple approved the Family Controls (Distribution) entitlement, and version 1.0.0 was submitted to the App Store on Oct 17, 2026. iPhone app coming soon to the App Store. It has been tested on a real iPhone through TestFlight. Join the waitlist to hear when it is out: https://openblocker.org/#waitlist
-
-On iPhone, an NFC tag or sticker (NTAG213/215/216), many NFC cards, a printed QR code, or a barcode works as a key. Cards with a changing ID (many bank cards and phone wallets) are rejected on purpose.
+- Keys: NFC sticker, many NFC cards, a printed QR, and (iPhone) a barcode
+- Modes: block a few apps and sites, or allow only a few
+- Schedules that start a block for you
+- Five emergency unblocks every six months if the key is out of reach
+- No account, no ads, no subscription
+- Printable 25 mm NTAG213 case in [`hardware/`](hardware/)
 
 ## Privacy
 
-No account, no ads, no tracking. Your keys, app choices and settings stay on your phone.
+No account. No ads. No tracking SDKs. Keys, app choices and settings stay on your phone.
 
-**Share anonymous count:**
+**Share anonymous count** is on by default in Settings. You can turn it off.
 
-- **iPhone (1.0.0):** on by default. You can turn it off in Settings. After each completed block it sends a random install ID, the event name `block_completed`, a random event ID, the app version and the platform. No app names or usage data. It is used only to count how many people completed at least one block and how many blocks were completed in total.
-- **Android (0.2.0-alpha):** the setting is also on by default, but the released APK has no count server set, so it sends nothing.
+- **iPhone 1.0.0:** after each completed block, one HTTPS POST with a random install ID, `block_completed`, an event ID, the app version and `platform=ios`. No app names.
+- **Android 0.2.0-alpha (GitHub Releases):** the toggle is also on by default. The released APK has no count URL, so it sends nothing.
 
-Full policy: https://openblocker.org/privacy
+Full policy: [PRIVACY.md](PRIVACY.md) and https://openblocker.org/privacy
+
+## Android alpha
+
+Download `openblocker-0.2.0-alpha.apk` from [Releases](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha) and check the SHA-256. This is an early alpha, tested on an emulator. Real-phone NFC is still pending. It is not on Google Play yet (coming to Google Play).
+
+1. Download the APK from the official release page, not from a chat app.
+2. Allow the browser or Files app to install unknown apps.
+3. If Play Protect blocks it, use "Install anyway".
+4. Android 13+: Settings > Apps > Open Blocker > Allow restricted settings, then enable Accessibility.
+
+Minimum Android: 7.0 (API 24). Please file what you see in [Issues](https://github.com/fjenn/open-blocker/issues).
 
 ## Build from source
 
@@ -94,8 +111,20 @@ cd android
 
 A signed GitHub Release APK needs `OPENBLOCKER_KEYSTORE_*` (see [RELEASE.md](RELEASE.md)). Do not commit a keystore.
 
+iPhone (macOS, Xcode 15+):
+
+```bash
+cd ios
+xcodegen generate
+open OpenBlocker.xcodeproj
+```
+
 Tag format tests: `cd spec/reference && ./gradlew test`
 
 ## Credits
 
 Builds on ideas from [Brick](https://getbrick.com), [Foqos](https://foqos.app) (MIT), [Lock](https://github.com/NathanLenias/lock-app), [nfcGuard](https://github.com/Andebugulin/nfcGuard), and [TapBlok](https://github.com/cajdata/TapBlok). iOS code adapted from Foqos, Careful, and TapBack is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Android QR uses ZXing (Apache 2.0).
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 Open Blocker Contributors.

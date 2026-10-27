@@ -31,20 +31,15 @@ Open Blocker uses Family Controls to help users block distracting apps during fo
 
 ### Data Collected
 
-**Optional Anonymous Usage Data:**
-- **Type:** Product Interaction (first block event only)
+**Anonymous count (Settings: "Share anonymous count", on by default):**
+- **Type:** Product Interaction
 - **Linked to User:** No
 - **Used for Tracking:** No
 - **Purpose:** Analytics only
-- **Details:** If user opts in via "Count me" toggle (OFF by default), one anonymous ping is sent after the first successful block. Contains only: random install ID (UUID), event name "first_block", and app version.
+- **Details:** After each completed block (key, schedule end, or passage), one HTTPS POST is sent to `https://openblocker.org/api/count` with a random install ID, event name `block_completed`, a random event ID, the app version, and `platform=ios`. The user can turn the setting off. No app names or usage times.
 
-**Optional Reviews (after 3rd block):**
-- **Type:** User Content (review text)
-- **Type:** Contact Info (email, optional)
-- **Linked to User:** No (unless email provided)
-- **Used for Tracking:** No
-- **Purpose:** App Functionality and Product Improvement
-- **Details:** User may optionally submit a one-line review after their 3rd block. Email is optional and used only to follow up on feedback. User can request deletion.
+**Reviews:**
+- The shipped 1.0.0 app does not collect review text, a rating, or an email.
 
 ### Data Not Collected
 
@@ -58,7 +53,7 @@ Open Blocker uses Family Controls to help users block distracting apps during fo
 
 ### Third-Party Data Sharing
 
-None. All network requests go to our own Supabase backend (documented in PRIVACY.md). No third-party SDKs, analytics, or tracking.
+None. The count POST goes to `https://openblocker.org/api/count` (documented in PRIVACY.md). No third-party SDKs, analytics, or tracking.
 
 ## Setup Instructions
 
@@ -103,19 +98,9 @@ None. All network requests go to our own Supabase backend (documented in PRIVACY
    - Submit the usage description above
    - Apple reviews and approves (usually 2-4 weeks)
 
-6. **Configure Count Feature (Optional):**
+6. **Configure the anonymous count (optional):**
    
-   If you want to enable anonymous counting:
-   
-   - Create or edit `ios/Config/Debug.xcconfig`:
-     ```
-     COUNT_URL = https://your-supabase-project.supabase.co
-     COUNT_KEY = your_anon_key
-     ```
-   
-   - Create or edit `ios/Config/Release.xcconfig` with production values
-   
-   If you leave these empty, the "Count me" toggle will be hidden and no network code runs.
+   Release builds set `COUNT_ENDPOINT` in `ios/Config/Release.xcconfig` to `https://openblocker.org/api/count`. Empty means nothing is sent. The Settings toggle is **Share anonymous count**, on by default.
 
 7. **Build and Run:**
    - Select your iPhone from the device dropdown
@@ -152,18 +137,14 @@ None. All network requests go to our own Supabase backend (documented in PRIVACY
    - Set age rating: 4+ (no restricted content)
    - Submit for review
 
-## Distribution Entitlement Request
+## Distribution entitlement
 
-When ready for App Store release:
+The Family Controls (Distribution) entitlement is approved. 1.0.0 is on the App Store: https://apps.apple.com/app/id6824046126
+
+To request it again for a new team or bundle ID:
 
 1. Go to https://developer.apple.com/contact/request/family-controls-distribution
-2. Provide:
-   - Bundle ID: `org.openblocker.OpenBlocker`
-   - App Name: Open Blocker
-   - Usage description (from above)
-   - Confirmation that app is for individual use only
-3. Wait for Apple's approval (check email)
-4. Once approved, you can submit to App Store
+2. Provide bundle ID `org.openblocker.OpenBlocker`, app name Open Blocker, the usage description above, and confirmation that the app is for individual use only
 
 ## Version Numbers
 
@@ -174,8 +155,8 @@ Update these in `project.yml` under the `info` section before release.
 
 ## Website and Privacy Policy
 
-**Website:** https://openblocker.vercel.app/  
-**Privacy Policy:** https://openblocker.vercel.app/privacy
+**Website:** https://openblocker.org  
+**Privacy Policy:** https://openblocker.org/privacy
 
 Use these URLs in:
 - App Store Connect app information (Privacy Policy URL field)

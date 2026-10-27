@@ -1,10 +1,10 @@
 # Artifacts
 
-**0.1.0-alpha is an early alpha, not tested on real devices.** NFC and QR keys have been tried on an Android emulator only.
+**0.2.0-alpha is an early alpha.** NFC and QR keys have been tried on an Android emulator.
 
-## `release/open-blocker-0.1.0-alpha.apk`
+## Public APK
 
-Release-signed Android alpha. SHA-256 is in the sibling `.sha256` file. Install steps and the honesty warning are in the root README.
+The signed alpha lives on [GitHub Releases](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha) as `openblocker-0.2.0-alpha.apk`. Install steps are in the root README.
 
 `release-signing/` is gitignored. It holds the keystore and passwords for the owner only.
 

@@ -241,35 +241,23 @@ After completing Section 4, you must switch back to the normal APK for the rest 
 
 ---
 
-### Section 6: Test Debug Screen
+### Section 6: Debug screen
 
-**This section checks that the app is logging NFC scans correctly.**
-
-| Step | Action | Expected Result | Pass/Fail/Notes |
-|------|--------|----------------|-----------------|
-| 6.1 | On the home screen, scroll to the bottom | You see a text button "Debug Info (for testing)" | |
-| 6.2 | Tap "Debug Info (for testing)" | A debug screen appears with technical information | |
-| 6.3 | Look at the "Last Scanned Tag" section | You see the UID (hardware ID) of the last tag you scanned | |
-| 6.4 | Look at the "Paired Tags" section | You see a list of tag IDs you have paired | |
-| 6.5 | Look at the "Paired UIDs" section | You see a list of hardware UIDs you have paired | |
-| 6.6 | Tap the back arrow | You return to the home screen | |
+The old in-app "Debug Info (for testing)" screen is gone. Debug NFC broadcasts still exist in debug builds only (`DebugSessionReceiver`).
 
 ---
 
-### Section 7: Test Count Me Feature (if enabled)
+### Section 7: Share anonymous count
 
-**If you do not see a "Count me" card on the home screen, this feature was disabled at build time. Skip this section.**
+The toggle is in **Settings**, labeled **Share anonymous count**. It is **on by default**.
 
 | Step | Action | Expected Result | Pass/Fail/Notes |
 |------|--------|----------------|-----------------|
-| 7.1 | Look for a "Count me" card on the home screen | If present, you see a toggle switch that is OFF by default | |
-| 7.2 | Read the description text | It says "Send one anonymous ping after your first successful block (helps us understand reach)" | |
-| 7.3 | Tap the toggle switch to turn it ON | The switch moves to the ON position | |
-| 7.4 | Start a blocking session and open a blocked app | The block screen appears as usual | |
-| 7.5 | Return to the home screen | No visible change (the ping happens in the background) | |
-| 7.6 | Close and reopen the app | The "Count me" toggle is still ON (your preference was saved) | |
+| 7.1 | Open Settings | You see "Share anonymous count", on | |
+| 7.2 | Turn it off, leave the app, reopen Settings | It stays off | |
+| 7.3 | Turn it back on | It stays on | |
 
-**Note:** The anonymous ping is sent once after the first successful block. You will not see any confirmation, as it happens silently in the background.
+On iPhone, a `block_completed` event is sent after each completed block while the toggle is on. On the public Android APK the toggle exists but nothing is sent (no count URL at build time). You will not see a confirmation.
 
 ---
 

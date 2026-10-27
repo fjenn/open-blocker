@@ -28,7 +28,7 @@ This guide walks you through preparing Open Blocker for TestFlight distribution 
 
 1. Go to your app in App Store Connect
 2. Under **App Information**, fill in:
-   - **Privacy Policy URL**: https://openblocker.vercel.app/privacy
+   - **Privacy Policy URL**: https://openblocker.org/privacy
    - **Category**: Productivity (Primary), Health & Fitness (Secondary)
    - **Content Rights**: Check if you own or have licensed rights
 
@@ -162,8 +162,8 @@ The build will be processed by Apple (takes 5-30 minutes).
    - **What to Test**: (Use the text from Step 2 above)
    - **Beta App Description**: "Open Blocker is an open source physical phone blocker. Tap an NFC tag, card, or QR code to start blocking distracting apps. Tap again to stop."
    - **Feedback Email**: Your support email
-   - **Marketing URL**: https://openblocker.vercel.app/
-   - **Privacy Policy URL**: https://openblocker.vercel.app/privacy
+   - **Marketing URL**: https://openblocker.org/
+   - **Privacy Policy URL**: https://openblocker.org/privacy
 7. Click **Submit for Review**
 
 Beta App Review typically takes 24-48 hours.
@@ -172,7 +172,7 @@ Beta App Review typically takes 24-48 hours.
 
 1. Once approved, go to **External Testing** > your group
 2. Click **Public Link** to get the shareable TestFlight link
-3. iPhone app coming soon to the App Store.
+3. The iPhone app is on the App Store: https://apps.apple.com/app/id6824046126
 
 Anyone with the link can install the app (up to 10,000 testers).
 
@@ -273,14 +273,8 @@ If rejected:
 - [Beta App Review Guidelines](https://developer.apple.com/testflight/beta-review-guidelines/)
 - [Export Compliance](https://developer.apple.com/documentation/security/complying_with_encryption_export_regulations)
 
-## Next Steps After TestFlight
+## After TestFlight
 
-Once testing is complete and you are ready for public release:
+1.0.0 is already on the App Store: https://apps.apple.com/app/id6824046126
 
-1. Create App Store screenshots (required: 6.5" and 5.5" iPhone)
-2. Write an App Store description (max 4,000 characters)
-3. Submit for App Review (not Beta Review)
-4. Wait 1-7 days for review
-5. Release to the App Store
-
-See `docs/APPLE.md` for App Store submission guidelines.
+Use this guide for later TestFlight builds. See `docs/APPLE.md` for App Store notes.
