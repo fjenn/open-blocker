@@ -52,7 +52,6 @@ import app.openblocker.android.ui.screens.AnyCardPairingScreen
 import app.openblocker.android.ui.screens.AppPickerScreen
 import app.openblocker.android.ui.screens.BlockTab
 import app.openblocker.android.ui.screens.ContactScreen
-import app.openblocker.android.ui.screens.DebugScreen
 import app.openblocker.android.ui.screens.EmergencyUnblockScreen
 import app.openblocker.android.ui.screens.HelpScreen
 import app.openblocker.android.ui.screens.KeysScreen
@@ -98,7 +97,6 @@ private object Routes {
     const val ANY_CARD = "keys/anycard"
     const val QR_KEY = "keys/qr"
     const val QR_PASTE = "keys/qrpaste"
-    const val DEBUG = "debug"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,7 +312,6 @@ fun AppRoot() {
                     onDenied = { denied = it }
                 )
             }
-            composable(Routes.DEBUG) { DebugScreen(onBack = { nav.popBackStack() }) }
         }
 
         if (pickingApps != null) {

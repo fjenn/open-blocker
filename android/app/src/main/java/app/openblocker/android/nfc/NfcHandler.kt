@@ -5,7 +5,6 @@ import android.nfc.NdefMessage
 import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
-import app.openblocker.android.data.DebugDataManager
 import app.openblocker.android.data.PreferencesManager
 import app.openblocker.android.format.OpenBlockerFormat
 import app.openblocker.android.key.KeyMatcher
@@ -17,51 +16,33 @@ class NfcHandler {
         val uid = tag.id?.let { OpenBlockerFormat.bytesToHex(it) } ?: return
         
         val ndefMessage = readNdefMessage(tag)
-        var tagId: String? = null
-        var packageName: String? = null
-        var success = false
-        var error: String? = null
-        
         try {
-                if (ndefMessage != null) {
-                    val tagData = try {
-                        OpenBlockerFormat.decode(ndefMessage.toByteArray())
-                    } catch (e: Exception) {
-                        error = "Failed to decode: ${e.message}"
-                        null
-                    }
-                    
-                    if (tagData != null) {
-                        tagId = OpenBlockerFormat.bytesToHex(tagData.tagId)
-                        packageName = tagData.androidPackage
-                        
-                        if (KeyMatcher.isPaired(ScannedKey.OpenBlockerTag(tagId))) {
-                            KeyMatcher.applyPairedKey(context)
-                            success = true
-                        } else {
-                            error = "Tag ID not paired"
-                            KeyMatcher.reject(context)
-                        }
-                    } else if (KeyMatcher.isPaired(ScannedKey.Uid(uid))) {
+            if (ndefMessage != null) {
+                val tagData = try {
+                    OpenBlockerFormat.decode(ndefMessage.toByteArray())
+                } catch (_: Exception) {
+                    null
+                }
+                if (tagData != null) {
+                    val tagId = OpenBlockerFormat.bytesToHex(tagData.tagId)
+                    if (KeyMatcher.isPaired(ScannedKey.OpenBlockerTag(tagId))) {
                         KeyMatcher.applyPairedKey(context)
-                        success = true
                     } else {
-                        error = error ?: "Unknown tag format"
                         KeyMatcher.reject(context)
                     }
                 } else if (KeyMatcher.isPaired(ScannedKey.Uid(uid))) {
                     KeyMatcher.applyPairedKey(context)
-                    success = true
                 } else {
-                    error = "No NDEF data and UID not paired"
                     KeyMatcher.reject(context)
                 }
-        } catch (e: Exception) {
-            error = "Exception: ${e.message}"
+            } else if (KeyMatcher.isPaired(ScannedKey.Uid(uid))) {
+                KeyMatcher.applyPairedKey(context)
+            } else {
+                KeyMatcher.reject(context)
+            }
+        } catch (_: Exception) {
             KeyMatcher.reject(context, "Error reading tag")
         }
-        
-        DebugDataManager.recordTagScan(uid, tagId, packageName, success, error)
     }
     
     fun writeTag(tag: Tag, packageName: String): Boolean {
