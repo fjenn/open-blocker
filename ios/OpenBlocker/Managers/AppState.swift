@@ -341,19 +341,28 @@ class AppState: ObservableObject {
         guard isBlocking else { return false }
         guard let session = state.active else { return false }
         
+        let now = Date()
         let record = SessionRecord(
             modeID: session.modeID,
             source: session.source,
             start: session.startedAt,
-            end: Date(),
+            end: now,
             endedBy: .key
         )
         
         PolicyStore.appendToHistory(record)
         history = PolicyStore.loadHistory()
         
-        state.active = nil
-        state.lastEnd = Date()
+        // Must set the schedule override here: Reconcile.plan never emits
+        // `.end(.key)`, so without this a scheduled window restarts immediately
+        // (timer resets) on the next reconcile / Monitor intervalDidStart.
+        guard let ended = Reconcile.ending(
+            state,
+            config: config,
+            reason: .key,
+            at: now
+        ) else { return false }
+        state = ended
         saveState()
         // NFC and QR both unblock through this path; emergency does not.
         keyUnblockCount = ReviewPrompt.recordKeyUnblock()
