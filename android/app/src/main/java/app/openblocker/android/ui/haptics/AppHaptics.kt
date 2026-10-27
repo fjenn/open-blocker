@@ -28,6 +28,12 @@ object AppHaptics {
         view?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 
+    /** Light tap for a missing required field. */
+    fun warning(context: Context, view: View? = null) {
+        view?.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        pulse(context, 12, 80)
+    }
+
     private fun pulse(context: Context, ms: Long, amp: Int) {
         val vibrator = vibratorOf(context) ?: return
         if (Build.VERSION.SDK_INT >= 26) {

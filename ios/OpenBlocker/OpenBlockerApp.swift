@@ -64,6 +64,7 @@ struct AppRootView: View {
             #endif
         }
         .appAppearance()
+        .offersReviewPrompt()
         .onChange(of: scenePhase) { phase in
             if phase == .active { appState.appDidBecomeActive() }
         }

@@ -7,6 +7,9 @@ struct KeySetupScreen: View {
     @State private var kind: BlockKey.Kind = .qr
     @State private var keyName = ""
     @State private var secret = ""
+    @State private var nameNeedsAttention = false
+    @State private var nameShake = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Called after a key is saved (onboarding uses it to move on).
     var onSaved: (() -> Void)? = nil
     
@@ -14,15 +17,15 @@ struct KeySetupScreen: View {
         keyName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    private var canSave: Bool {
-        !secret.isEmpty && !trimmedName.isEmpty
+    private var hasSecret: Bool {
+        !secret.isEmpty
     }
     
     var body: some View {
         SheetScaffold(
             title: "Add Key",
             trailing: SheetAction(systemImage: "xmark", accessibilityLabel: "Cancel") { dismiss() },
-            primary: SheetAction(title: "Save Key", isEnabled: canSave) { save() }
+            primary: SheetAction(title: "Save Key", isEnabled: hasSecret, accessibilityID: AccessibilityID.saveKey) { save() }
         ) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: Space.s) {
@@ -38,7 +41,28 @@ struct KeySetupScreen: View {
                     .onChange(of: kind) { _ in secret = "" }
                     
                     SettingsGroup {
-                        FormTextField(label: "Key Name", placeholder: placeholder, text: $keyName)
+                        FormTextField(
+                            label: "Key Name",
+                            placeholder: placeholder,
+                            text: $keyName,
+                            accessibilityID: AccessibilityID.keyName
+                        )
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.group, style: .continuous)
+                            .stroke(nameNeedsAttention ? Color.danger : Color.clear, lineWidth: 1.5)
+                    )
+                    .shake(trigger: nameShake, reducedMotion: reduceMotion)
+                    .onChange(of: keyName) { _ in
+                        if nameNeedsAttention { nameNeedsAttention = false }
+                    }
+                    
+                    if nameNeedsAttention {
+                        Text(KeySetupScreen.missingNameHint)
+                            .textStyle(.footnote)
+                            .foregroundColor(Color.danger)
+                            .padding(.leading, Space.xxs)
+                            .accessibilityIdentifier(AccessibilityID.keyNameHint)
                     }
                     
                     Group {
@@ -70,12 +94,26 @@ struct KeySetupScreen: View {
     }
     
     private func save() {
+        guard hasSecret else { return }
+        guard !trimmedName.isEmpty else {
+            promptForName()
+            return
+        }
         guard appState.canAddKeys else { dismiss(); return }
         appState.addKey(BlockKey(name: trimmedName, kind: kind, secret: secret))
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         onSaved?()
         dismiss()
     }
+    
+    private func promptForName() {
+        nameNeedsAttention = true
+        nameShake += 1
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIAccessibility.post(notification: .announcement, argument: Self.missingNameHint)
+    }
+    
+    static let missingNameHint = "Add a name"
 }
 
 /// Shared card for the three key types: medallion, copy, status, action.

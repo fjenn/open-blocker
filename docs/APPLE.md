@@ -38,13 +38,9 @@ Open Blocker uses Family Controls to help users block distracting apps during fo
 - **Purpose:** Analytics only
 - **Details:** If user opts in via "Count me" toggle (OFF by default), one anonymous ping is sent after the first successful block. Contains only: random install ID (UUID), event name "first_block", and app version.
 
-**Optional Reviews (after 3rd block):**
-- **Type:** User Content (review text)
-- **Type:** Contact Info (email, optional)
-- **Linked to User:** No (unless email provided)
-- **Used for Tracking:** No
-- **Purpose:** App Functionality and Product Improvement
-- **Details:** User may optionally submit a one-line review after their 3rd block. Email is optional and used only to follow up on feedback. User can request deletion.
+**Optional Apple rating prompt (after 3rd completed block):**
+- **Type:** None collected by Open Blocker
+- **Details:** After three completed blocks the app may show Apple's standard StoreKit rating prompt, once per app version. No review text or email is collected.
 
 ### Data Not Collected
 
@@ -167,8 +163,8 @@ When ready for App Store release:
 
 ## Version Numbers
 
-- **CFBundleShortVersionString:** 1.0.0 (user-facing version)
-- **CFBundleVersion:** 1 (build number, increment for each App Store submission)
+- **CFBundleShortVersionString:** 1.0.1 (user-facing version)
+- **CFBundleVersion:** 4 (build number, increment for each App Store submission)
 
 Update these in `project.yml` under the `info` section before release.
 

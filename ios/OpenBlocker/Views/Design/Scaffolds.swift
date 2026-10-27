@@ -197,13 +197,52 @@ struct FormTextField: View {
     let label: String
     let placeholder: String
     @Binding var text: String
+    var accessibilityID: String? = nil
     
     var body: some View {
         FormRow(label: label) {
             TextField(placeholder, text: $text)
                 .multilineTextAlignment(.trailing)
                 .submitLabel(.done)
+                .accessibilityID(accessibilityID)
         }
+    }
+}
+
+/// Horizontal shake used when a required field is empty.
+struct ShakeEffect: GeometryEffect {
+    var travel: CGFloat = 8
+    var shakesPerUnit: CGFloat = 3
+    var animatableData: CGFloat
+    
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let x = travel * sin(animatableData * .pi * shakesPerUnit)
+        return ProjectionTransform(CGAffineTransform(translationX: x, y: 0))
+    }
+}
+
+extension View {
+    /// Shakes once each time `trigger` changes to a new non-zero value.
+    func shake(trigger: Int, reducedMotion: Bool) -> some View {
+        modifier(ShakeTriggerModifier(trigger: trigger, reducedMotion: reducedMotion))
+    }
+}
+
+private struct ShakeTriggerModifier: ViewModifier {
+    let trigger: Int
+    let reducedMotion: Bool
+    @State private var progress: CGFloat = 0
+    
+    func body(content: Content) -> some View {
+        content
+            .modifier(ShakeEffect(travel: reducedMotion ? 0 : 8, animatableData: progress))
+            .onChange(of: trigger) { newValue in
+                guard newValue > 0 else { return }
+                progress = 0
+                withAnimation(.easeInOut(duration: 0.42)) {
+                    progress = 1
+                }
+            }
     }
 }
 
