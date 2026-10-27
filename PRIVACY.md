@@ -1,107 +1,116 @@
 # Privacy Policy
 
-**Effective Date:** October 8, 2026
+**Effective Date:** October 27, 2026
 
-Open Blocker is designed with privacy as a core principle. This document explains what data the app collects and how it is used.
+Open Blocker is designed with privacy as a core principle. This document explains what data the apps collect and how it is used. It matches the code in this repository. The iPhone and Android apps do not behave the same way, so each platform is described separately.
 
-## Data Collection
+## Data stored only on your device
 
-### Local Data Only (Default)
+Both apps store this on the device and do not send it:
 
-By default, Open Blocker stores all data locally on your device and never sends anything over the internet:
+- Blocked app list and modes
+- NFC tag pairings and QR key payloads
+- Blocking session state and local history
+- App settings, including the anonymous count toggle
 
-- **Blocked app list**: Stored on your device
-- **NFC tag pairings and QR key payloads**: Stored on your device
-- **Blocking session state**: Stored on your device
-- **App settings**: Stored on your device
+Uninstalling the app removes this local data.
 
-This local data is never transmitted anywhere.
+## Anonymous count
 
-### Optional Anonymous Count
+Both apps have a Settings toggle labeled **Share anonymous count**. It is **on by default**. You can turn it off at any time.
 
-Open Blocker includes an opt-in "Count me" toggle on the home screen, **OFF by default**.
+Turning the toggle off stops further sends. Already-delivered events are not deleted from the server by the toggle.
 
-If you enable this toggle, the app will:
+### iPhone (1.0.0 on the App Store)
 
-1. Generate a random UUID (install ID) when you opt in
-2. Send **one** HTTPS POST request:
-   - **iPhone:** When the first focus session starts (when you scan your key)
-   - **Android:** When the app successfully blocks an app for you (when the block screen actually appears)
-3. Stop sending once one message has been sent
+Source: `ios/OpenBlocker/Managers/CountManager.swift`, `ios/OpenBlocker/Managers/AppState.swift`, `ios/Config/Release.xcconfig`.
 
-**What gets sent:**
-- Random install ID (UUID, not linked to you)
-- Event name: `first_block`
-- App version (e.g., "0.1.0-alpha")
-- Timestamp (added by the server)
+The shipped Release build has `COUNT_ENDPOINT` set to `https://openblocker.org/api/count`. The toggle defaults on (`CountManager.enabledByDefault = true`). On first launch the app creates a random install UUID if the toggle is on.
 
-**Why the difference:** The iPhone app uses Apple's Screen Time API, which doesn't allow detecting when shields are shown. The ping fires when you start a session. The Android app detects blocked app launches directly, so the ping fires when the block screen appears.
+**When something is sent:** after a block is completed, and again on launch or when the app returns to the foreground if a send failed earlier. A completed block is one that ended by scanning your key, by a schedule end, or by a passage window. Emergency unblocks and lost Screen Time access are not sent. The first run after this feature exists marks any older history as already seen and does not send those older blocks.
 
-**What is NOT sent:**
-- Device information
-- iOS or Android version
-- Phone model
-- Which apps you block
-- When you use the app
-- Your location
-- We don't store IP addresses in our table; Supabase may keep standard server logs
+**What each HTTPS POST contains (and nothing else):**
 
-**Why we collect this:**
+- `installId`: random UUID created on this phone
+- `event`: `block_completed`
+- `eventId`: the session's random UUID (so a retry is not counted twice)
+- `appVersion`: the marketing version string (for 1.0.0, `"1.0.0"`)
+- `platform`: `"ios"`
 
-The anonymous count helps us understand how many people use Open Blocker successfully. One ping per install tells us the project is helping people focus, which motivates continued development and helps us prioritize improvements.
+The client does not send app names, session times, device model, OS version, location, or an email.
 
-**Server:**
+**How many events:** one event per completed block while the toggle is on, not one ping per install. Distinct `installId` values count people who finished at least one block. Distinct `eventId` values count blocks.
 
-The ping is sent to a Supabase database with Row Level Security enabled. Anonymous users can only insert, never read. The data is aggregated periodically to count unique installs by day and version.
+**When nothing is sent:** the toggle is off, or `COUNT_ENDPOINT` is empty (then the network path never runs). Demo and simulator builds do not send unless `OB_SEND_COUNTS=1` is set.
 
-### Optional Review Prompt (iPhone Only)
+### Android (0.2.0-alpha on GitHub Releases, and current source)
 
-After your 3rd session start, the iPhone app may ask you for a short review. This is optional. If you send one, we receive:
+Source: `android/app/src/main/java/app/openblocker/android/data/CountManager.kt`, `SessionManager.kt`, `AppBlockingService.kt`, `android/app/build.gradle.kts`, `.github/workflows/build.yml`.
 
-- Review text
-- Install ID (the same random UUID from the count feature)
-- App version (e.g., "1.0.0")
-- Platform ("ios")
-- Email address (only if you type one; optional)
-- Server timestamp (added by the server)
+The Settings toggle also defaults on (`CountManager.enabledByDefault = true`). That is not enough to send data. Counting is compiled in only when `OPENBLOCKER_COUNT_URL` is set at build time (`BuildConfig.COUNT_ENABLED`). The GitHub Release workflow does not set that variable. The public `openblocker-0.2.0-alpha.apk` therefore has no count URL and **sends nothing**.
 
-The Android app does not have review prompts.
+If you build current source with `OPENBLOCKER_COUNT_URL` set, the app will try to send **one** HTTPS POST the first time a blocking session starts (`SessionManager.startSession`) or the first time the block screen is shown (`AppBlockingService.fireBlock`), whichever happens first while counting is enabled. A failed send is retried the next time the app opens.
 
-If you provide an email address, we use it only to follow up on your review. You can request deletion at any time.
+**What that POST contains (and nothing else):**
+
+- `install_id`: random UUID
+- `event`: `first_block`
+- `app_version`: `BuildConfig.VERSION_NAME`
+- `platform`: `"android"`
+
+The install ID is created when the user turns the setting on (`setCountingEnabled(true)`). The default-on state does not create an ID by itself. If `COUNT_KEY` is set at build time, the request also sends `apikey` and `Authorization` headers for that endpoint. No app names, session times, device model, OS version, location, or email are in the body.
+
+Android does not send a per-block event and does not send `eventId`.
+
+## Reviews
+
+The iPhone source has leftover review-send code (`CountManager.sendReview` and a `.showReviewPrompt` notification after the 3rd session start). No screen observes that notification or calls `sendReview`. `COUNT_URL` and `COUNT_KEY` are empty in `ios/Config/Release.xcconfig`, and `sendReview` returns immediately when they are empty. The shipped iPhone app does not collect reviews, install IDs for reviews, or email addresses.
+
+The Android app has no review prompt and no review send path.
 
 ## Permissions
 
-Open Blocker requests these Android permissions:
+### iPhone
 
-- **NFC**: Required to read and write NFC tags and cards
-- **Camera**: Requested only when you scan a QR key. Frames are decoded on-device with ZXing and are not stored or sent. You can deny the permission and still use NFC keys.
-- **Accessibility**: Required to detect when blocked apps open during a blocking session
-- **Query All Packages**: Required to show you a list of installed apps to choose which to block
-- **Internet**: Declared in the app manifest unconditionally. When `COUNT_ENABLED` is false at build time, the network code is switched off and never runs. When enabled, used only for the optional anonymous count feature described above
+- **Screen Time (Family Controls):** required so the app can shield selected apps. The app does not read or upload your Screen Time usage report.
+- **NFC:** reads and sets up your key tag or card. Tag IDs stay on the device.
+- **Camera:** scans a QR or barcode key. Frames are not stored or sent.
+- **Notifications:** optional. If you turn them on, the app can tell you when a block ends. Alerts stay on the device.
 
-## No Third-Party Tracking
+### Android
+
+- **NFC:** reads and writes key tags and cards
+- **Camera:** requested when you scan a QR key. Frames are decoded on-device with ZXing and are not stored or sent. You can deny the permission and still use NFC keys.
+- **Accessibility:** required to detect blocked apps and, while a session is on, to read the address bar of supported browsers so website rules can be enforced. Those addresses are not stored or sent.
+- **Notifications:** optional. If you allow them, the app can tell you when a block ends.
+- **Vibrate:** haptic feedback
+- **Internet:** declared in the manifest. Used only for the anonymous count described above, and only when counting is compiled in and the toggle is on
+- **Launcher app query:** the manifest queries apps that have a launcher icon, so the app picker can list them. This is not the old `QUERY_ALL_PACKAGES` permission.
+
+## No third-party tracking
 
 Open Blocker contains:
+
 - No analytics SDKs
 - No crash reporting services
 - No advertising frameworks
-- No user tracking of any kind
+- No accounts
 
-## Your Rights
+The iPhone count POST goes to `https://openblocker.org/api/count`. The client does not send your IP address. Any HTTPS server can see the connecting IP in ordinary request logs.
 
-- You can disable the "Count me" toggle at any time in the app
-- The app will immediately stop attempting to send data
-- All data remains on your device and you can uninstall the app at any time to remove it
+## Your rights
 
-## Open Source
+- Turn off **Share anonymous count** in Settings to stop further sends
+- Uninstall the app to remove local data
+- The apps do not offer an in-app delete of events already delivered
 
-Open Blocker is open source (MIT license). You can review the complete source code to verify these privacy claims:
+## Open source
 
-The source is this repository.
+Open Blocker is open source (MIT license). The source is this repository.
 
 ## Changes
 
-If we make changes to this privacy policy, we will update the Effective Date at the top and note the changes in the app's release notes.
+If we make changes to this privacy policy, we will update the Effective Date at the top.
 
 ## Contact
 
