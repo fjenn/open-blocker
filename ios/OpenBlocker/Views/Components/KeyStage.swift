@@ -1,5 +1,6 @@
 // The interactive key: tap to scan, press and hold to fill and block,
-// drag sideways to spin it. The capsule button below shares the same gesture.
+// drag sideways to spin it. A small finger drift stays a hold; leaving
+// the key or capsule (plus slack) cancels. The button shares this gesture.
 
 import SwiftUI
 
@@ -14,31 +15,37 @@ struct HoldTapGesture: ViewModifier {
     
     @State private var pressBegan: Date?
     @State private var beganLocked = false
-    @State private var isDragging = false
-    
-    private static let tapLimit: TimeInterval = 0.25
-    private static let slop: CGFloat = 12
+    @State private var leftArea = false
+    @State private var bounds: CGSize = .zero
     
     func body(content: Content) -> some View {
-        content.gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged(changed)
-                .onEnded(ended)
-        )
+        content
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(key: HoldBoundsKey.self, value: geo.size)
+                }
+            )
+            .onPreferenceChange(HoldBoundsKey.self) { bounds = $0 }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged(changed)
+                    .onEnded(ended)
+            )
     }
     
     private func changed(_ value: DragGesture.Value) {
         if pressBegan == nil {
             pressBegan = Date()
             beganLocked = isLocked
+            leftArea = false
             if !isLocked { hold.press() }
         }
-        let moved = hypot(value.translation.width, value.translation.height)
-        if !isDragging && moved > Self.slop {
-            isDragging = true
+        if !leftArea && !HoldPressTracking.isInsideHoldArea(location: value.location, bounds: bounds) {
+            leftArea = true
             hold.release()
         }
-        if isDragging {
+        let moved = HoldPressTracking.movement(value.translation)
+        if onDrag != nil && moved > HoldPressTracking.tapMoveLimit {
             onDrag?(value.translation.width)
         }
     }
@@ -46,19 +53,29 @@ struct HoldTapGesture: ViewModifier {
     private func ended(_ value: DragGesture.Value) {
         defer {
             pressBegan = nil
-            isDragging = false
+            leftArea = false
         }
-        if isDragging {
+        let moved = HoldPressTracking.movement(value.translation)
+        let held = Date().timeIntervalSince(pressBegan ?? Date())
+        if leftArea {
             onDragEnd?(value.predictedEndTranslation.width)
             return
         }
         hold.release()
-        let held = Date().timeIntervalSince(pressBegan ?? Date())
-        if held < Self.tapLimit {
+        if HoldPressTracking.isShortTap(held: held, moved: moved) {
             onTap()
+        } else if held < HoldPressTracking.tapLimit {
+            onDragEnd?(value.predictedEndTranslation.width)
         } else if beganLocked {
             onHoldWhileLocked()
         }
+    }
+}
+
+private struct HoldBoundsKey: PreferenceKey {
+    static var defaultValue = CGSize.zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
     }
 }
 

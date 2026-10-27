@@ -164,7 +164,7 @@ When ready for App Store release:
 ## Version Numbers
 
 - **CFBundleShortVersionString:** 1.0.1 (user-facing version)
-- **CFBundleVersion:** 4 (build number, increment for each App Store submission)
+- **CFBundleVersion:** 5 (build number, increment for each App Store submission)
 
 Update these in `project.yml` under the `info` section before release.
 
