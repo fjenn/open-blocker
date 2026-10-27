@@ -70,7 +70,7 @@ targets:
         CFBundleName: $(PRODUCT_NAME)
         CFBundlePackageType: APPL
         CFBundleShortVersionString: "1.0.1"
-        CFBundleVersion: "5"
+        CFBundleVersion: "6"
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities:
@@ -133,7 +133,7 @@ targets:
       properties:
         CFBundleDisplayName: Open Blocker Monitor
         CFBundleShortVersionString: "1.0.1"
-        CFBundleVersion: "5"
+        CFBundleVersion: "6"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MonitorExtension

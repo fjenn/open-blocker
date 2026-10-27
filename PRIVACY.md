@@ -56,7 +56,7 @@ The ping is sent to a Supabase database with Row Level Security enabled. Anonymo
 
 ### Optional Rating Prompt (iPhone Only)
 
-After your 3rd completed block (not an emergency unblock), the iPhone app may show Apple's standard rating prompt. This is handled by StoreKit. We do not collect review text, a rating, or an email. The prompt is asked at most once per app version.
+After your 3rd successful unblock with your physical key (NFC or QR; not an emergency unblock), the iPhone app may show Apple's standard rating prompt. This is handled by StoreKit. We do not collect review text, a rating, or an email. The prompt is asked at most once per app version.
 
 The Android app does not have a rating prompt.
 

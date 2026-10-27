@@ -2,70 +2,106 @@ import XCTest
 @testable import OpenBlocker
 
 final class ReviewPromptTests: XCTestCase {
-    private func record(_ reason: SessionRecord.EndReason) -> SessionRecord {
-        SessionRecord(
-            modeID: UUID(),
-            source: .hold,
-            start: Date(timeIntervalSince1970: 0),
-            end: Date(timeIntervalSince1970: 60),
-            endedBy: reason
-        )
+    private func freshDefaults() -> (UserDefaults, String) {
+        let suite = "review-prompt-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return (defaults, suite)
     }
     
-    func testCompletedCountIgnoresEmergencyAndRevokedAccess() {
-        let history = [
-            record(.key),
-            record(.scheduleEnd),
-            record(.passage),
-            record(.emergency),
-            record(.accessRevoked)
-        ]
-        XCTAssertEqual(ReviewPrompt.completedCount(in: history), 3)
-        XCTAssertEqual(ReviewPrompt.completedCount(in: []), 0)
-    }
-    
-    func testAsksAfterThirdCompletedBlockWhenIdle() {
-        let two = [record(.key), record(.scheduleEnd)]
+    func testOneAndTwoKeyUnblocksDoNotAsk() {
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        
+        XCTAssertEqual(ReviewPrompt.recordKeyUnblock(defaults: defaults), 1)
         XCTAssertFalse(
-            ReviewPrompt.shouldAsk(history: two, isBlocking: false, appVersion: "1.0.1", askedVersions: []),
-            "two completed blocks is not enough"
+            ReviewPrompt.shouldAsk(
+                keyUnblockCount: ReviewPrompt.keyUnblockCount(in: defaults),
+                appVersion: "1.0.1",
+                askedVersions: []
+            ),
+            "one successful key unblock is not enough"
         )
         
-        let three = two + [record(.passage)]
+        XCTAssertEqual(ReviewPrompt.recordKeyUnblock(defaults: defaults), 2)
+        XCTAssertFalse(
+            ReviewPrompt.shouldAsk(
+                keyUnblockCount: ReviewPrompt.keyUnblockCount(in: defaults),
+                appVersion: "1.0.1",
+                askedVersions: []
+            ),
+            "two successful key unblocks is not enough"
+        )
+    }
+    
+    func testThirdKeyUnblockRequestsTheReview() {
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        
+        _ = ReviewPrompt.recordKeyUnblock(defaults: defaults)
+        _ = ReviewPrompt.recordKeyUnblock(defaults: defaults)
+        XCTAssertEqual(ReviewPrompt.recordKeyUnblock(defaults: defaults), 3)
+        
         XCTAssertTrue(
-            ReviewPrompt.shouldAsk(history: three, isBlocking: false, appVersion: "1.0.1", askedVersions: []),
-            "third completed block should ask"
+            ReviewPrompt.shouldAsk(
+                keyUnblockCount: ReviewPrompt.keyUnblockCount(in: defaults),
+                appVersion: "1.0.1",
+                askedVersions: []
+            ),
+            "third successful key unblock should request the review"
         )
     }
     
-    func testNeverAsksDuringABlock() {
-        let three = [record(.key), record(.key), record(.key)]
-        XCTAssertFalse(
-            ReviewPrompt.shouldAsk(history: three, isBlocking: true, appVersion: "1.0.1", askedVersions: [])
-        )
+    func testCounterPersistsAcrossReads() {
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        
+        XCTAssertEqual(ReviewPrompt.keyUnblockCount(in: defaults), 0)
+        _ = ReviewPrompt.recordKeyUnblock(defaults: defaults)
+        _ = ReviewPrompt.recordKeyUnblock(defaults: defaults)
+        XCTAssertEqual(ReviewPrompt.keyUnblockCount(in: defaults), 2)
     }
     
-    func testEmergencyUnblocksDoNotTriggerThePrompt() {
-        let history = [record(.key), record(.key), record(.emergency)]
+    func testEmergencyAndScheduleEndsDoNotCountTowardThreshold() {
+        // Only recordKeyUnblock increments. Other end reasons never call it,
+        // so three non-key completions leave the counter at zero.
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        
+        XCTAssertEqual(ReviewPrompt.keyUnblockCount(in: defaults), 0)
         XCTAssertFalse(
-            ReviewPrompt.shouldAsk(history: history, isBlocking: false, appVersion: "1.0.1", askedVersions: [])
+            ReviewPrompt.shouldAsk(
+                keyUnblockCount: 0,
+                appVersion: "1.0.1",
+                askedVersions: []
+            )
+        )
+        
+        // Two real key unblocks plus an emergency still fall short.
+        _ = ReviewPrompt.recordKeyUnblock(defaults: defaults)
+        _ = ReviewPrompt.recordKeyUnblock(defaults: defaults)
+        XCTAssertFalse(
+            ReviewPrompt.shouldAsk(
+                keyUnblockCount: ReviewPrompt.keyUnblockCount(in: defaults),
+                appVersion: "1.0.1",
+                askedVersions: []
+            ),
+            "emergency unblocks must not fill the third slot"
         )
     }
     
     func testAsksOnlyOncePerAppVersion() {
-        let three = [record(.key), record(.key), record(.key)]
+        let three = 3
         XCTAssertFalse(
             ReviewPrompt.shouldAsk(
-                history: three,
-                isBlocking: false,
+                keyUnblockCount: three,
                 appVersion: "1.0.1",
                 askedVersions: ["1.0.1"]
             )
         )
         XCTAssertTrue(
             ReviewPrompt.shouldAsk(
-                history: three,
-                isBlocking: false,
+                keyUnblockCount: three,
                 appVersion: "1.0.2",
                 askedVersions: ["1.0.1"]
             ),
@@ -74,8 +110,7 @@ final class ReviewPromptTests: XCTestCase {
     }
     
     func testMarkAskedPersistsTheVersion() {
-        let suite = "review-prompt-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
+        let (defaults, suite) = freshDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
         
         XCTAssertTrue(ReviewPrompt.askedVersions(in: defaults).isEmpty)
@@ -83,11 +118,9 @@ final class ReviewPromptTests: XCTestCase {
         ReviewPrompt.markAsked(version: "1.0.1", defaults: defaults)
         XCTAssertEqual(ReviewPrompt.askedVersions(in: defaults), ["1.0.1"])
         
-        let three = [record(.key), record(.key), record(.key)]
         XCTAssertFalse(
             ReviewPrompt.shouldAsk(
-                history: three,
-                isBlocking: false,
+                keyUnblockCount: 3,
                 appVersion: "1.0.1",
                 askedVersions: ReviewPrompt.askedVersions(in: defaults)
             )

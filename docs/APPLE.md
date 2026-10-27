@@ -38,9 +38,9 @@ Open Blocker uses Family Controls to help users block distracting apps during fo
 - **Purpose:** Analytics only
 - **Details:** If user opts in via "Count me" toggle (OFF by default), one anonymous ping is sent after the first successful block. Contains only: random install ID (UUID), event name "first_block", and app version.
 
-**Optional Apple rating prompt (after 3rd completed block):**
+**Optional Apple rating prompt (after 3rd successful key unblock):**
 - **Type:** None collected by Open Blocker
-- **Details:** After three completed blocks the app may show Apple's standard StoreKit rating prompt, once per app version. No review text or email is collected.
+- **Details:** After three successful physical-key unblocks (NFC or QR; not emergency) the app may show Apple's standard StoreKit rating prompt, once per app version. No review text or email is collected.
 
 ### Data Not Collected
 

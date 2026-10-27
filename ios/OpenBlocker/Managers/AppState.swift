@@ -20,6 +20,9 @@ class AppState: ObservableObject {
     
     @Published var emergencyStatus: EmergencyUnblockManager.Status
     
+    /// Persistent successful NFC/QR key-unblock count for the StoreKit prompt.
+    @Published private(set) var keyUnblockCount: Int = ReviewPrompt.keyUnblockCount()
+    
     let nfcScanner: NFCScannerProtocol
     
     private var cancellables = Set<AnyCancellable>()
@@ -352,6 +355,8 @@ class AppState: ObservableObject {
         state.active = nil
         state.lastEnd = Date()
         saveState()
+        // NFC and QR both unblock through this path; emergency does not.
+        keyUnblockCount = ReviewPrompt.recordKeyUnblock()
         SessionNotify.notifyEnded()
         reconcile()
         
