@@ -70,8 +70,8 @@ targets:
         CFBundleInfoDictionaryVersion: "6.0"
         CFBundleName: $(PRODUCT_NAME)
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0.1"
+        CFBundleVersion: "4"
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities:
@@ -133,6 +133,8 @@ targets:
       path: OpenBlockerMonitor/Info.plist
       properties:
         CFBundleDisplayName: Open Blocker Monitor
+        CFBundleShortVersionString: "1.0.1"
+        CFBundleVersion: "4"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MonitorExtension

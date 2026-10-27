@@ -309,7 +309,6 @@ class AppState: ObservableObject {
         state.active = ActiveSession(modeID: mode.id, source: source, startedAt: Date())
         saveState()
         reconcile()
-        NotificationCenter.default.post(name: .sessionStarted, object: nil)
         return isBlocking
     }
     
