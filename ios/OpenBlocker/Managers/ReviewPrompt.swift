@@ -1,29 +1,37 @@
 import SwiftUI
 import StoreKit
 
-/// Apple's rating prompt after a few real completed blocks. No custom
+/// Apple's rating prompt after a few real physical-key unblocks. No custom
 /// pre-prompt, no review text, no incentive.
 enum ReviewPrompt {
     static let threshold = 3
+    static let countKey = "reviewPromptKeyUnblockCount"
     static let askedVersionsKey = "reviewPromptAskedVersions"
     
-    /// Real completed blocks only. Emergency unblocks and lost Screen Time
-    /// access do not count.
-    static func completedCount(in history: [SessionRecord]) -> Int {
-        history.filter { CountManager.completedEndings.contains($0.endedBy) }.count
+    /// Successful NFC/QR key unblocks only. Emergency unblocks, schedule ends,
+    /// and block starts do not count.
+    static func keyUnblockCount(in defaults: UserDefaults = .standard) -> Int {
+        max(0, defaults.integer(forKey: countKey))
     }
     
-    /// Ask when idle, after enough completed blocks, once per app version.
+    /// Call from the single successful key-unblock path (NFC and QR both land
+    /// there). Returns the new persistent count.
+    @discardableResult
+    static func recordKeyUnblock(defaults: UserDefaults = .standard) -> Int {
+        let next = keyUnblockCount(in: defaults) + 1
+        defaults.set(next, forKey: countKey)
+        return next
+    }
+    
+    /// Ask after enough key unblocks, once per app version.
     static func shouldAsk(
-        history: [SessionRecord],
-        isBlocking: Bool,
+        keyUnblockCount: Int,
         appVersion: String,
         askedVersions: Set<String>
     ) -> Bool {
-        guard !isBlocking else { return false }
         guard !appVersion.isEmpty else { return false }
         guard !askedVersions.contains(appVersion) else { return false }
-        return completedCount(in: history) >= threshold
+        return keyUnblockCount >= threshold
     }
     
     static func askedVersions(in defaults: UserDefaults) -> Set<String> {
@@ -41,7 +49,8 @@ enum ReviewPrompt {
     }
 }
 
-/// Calls StoreKit after the home screen is idle again. Never during a block.
+/// Calls StoreKit a short moment after a successful key unblock settles on
+/// the foreground scene. Never on block start, and never for emergency ends.
 struct ReviewPromptModifier: ViewModifier {
     @Environment(\.requestReview) private var requestReview
     @ObservedObject private var appState = AppState.shared
@@ -50,6 +59,9 @@ struct ReviewPromptModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onAppear { scheduleIfNeeded() }
+            .onChange(of: appState.keyUnblockCount) { _ in
+                scheduleIfNeeded()
+            }
             .onChange(of: appState.isBlocking) { blocking in
                 if blocking {
                     pendingAsk?.cancel()
@@ -73,9 +85,9 @@ struct ReviewPromptModifier: ViewModifier {
     }
     
     private func shouldAskNow() -> Bool {
-        ReviewPrompt.shouldAsk(
-            history: appState.history,
-            isBlocking: appState.isBlocking,
+        guard !appState.isBlocking else { return false }
+        return ReviewPrompt.shouldAsk(
+            keyUnblockCount: appState.keyUnblockCount,
             appVersion: ReviewPrompt.currentAppVersion,
             askedVersions: ReviewPrompt.askedVersions(in: .standard)
         )
