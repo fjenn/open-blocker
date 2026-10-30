@@ -94,12 +94,26 @@ final class KeyRegistrationTests: XCTestCase {
         XCTAssertEqual(KeyRegistration.nfcUIDHex(from: scanned), MockNFCScanner.defaultUID.hexString)
     }
     
-    func testMockWriteRecordsTagId() async throws {
+    func testStickerSetupScansOnceAndSavesByUID() async throws {
         let scanner = MockNFCScanner()
-        let tagId = OpenBlockerFormat.generateTagId()
-        try await scanner.writeOpenBlockerRecord(tagId: tagId)
-        XCTAssertEqual(scanner.writeCallCount, 1)
-        XCTAssertEqual(scanner.lastWrittenTagId, tagId)
+        let uid = try await KeyRegistration.registerSticker(using: scanner)
+        XCTAssertEqual(uid, MockNFCScanner.defaultUID.hexString)
+        XCTAssertEqual(scanner.scanCallCount, 1)
+    }
+    
+    func testStickerSetupAcceptsExistingOpenBlockerRecord() async throws {
+        let id = Data((0..<16).map { $0 })
+        let scanner = MockNFCScanner(results: [.success(.openBlocker(id: id, uid: MockNFCScanner.defaultUID))])
+        let uid = try await KeyRegistration.registerSticker(using: scanner)
+        XCTAssertEqual(uid, MockNFCScanner.defaultUID.hexString)
+        XCTAssertEqual(scanner.scanCallCount, 1)
+    }
+    
+    func testStickerSetupRejectsNonNFCScan() async throws {
+        let scanner = MockNFCScanner(results: [.success(.qr(payload: "x"))])
+        let uid = try await KeyRegistration.registerSticker(using: scanner)
+        XCTAssertNil(uid)
+        XCTAssertEqual(scanner.scanCallCount, 1)
     }
     
     // MARK: Barcode keys

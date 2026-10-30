@@ -272,7 +272,7 @@ struct NFCTagSetupView: View {
         SetupPanel(
             icon: "wave.3.right",
             title: "An NFC sticker",
-            message: "Use a blank NTAG213, 215 or 216. Open Blocker writes its own record onto it.",
+            message: "Use any NFC sticker, like an NTAG213, 215 or 216.",
             status: status,
             statusIsGood: !secret.isEmpty,
             actionTitle: secret.isEmpty ? "Scan tag" : "Scan again",
@@ -286,17 +286,11 @@ struct NFCTagSetupView: View {
         Task {
             defer { isScanning = false }
             do {
-                let scanned = try await appState.nfcScanner.scan()
-                guard let uid = KeyRegistration.nfcUIDHex(from: scanned) else {
+                guard let uid = try await KeyRegistration.registerSticker(using: appState.nfcScanner) else {
                     status = "That was not an NFC tag."
                     return
                 }
-                do {
-                    try await appState.nfcScanner.writeOpenBlockerRecord(tagId: OpenBlockerFormat.generateTagId())
-                    status = "Tag ready."
-                } catch {
-                    status = "Tag ready. It works by its chip ID."
-                }
+                status = "Tag ready."
                 secret = uid
             } catch NFCScanError.userCancelled {
                 status = nil
