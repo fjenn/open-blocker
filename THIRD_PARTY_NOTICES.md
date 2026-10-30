@@ -9,7 +9,7 @@ Open Blocker includes code adapted from the following open-source projects:
 - **Files adapted:**
   - `AppBlockerUtil.swift` - ManagedSettings shield application and clearing
   - `WeeklySessionAggregator.swift` - Session statistics aggregation
-  - `NFCScannerUtil.swift` - NFC tag reading and NDEF write session
+  - `NFCScannerUtil.swift` - NFC tag reading
   - `QRCodeScanner.swift` - QR camera scanner (Open Blocker uses AVCaptureMetadataOutput instead of the CodeScanner package)
   - `DeviceActivityCenterUtil.swift` - DeviceActivity registration patterns
   - `RequestAuthorizer.swift` - FamilyControls authorization wrapper
