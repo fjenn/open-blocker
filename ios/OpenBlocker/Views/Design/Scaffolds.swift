@@ -198,14 +198,19 @@ struct FormTextField: View {
     let placeholder: String
     @Binding var text: String
     var accessibilityID: String? = nil
+    @FocusState private var focused: Bool
     
     var body: some View {
         FormRow(label: label) {
             TextField(placeholder, text: $text)
                 .multilineTextAlignment(.trailing)
                 .submitLabel(.done)
+                .focused($focused)
                 .accessibilityID(accessibilityID)
         }
+        // A tap anywhere on the row (label, padding, empty space) opens the keyboard.
+        .contentShape(Rectangle())
+        .onTapGesture { focused = true }
     }
 }
 
