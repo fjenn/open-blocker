@@ -10,6 +10,19 @@ enum PolicyStore {
     
     /// Resolved once per process: the lookup is an IPC call and used to run
     /// (and log) several times during launch.
+    /// False when the App Group container could not be resolved and files
+    /// live in this process's private fallback folder. The Monitor extension
+    /// must never act on fallback data: it would see no active session and
+    /// clear a block the app started.
+    static var usesAppGroup: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil
+    }
+    
+    /// Shared files stay readable while the phone is locked (after the first
+    /// unlock since boot), so the Monitor extension can read the active
+    /// session when a schedule boundary fires on a locked phone.
+    static let writeOptions: Data.WritingOptions = [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+    
     private static let containerURL: URL = {
         // Try App Group container first, fall back to Application Support for unsigned builds
         if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
@@ -108,7 +121,7 @@ enum PolicyStore {
         let url = configURL
         do {
             let data = try JSONEncoder().encode(config)
-            try data.write(to: url, options: .atomic)
+            try data.write(to: url, options: writeOptions)
             print("[PolicyStore] ✓ Saved config: \(config.modes.count) modes, \(config.keys.count) keys, \(config.schedules.count) schedules")
         } catch {
             print("[PolicyStore] ❌ Failed to save config: \(error.localizedDescription)")
@@ -133,22 +146,41 @@ enum PolicyStore {
         }
     }
     
-    static func loadState() -> State {
-        let url = stateURL
+    /// Result of reading state.json. A missing file means "no session yet";
+    /// a file that exists but can't be read (locked before first unlock,
+    /// mid-write, corrupt) means "unknown", and callers that enforce blocks
+    /// must not treat unknown as "not blocking".
+    enum StateLoad {
+        case missing
+        case loaded(State)
+        case unreadable(Error)
+    }
+    
+    static func loadStateResult() -> StateLoad {
+        loadStateResult(from: stateURL)
+    }
+    
+    static func loadStateResult(from url: URL) -> StateLoad {
+        guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
         do {
             let data = try Data(contentsOf: url)
-            let state = try JSONDecoder().decode(State.self, from: data)
-            return state
+            return .loaded(try JSONDecoder().decode(State.self, from: data))
         } catch {
-            return State()
+            print("[PolicyStore] ❌ state.json exists but could not be read: \(error)")
+            return .unreadable(error)
         }
+    }
+    
+    static func loadState() -> State {
+        if case .loaded(let state) = loadStateResult() { return state }
+        return State()
     }
     
     static func save(_ state: State) {
         let url = stateURL
         do {
             let data = try JSONEncoder().encode(state)
-            try data.write(to: url, options: .atomic)
+            try data.write(to: url, options: writeOptions)
         } catch {
             print("[PolicyStore] ❌ Failed to save state: \(error.localizedDescription)")
         }
@@ -172,7 +204,7 @@ enum PolicyStore {
         let url = historyURL
         do {
             let data = try JSONEncoder().encode(history)
-            try data.write(to: url, options: .atomic)
+            try data.write(to: url, options: writeOptions)
             print("[PolicyStore] ✓ Saved \(history.count) session records")
         } catch {
             print("[PolicyStore] ❌ Failed to save history: \(error.localizedDescription)")

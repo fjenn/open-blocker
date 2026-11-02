@@ -14,15 +14,40 @@ enum Reconcile {
         case end(SessionRecord.EndReason, at: Date)
     }
     
+    /// What this process can tell about Screen Time access right now.
+    ///
+    /// `AuthorizationCenter.authorizationStatus` starts as `.notDetermined` in
+    /// every new process and is only filled in after `requestAuthorization`
+    /// runs (Apple's docs: "The initial value is always notDetermined"). A
+    /// relaunch after the app was swiped away is a new process, so
+    /// `.notDetermined` is `.unknown`, never proof that access was revoked.
+    enum ScreenTimeAccess: Equatable {
+        case approved
+        case revoked
+        case unknown
+        
+        #if !EXTENSION
+        init(_ status: AuthorizationStatus) {
+            switch status {
+            case .approved: self = .approved
+            case .denied: self = .revoked
+            default: self = .unknown
+            }
+        }
+        #endif
+    }
+    
     /// Pure decision used by the app, the Monitor extension, and tests.
     static func plan(
         config: PolicyStore.Config,
         state: PolicyStore.State,
         now: Date,
-        authorized: Bool,
+        screenTime: ScreenTimeAccess,
         calendar: Calendar = .current
     ) -> Plan {
-        if !authorized, state.active != nil {
+        // Only an explicit denial ends a session. Unknown keeps the block:
+        // iOS itself drops every shield if access really was revoked.
+        if screenTime == .revoked, state.active != nil {
             return .end(.accessRevoked, at: now)
         }
         
@@ -49,36 +74,103 @@ enum Reconcile {
         return .unchanged
     }
     
+    /// What to do with the shield after planning.
+    enum ShieldAction: Equatable {
+        case apply(BlockMode.ID)
+        case clear
+        /// Leave whatever iOS is enforcing as it is.
+        case keep
+    }
+    
+    /// Pure: never clear while a session is active. If the session's mode
+    /// can't be found (config unreadable), keep the shield already in place.
+    static func shieldAction(state: PolicyStore.State, config: PolicyStore.Config) -> ShieldAction {
+        guard let session = state.active else { return .clear }
+        guard config.mode(session.modeID) != nil else { return .keep }
+        return .apply(session.modeID)
+    }
+    
+    /// DeviceActivity can call `intervalDidEnd` a little before the exact end
+    /// minute. When the ending activity is the active schedule and its end is
+    /// that close, treat the end as reached so the block lifts on time.
+    static func monitorEndTime(
+        endingActivity: String?,
+        state: PolicyStore.State,
+        now: Date,
+        tolerance: TimeInterval = 120
+    ) -> Date {
+        guard let endingActivity,
+              let session = state.active,
+              case .schedule(let scheduleID) = session.source,
+              scheduleID.uuidString == endingActivity,
+              let end = session.scheduleEnd,
+              now < end,
+              end.timeIntervalSince(now) <= tolerance
+        else { return now }
+        return end
+    }
+    
     /// Compute the correct shield state and apply it. Returns the active mode if blocking.
-    @discardableResult
     /// Pass `config` when the caller already has it in memory (the app does),
     /// so launch doesn't read and decode config.json twice.
-    static func reconcile(now: Date = Date(), config knownConfig: PolicyStore.Config? = nil) -> BlockMode? {
-        var state = PolicyStore.loadState()
+    /// `endingActivity` is the DeviceActivity name from `intervalDidEnd`.
+    @discardableResult
+    static func reconcile(
+        now: Date = Date(),
+        config knownConfig: PolicyStore.Config? = nil,
+        endingActivity: String? = nil
+    ) -> BlockMode? {
+        #if EXTENSION
+        // Without the shared container the extension would read an empty
+        // private folder, see no session, and clear the app's block.
+        guard PolicyStore.usesAppGroup else {
+            print("[Reconcile] App Group unavailable in extension; leaving shields untouched")
+            return nil
+        }
+        #endif
+        
+        var state: PolicyStore.State
+        switch PolicyStore.loadStateResult() {
+        case .loaded(let loaded):
+            state = loaded
+        case .missing:
+            state = PolicyStore.State()
+        case .unreadable:
+            // Unknown is not "not blocking": don't clear, don't overwrite.
+            print("[Reconcile] state.json unreadable; leaving shields untouched")
+            return nil
+        }
         let config = knownConfig ?? PolicyStore.loadConfig()
         
-        var authorized = true
+        var screenTime = ScreenTimeAccess.approved
         #if !EXTENSION
         #if !targetEnvironment(simulator)
-        authorized = AuthorizationCenter.shared.authorizationStatus == .approved
+        screenTime = ScreenTimeAccess(AuthorizationCenter.shared.authorizationStatus)
         #endif
         #endif
         
-        switch plan(config: config, state: state, now: now, authorized: authorized) {
+        let effectiveNow = monitorEndTime(endingActivity: endingActivity, state: state, now: now)
+        
+        switch plan(config: config, state: state, now: effectiveNow, screenTime: screenTime) {
         case .unchanged:
             break
         case .start(let session):
             state.active = session
+            PolicyStore.save(state)
         case .end(let reason, let at):
             endSession(&state, config: config, reason: reason, at: at)
+            PolicyStore.save(state)
         }
         
-        PolicyStore.save(state)
-        
-        if let session = state.active, let mode = config.mode(session.modeID) {
+        switch shieldAction(state: state, config: config) {
+        case .apply(let modeID):
+            guard let mode = config.mode(modeID) else { return nil }
             BlockEngine.apply(mode, rules: config.rules)
             return mode
-        } else {
+        case .keep:
+            print("[Reconcile] active session's mode not found; keeping current shield")
+            return nil
+        case .clear:
             BlockEngine.clear()
             return nil
         }

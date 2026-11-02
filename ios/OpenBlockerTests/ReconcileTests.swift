@@ -30,7 +30,7 @@ final class ReconcileTests: XCTestCase {
         return PolicyStore.Config(modes: [mode], schedules: [schedule], activeModeID: modeID)
     }
     
-    func testUnauthorizedEndsActiveSession() {
+    func testRevokedAccessEndsActiveSession() {
         let state = PolicyStore.State(active: ActiveSession(
             modeID: modeID, source: .hold, startedAt: date(2026, 1, 8, 10, 0)
         ))
@@ -38,7 +38,7 @@ final class ReconcileTests: XCTestCase {
             config: PolicyStore.Config(modes: [BlockMode(id: modeID, name: "Work")]),
             state: state,
             now: date(2026, 1, 8, 11, 0),
-            authorized: false,
+            screenTime: .revoked,
             calendar: calendar
         )
         XCTAssertEqual(plan, .end(.accessRevoked, at: date(2026, 1, 8, 11, 0)))
@@ -47,7 +47,7 @@ final class ReconcileTests: XCTestCase {
     func testSameDayScheduleStartsInsideWindow() {
         let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
         let now = date(2026, 1, 8, 10, 0)
-        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, authorized: true, calendar: calendar)
+        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, screenTime: .approved, calendar: calendar)
         guard case .start(let session) = plan else {
             return XCTFail("expected start, got \(plan)")
         }
@@ -61,7 +61,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: PolicyStore.State(),
             now: date(2026, 1, 8, 18, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         XCTAssertEqual(plan, .unchanged)
@@ -70,7 +70,7 @@ final class ReconcileTests: XCTestCase {
     func testOvernightScheduleStartsBeforeMidnight() {
         let config = config(startMinute: 22 * 60, endMinute: 7 * 60, weekdays: [2])
         let now = date(2026, 1, 5, 23, 0)
-        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, authorized: true, calendar: calendar)
+        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, screenTime: .approved, calendar: calendar)
         guard case .start(let session) = plan else {
             return XCTFail("expected start, got \(plan)")
         }
@@ -80,7 +80,7 @@ final class ReconcileTests: XCTestCase {
     func testOvernightScheduleStillActiveAfterMidnightOnUnselectedWeekday() {
         let config = config(startMinute: 22 * 60, endMinute: 7 * 60, weekdays: [2])
         let now = date(2026, 1, 6, 3, 0)
-        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, authorized: true, calendar: calendar)
+        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, screenTime: .approved, calendar: calendar)
         guard case .start(let session) = plan else {
             return XCTFail("expected start after midnight, got \(plan)")
         }
@@ -96,7 +96,7 @@ final class ReconcileTests: XCTestCase {
             startedAt: date(2026, 1, 8, 9, 0),
             scheduleEnd: end
         ))
-        let plan = Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 17, 0), authorized: true, calendar: calendar)
+        let plan = Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 17, 0), screenTime: .approved, calendar: calendar)
         XCTAssertEqual(plan, .end(.scheduleEnd, at: end))
     }
     
@@ -109,7 +109,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: state,
             now: date(2026, 1, 8, 10, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         XCTAssertEqual(plan, .unchanged)
@@ -129,7 +129,7 @@ final class ReconcileTests: XCTestCase {
         )
         let config = PolicyStore.Config(modes: [mode], schedules: [schedule], activeModeID: modeID)
         let now = date(2026, 1, 8, 10, 0)
-        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, authorized: true, calendar: calendar)
+        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: now, screenTime: .approved, calendar: calendar)
         
         guard case .start(let session) = plan else {
             return XCTFail("expected start, got \(plan)")
@@ -164,7 +164,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: state,
             now: date(2026, 1, 8, 18, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         XCTAssertEqual(plan, .unchanged, "Open-ended schedule should not end at scheduled time")
@@ -197,7 +197,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: state,
             now: date(2026, 1, 8, 12, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         XCTAssertEqual(plan, .unchanged)
@@ -232,7 +232,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: ended,
             now: date(2026, 1, 8, 14, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         XCTAssertEqual(midWindow, .unchanged, "must not re-arm inside the same window")
@@ -260,7 +260,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: ended,
             now: unblockAt,
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         if case .start = plan {
@@ -291,7 +291,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: ended,
             now: nextWeek,
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         guard case .start(let session) = plan else {
@@ -317,7 +317,7 @@ final class ReconcileTests: XCTestCase {
             scheduleEnd: end
         ))
         XCTAssertEqual(
-            Reconcile.plan(config: config, state: state, now: end, authorized: true, calendar: calendar),
+            Reconcile.plan(config: config, state: state, now: end, screenTime: .approved, calendar: calendar),
             .end(.scheduleEnd, at: end)
         )
         
@@ -328,7 +328,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: afterEnd,
             now: date(2026, 1, 15, 10, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         guard case .start = nextDay else {
@@ -357,7 +357,7 @@ final class ReconcileTests: XCTestCase {
             config: config,
             state: ended,
             now: date(2026, 1, 8, 11, 0),
-            authorized: true,
+            screenTime: .approved,
             calendar: calendar
         )
         guard case .start = plan else {
@@ -394,7 +394,7 @@ final class ReconcileTests: XCTestCase {
         XCTAssertNil(ended.active)
         XCTAssertNotNil(ended.override, "open-ended key end must still suppress the current window")
         XCTAssertEqual(
-            Reconcile.plan(config: config, state: ended, now: date(2026, 1, 8, 15, 0), authorized: true, calendar: calendar),
+            Reconcile.plan(config: config, state: ended, now: date(2026, 1, 8, 15, 0), screenTime: .approved, calendar: calendar),
             .unchanged
         )
     }
