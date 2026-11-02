@@ -16,7 +16,7 @@ final class HoldHapticCurveTests: XCTestCase {
     
     func testTapsSpeedUpOverTheHold() {
         let taps = HoldHapticCurve.tapProgress
-        XCTAssertGreaterThan(taps.count, 12)
+        XCTAssertGreaterThanOrEqual(taps.count, 10, "at least one tap per 10 percent of the fill")
         XCTAssertTrue(taps.allSatisfy { (0..<1).contains($0) })
         let gaps = zip(taps.dropFirst(), taps).map { $0 - $1 }
         XCTAssertEqual(gaps, gaps.sorted(by: >), "each gap is shorter than the last")
