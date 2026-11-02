@@ -45,8 +45,8 @@ final class HoldToFillTests: XCTestCase {
     }
     
     private enum HoldDuration {
-        /// Comfortably over the app's 5 s fill.
-        static let full: TimeInterval = 6.5
+        /// Comfortably over the app's 3 s fill.
+        static let full: TimeInterval = 4.5
     }
     
     private func element(_ id: String) -> XCUIElement {
