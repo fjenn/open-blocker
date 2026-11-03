@@ -24,4 +24,34 @@ final class SettingsContactUITests: XCTestCase {
         try? FileManager.default.createDirectory(at: shotURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? shot.pngRepresentation.write(to: shotURL)
     }
+    
+    /// Settings has a "Share Open Blocker" row that opens the share sheet.
+    func testShareOpenBlockerRowOpensShareSheet() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-demo"]
+        app.launch()
+        
+        let settings = app.descendants(matching: .any)["tab-settings"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 12), "settings tab missing")
+        settings.tap()
+        
+        let share = app.descendants(matching: .any)["settings-share"].firstMatch
+        XCTAssertTrue(share.waitForExistence(timeout: 4), "share row missing")
+        XCTAssertEqual(share.label, "Share Open Blocker")
+        XCTAssertTrue(share.isHittable)
+        save(XCUIScreen.main.screenshot(), "settings_share_row.png")
+        
+        share.tap()
+        let sheet = app.otherElements["ActivityListView"].firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 8), "share sheet did not open")
+        sleep(2)
+        save(XCUIScreen.main.screenshot(), "share_sheet.png")
+    }
+    
+    private func save(_ shot: XCUIScreenshot, _ name: String) {
+        let dir = URL(fileURLWithPath: "/tmp/open-blocker-shots/ios-1.0.5")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? shot.pngRepresentation.write(to: dir.appendingPathComponent(name))
+    }
 }

@@ -41,6 +41,7 @@ enum AccessibilityID {
     static let appearancePicker = "appearance-picker"
     static let countToggle = "count-toggle"
     static let settingsPrivacy = "settings-privacy"
+    static let settingsShare = "settings-share"
     static let emergencyReset = "emergency-reset"
     static let homeAllowScreenTime = "home-allow-screen-time"
     static let permissionOpenSettings = "permission-open-settings"
