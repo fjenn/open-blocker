@@ -56,6 +56,20 @@ struct SettingsTab: View {
                     }
                     
                     section {
+                        ShareLink(
+                            item: ShareOpenBlocker.url,
+                            subject: Text(ShareOpenBlocker.subject),
+                            message: Text(ShareOpenBlocker.message),
+                            preview: SharePreview(ShareOpenBlocker.subject)
+                        ) {
+                            SettingsRow(icon: ShareOpenBlocker.icon, title: ShareOpenBlocker.rowTitle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier(AccessibilityID.settingsShare)
+                        .accessibilityHint("Opens the share sheet")
+                    }
+                    
+                    section {
                         VStack(alignment: .leading, spacing: Space.s) {
                             HStack(spacing: Space.s) {
                                 RowGlyph(systemName: "circle.lefthalf.filled")
