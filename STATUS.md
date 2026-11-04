@@ -1,6 +1,8 @@
 # Open Blocker Status
 
-This is the only status document. Last updated: 2026-10-08 (card compatibility wording).
+iPhone 1.0.0 is on the App Store (live Oct 26, 2026). This file is a **2026-10-08 simulator audit**, not current shipping status.
+
+Last updated: 2026-10-08 (card compatibility wording). A later note on 2026-10-27: count events come from session history, not an opt-in home-screen toggle.
 
 `FINN-REPORT.md`, `BUILD-SUMMARY.md`, and `PROGRESS.md` were deleted. They overclaimed ("production-ready", "95% match") and contradicted what is actually verified.
 
@@ -20,7 +22,7 @@ Built with `CODE_SIGNING_ALLOWED=NO` on iPhone 18 Pro (`55E47EC3-2AD7-4E0C-9649-
 - **Walkthrough video.** Recorded during `WalkthroughTests.testWalkthrough` (Help, Contact, About, Notifications). After unlock, home is idle with an empty key.
 - **Review screenshots.** Recaptured 2026-10-08 07:18 `12-help.png` (card compatibility wording). Earlier same morning 07:01: `03-activity.png`, `04-settings.png`, `07-emergency-unblock.png`, `13-about.png`, `dark-activity.png`, `dark-settings.png`. Activity Today is 32m / 1 session. Emergency has no tab bar.
 - **Cold-start `run-demo.command`.** 2026-10-08 07:05 ART. `xcrun simctl shutdown all`, then deleted `ios/build`. Ran `run-demo.command`. **19.1 s** until "App launched" with `-demo`.
-- **Settings actions.** Help is an in-app FAQ. About shows version 1.0.0 (1), MIT, and the project page. Contact opens the project page (`https://openblocker.vercel.app`). Notifications requests permission and posts a local alert when a block or schedule ends. Privacy still opens the site.
+- **Settings actions.** Help is an in-app FAQ. About shows version 1.0.0 (1), MIT, and the project page. Contact opens the project page (`https://openblocker.org`). Notifications requests permission and posts a local alert when a block or schedule ends. Privacy still opens the site.
 - **Dark mode.** Before the palette, `simctl ui booted appearance dark` left the greige canvas locked light. Tab labels used `.primary` (light in dark) on `Color(white: 0.97)`, so Block/Schedule/Activity/Settings were almost invisible. After `BrickTheme` light/dark tokens, canvas, cards, ink, tab bar, and the 3D key clay follow the scheme. Chart Y-axis ticks use `brickSecondaryLabel`. Settings row icons use the same ink and medium weight as the titles. Shots: `review/dark-home-idle.png`, `dark-home-blocked.png`, `dark-activity.png`, `dark-settings.png`.
 - **Dynamic Type.** First XXL capture did not grow type (fixed `Font.system(size:)`). Home and Settings now use `@ScaledMetric` via `brickText`. At `content_size extra-extra-large`, labels are larger; no truncation or overlap on those two screens. Shots: `review/xxl-home.png`, `xxl-settings.png`. Appearance reset to light; content size reset to large.
 - **App icon.** `ios/OpenBlocker/Resources/Assets.xcassets` AppIcon uses the single 1024 image from the CAD top render (`AppIcon-1024.png`, opaque RGB). `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`. Visible on the simulator home screen: `review/11-app-icon-springboard.png`.
@@ -46,7 +48,7 @@ Searched for `would go here`, `asyncAfter`, `TODO`, `FIXME`, `fatalError`, and `
 - Key setup scans through the real NFC scanner. Cards need two matching taps. Tags register UID and try to write an Open Blocker NDEF record; UID still works if write fails.
 - Block tab uses `KeyScanner` (NFC, QR, or chooser). Simulator QR is paste; device QR is camera.
 - Rules "How to set a Screen Time passcode" opens Apple's Screen Time guide.
-- `AppState` posts `sessionStarted` so opt-in Count can see a block.
+- `AppState` posts `sessionStarted`. Completed-block count events come from session history (`reportCompletedBlocks`).
 - Demo Desk Key matches `MockNFCScanner.defaultUID`.
 - Emergency count write is verified; UserDefaults fallback when Keychain is unavailable.
 - Demo history includes a finished 32-minute session today.

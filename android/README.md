@@ -1,6 +1,6 @@
 # Open Blocker Android App
 
-**0.1.0-alpha is an early alpha, not tested on real devices.** NFC keys and printed QR keys have been tried on an Android emulator only. If you sideload the APK, please report results in GitHub Issues or Discussions.
+**0.2.0-alpha is an early alpha, not tested on a wide range of real devices.** NFC keys and printed QR keys have been tried on an Android emulator. If you sideload the APK, please report results in GitHub Issues or Discussions. Coming to Google Play.
 
 Reference Android app for the Open Blocker tag spec.
 
@@ -9,7 +9,7 @@ Reference Android app for the Open Blocker tag spec.
 - Block chosen apps and websites during a session (Accessibility overlay; website hosts are read from supported browser address bars)
 - NFC pairing (write Open Blocker format, pair by UID, or two-tap any card)
 - Printed QR keys (generate, share/print, or scan; `openblocker://tag/v1/{32 hex}`)
-- Optional opt-in anonymous count ping (off unless built with a count URL and key)
+- Share anonymous count (on by default; sends nothing unless built with `OPENBLOCKER_COUNT_URL`)
 
 ## Requirements
 
@@ -32,7 +32,7 @@ Release-signed (needs the four `OPENBLOCKER_KEYSTORE_*` variables; never commit 
 ./build-release.sh --release-only
 ```
 
-Public alpha file: `artifacts/release/open-blocker-0.1.0-alpha.apk`
+Public alpha file: [openblocker-0.2.0-alpha.apk](https://github.com/fjenn/open-blocker/releases/tag/v0.2.0-alpha)
 
 CI on tag `v*` uses the same script and GitHub secrets (`OPENBLOCKER_KEYSTORE_BASE64`, password, alias `openblocker`, key password).
 
