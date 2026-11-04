@@ -38,6 +38,10 @@ Open Blocker uses Family Controls to help users block distracting apps during fo
 - **Purpose:** Analytics only
 - **Details:** After each completed block (key, schedule end, or passage), one HTTPS POST is sent to `https://openblocker.org/api/count` with a random install ID, event name `block_completed`, a random event ID, the app version, and `platform=ios`. The user can turn the setting off. No app names or usage times.
 
+**Optional Apple rating prompt (after 3rd successful key unblock):**
+- **Type:** None collected by Open Blocker
+- **Details:** After three successful physical-key unblocks (NFC or QR; not emergency) the app may show Apple's standard StoreKit rating prompt, once per app version. No review text or email is collected.
+
 **Reviews:**
 - The shipped 1.0.0 app does not collect review text, a rating, or an email.
 
@@ -148,8 +152,8 @@ To request it again for a new team or bundle ID:
 
 ## Version Numbers
 
-- **CFBundleShortVersionString:** 1.0.0 (user-facing version)
-- **CFBundleVersion:** 1 (build number, increment for each App Store submission)
+- **CFBundleShortVersionString:** 1.0.1 (user-facing version)
+- **CFBundleVersion:** 5 (build number, increment for each App Store submission)
 
 Update these in `project.yml` under the `info` section before release.
 

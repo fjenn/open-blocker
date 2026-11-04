@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +56,6 @@ import app.openblocker.android.ui.permissions.PermissionStatus
 import app.openblocker.android.ui.permissions.PermissionStatusReader
 import app.openblocker.android.ui.theme.AppAppearance
 import app.openblocker.android.ui.theme.ObText
-import app.openblocker.android.ui.theme.Radius
 import app.openblocker.android.ui.theme.Space
 import app.openblocker.android.ui.theme.asCopy
 import app.openblocker.android.ui.theme.obColors
@@ -164,7 +162,7 @@ fun SettingsTabContent(
             SettingsGroup {
                 SettingsRow(Glyph.Help, "Help", testTag = "settings_help", onClick = onHelp)
                 HairlineDivider()
-                SettingsRow(Glyph.Contact, "Contact", testTag = "settings_contact", onClick = onContact)
+                SettingsRow(Glyph.Contact, "Contact & feedback", testTag = "settings_contact", onClick = onContact)
                 HairlineDivider()
                 SettingsRow(Glyph.About, "About", testTag = "settings_about", onClick = onAbout)
                 HairlineDivider()
@@ -395,32 +393,6 @@ fun AboutScreen(onBack: () -> Unit) {
         Spacer(Modifier.weight(1f))
         PrimaryButton("Project page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.org")))
-        })
-        Spacer(Modifier.height(Space.xxxl))
-    }
-}
-
-@Composable
-fun ContactScreen(onBack: () -> Unit) {
-    val colors = obColors()
-    val context = LocalContext.current
-    Column(Modifier.fillMaxSize().background(colors.canvas), horizontalAlignment = Alignment.CenterHorizontally) {
-        PushedHeader("Contact", onBack)
-        Spacer(Modifier.weight(1f))
-        Box(Modifier.padding(Space.m).clip(androidx.compose.foundation.shape.CircleShape).background(colors.fillQuiet).padding(28.dp)) {
-            app.openblocker.android.ui.components.GlyphIcon(Glyph.Contact, colors.inkSecondary, size = 32.dp)
-        }
-        Text("Bugs, questions, and ideas.", style = ObText.title, color = colors.ink, textAlign = TextAlign.Center)
-        Text(
-            "Send a bug report, a question, or an idea on our feedback page.",
-            style = ObText.body,
-            color = colors.inkSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = Space.xxxl)
-        )
-        Spacer(Modifier.weight(1f))
-        PrimaryButton("Open the feedback page", modifier = Modifier.padding(horizontal = Space.xxxl), onClick = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://openblocker.org/feedback")))
         })
         Spacer(Modifier.height(Space.xxxl))
     }

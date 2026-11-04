@@ -6,26 +6,33 @@ import Foundation
 enum PolicyStore {
     static let appGroupID = "group.org.openblocker.OpenBlocker"
     
-    private static func debugLog(_ message: String) {
-        #if DEBUG
-        print("[PolicyStore] \(message)")
-        #endif
-    }
-    
     // MARK: - File URLs
     
     /// Resolved once per process: the lookup is an IPC call and used to run
     /// (and log) several times during launch.
+    /// False when the App Group container could not be resolved and files
+    /// live in this process's private fallback folder. The Monitor extension
+    /// must never act on fallback data: it would see no active session and
+    /// clear a block the app started.
+    static var usesAppGroup: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil
+    }
+    
+    /// Shared files stay readable while the phone is locked (after the first
+    /// unlock since boot), so the Monitor extension can read the active
+    /// session when a schedule boundary fires on a locked phone.
+    static let writeOptions: Data.WritingOptions = [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+    
     private static let containerURL: URL = {
         // Try App Group container first, fall back to Application Support for unsigned builds
         if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
-            debugLog("Using App Group: \(groupURL.path)")
+            print("[PolicyStore] Using App Group: \(groupURL.path)")
             return groupURL
         } else {
             let fallbackURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("OpenBlocker")
             try? FileManager.default.createDirectory(at: fallbackURL, withIntermediateDirectories: true)
-            debugLog("App Group unavailable, using fallback: \(fallbackURL.path)")
+            print("[PolicyStore] ⚠️ App Group unavailable, using fallback: \(fallbackURL.path)")
             return fallbackURL
         }
     }()
@@ -84,12 +91,12 @@ enum PolicyStore {
     static func loadConfig(from url: URL) -> Config {
         lastConfigLoadError = nil
         guard let data = try? Data(contentsOf: url) else {
-            debugLog("No config file yet at \(url.lastPathComponent)")
+            print("[PolicyStore] No config file yet at \(url.lastPathComponent)")
             return Config()
         }
         do {
             let config = try decodeConfig(data)
-            debugLog("Loaded config: \(config.modes.count) modes, \(config.keys.count) keys, \(config.schedules.count) schedules")
+            print("[PolicyStore] ✓ Loaded config: \(config.modes.count) modes, \(config.keys.count) keys, \(config.schedules.count) schedules")
             return config
         } catch {
             lastConfigLoadError = error
@@ -98,9 +105,9 @@ enum PolicyStore {
                 .appendingPathComponent("config.corrupt-\(stamp).json")
             do {
                 try data.write(to: backup, options: .atomic)
-                debugLog("Config decode failed: \(error). Raw file backed up to \(backup.path)")
+                print("[PolicyStore] ❌ Config decode failed: \(error). Raw file backed up to \(backup.path)")
             } catch let backupError {
-                debugLog("Config decode failed: \(error). Backup also failed: \(backupError)")
+                print("[PolicyStore] ❌ Config decode failed: \(error). Backup also failed: \(backupError)")
             }
             return Config()
         }
@@ -114,10 +121,10 @@ enum PolicyStore {
         let url = configURL
         do {
             let data = try JSONEncoder().encode(config)
-            try data.write(to: url, options: .atomic)
-            debugLog("Saved config: \(config.modes.count) modes, \(config.keys.count) keys, \(config.schedules.count) schedules")
+            try data.write(to: url, options: writeOptions)
+            print("[PolicyStore] ✓ Saved config: \(config.modes.count) modes, \(config.keys.count) keys, \(config.schedules.count) schedules")
         } catch {
-            debugLog("Failed to save config: \(error.localizedDescription)")
+            print("[PolicyStore] ❌ Failed to save config: \(error.localizedDescription)")
         }
     }
     
@@ -139,24 +146,43 @@ enum PolicyStore {
         }
     }
     
-    static func loadState() -> State {
-        let url = stateURL
+    /// Result of reading state.json. A missing file means "no session yet";
+    /// a file that exists but can't be read (locked before first unlock,
+    /// mid-write, corrupt) means "unknown", and callers that enforce blocks
+    /// must not treat unknown as "not blocking".
+    enum StateLoad {
+        case missing
+        case loaded(State)
+        case unreadable(Error)
+    }
+    
+    static func loadStateResult() -> StateLoad {
+        loadStateResult(from: stateURL)
+    }
+    
+    static func loadStateResult(from url: URL) -> StateLoad {
+        guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
         do {
             let data = try Data(contentsOf: url)
-            let state = try JSONDecoder().decode(State.self, from: data)
-            return state
+            return .loaded(try JSONDecoder().decode(State.self, from: data))
         } catch {
-            return State()
+            print("[PolicyStore] ❌ state.json exists but could not be read: \(error)")
+            return .unreadable(error)
         }
+    }
+    
+    static func loadState() -> State {
+        if case .loaded(let state) = loadStateResult() { return state }
+        return State()
     }
     
     static func save(_ state: State) {
         let url = stateURL
         do {
             let data = try JSONEncoder().encode(state)
-            try data.write(to: url, options: .atomic)
+            try data.write(to: url, options: writeOptions)
         } catch {
-            debugLog("Failed to save state: \(error.localizedDescription)")
+            print("[PolicyStore] ❌ Failed to save state: \(error.localizedDescription)")
         }
     }
     
@@ -167,7 +193,7 @@ enum PolicyStore {
         do {
             let data = try Data(contentsOf: url)
             let history = try JSONDecoder().decode([SessionRecord].self, from: data)
-            debugLog("Loaded \(history.count) session records")
+            print("[PolicyStore] ✓ Loaded \(history.count) session records")
             return history
         } catch {
             return []
@@ -178,10 +204,10 @@ enum PolicyStore {
         let url = historyURL
         do {
             let data = try JSONEncoder().encode(history)
-            try data.write(to: url, options: .atomic)
-            debugLog("Saved \(history.count) session records")
+            try data.write(to: url, options: writeOptions)
+            print("[PolicyStore] ✓ Saved \(history.count) session records")
         } catch {
-            debugLog("Failed to save history: \(error.localizedDescription)")
+            print("[PolicyStore] ❌ Failed to save history: \(error.localizedDescription)")
         }
     }
     

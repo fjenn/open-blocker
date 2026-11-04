@@ -3,6 +3,7 @@ package app.openblocker.android.data
 import android.content.Context
 import app.openblocker.android.OpenBlockerApplication
 import app.openblocker.android.domain.BlockSchedule
+import app.openblocker.android.domain.ScheduleTick
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +14,8 @@ import java.util.Calendar
 object ScheduleRepository {
     private const val PREFS = "schedule_prefs"
     private const val KEY_SCHEDULES = "schedules"
+    private const val KEY_SUPPRESS_ID = "suppress_schedule_id"
+    private const val KEY_SUPPRESS_UNTIL = "suppress_until_ms"
 
     private val prefs by lazy {
         OpenBlockerApplication.getAppContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -36,20 +39,45 @@ object ScheduleRepository {
         persist()
     }
 
+    /** After a key ends a scheduled block, do not re-arm for the rest of this window. */
+    fun suppressAfterKeyUnblock(now: Calendar = Calendar.getInstance()) {
+        val suppression = ScheduleTick.suppressionAfterKeyUnblock(
+            source = SessionManager.source(),
+            schedules = _schedules.value,
+            now = now
+        ) ?: return
+        prefs.edit()
+            .putString(KEY_SUPPRESS_ID, suppression.scheduleId)
+            .putLong(KEY_SUPPRESS_UNTIL, suppression.untilMs)
+            .apply()
+    }
+
     fun tick(now: Calendar = Calendar.getInstance()) {
-        val active = _schedules.value.filter { it.isOn && it.contains(now) }
-        val blocking = SessionManager.isBlocking.value
-        when {
-            active.isNotEmpty() && !blocking -> {
-                active.first().modeId?.let { id ->
+        when (
+            val decision = ScheduleTick.decision(
+                schedules = _schedules.value,
+                isBlocking = SessionManager.isBlocking.value,
+                source = SessionManager.source(),
+                now = now,
+                suppression = loadSuppression()
+            )
+        ) {
+            is ScheduleTick.Decision.Start -> {
+                decision.schedule.modeId?.let { id ->
                     ModeRepository.modes.value.find { it.id == id }?.let { ModeRepository.setActive(it) }
                 }
                 SessionManager.startSession(SessionManager.SOURCE_SCHEDULE)
             }
-            blocking &&
-                SessionManager.source() == SessionManager.SOURCE_SCHEDULE &&
-                active.isEmpty() -> SessionManager.endSession()
+            ScheduleTick.Decision.End -> SessionManager.endSession()
+            ScheduleTick.Decision.None -> Unit
         }
+    }
+
+    private fun loadSuppression(): ScheduleTick.Suppression? {
+        val id = prefs.getString(KEY_SUPPRESS_ID, null) ?: return null
+        val until = prefs.getLong(KEY_SUPPRESS_UNTIL, 0L)
+        if (until <= 0L) return null
+        return ScheduleTick.Suppression(id, until)
     }
 
     private fun persist() {

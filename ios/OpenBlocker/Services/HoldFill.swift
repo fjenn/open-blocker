@@ -6,7 +6,7 @@ import Foundation
 struct HoldFill: Equatable {
     /// Seconds of holding to go from empty to full. The one place to tune it:
     /// long enough to be a deliberate choice, short enough not to annoy.
-    static let fillDuration: TimeInterval = 5.0
+    static let fillDuration: TimeInterval = 3.0
     /// Seconds for a full key to drain back to empty.
     static let drainDuration: TimeInterval = 0.6
     /// Seconds for the key to settle to full after a session starts some other way.

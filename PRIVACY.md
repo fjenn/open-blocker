@@ -64,6 +64,10 @@ Android does not send a per-block event and does not send `eventId`.
 
 ## Reviews
 
+After your 3rd successful unblock with your physical key (NFC or QR; not an emergency unblock), the iPhone app may show Apple's standard rating prompt. This is handled by StoreKit. We do not collect review text, a rating, or an email. The prompt is asked at most once per app version.
+
+The Android app does not have a rating prompt.
+
 The iPhone source has leftover review-send code (`CountManager.sendReview` and a `.showReviewPrompt` notification after the 3rd session start). No screen observes that notification or calls `sendReview`. `COUNT_URL` and `COUNT_KEY` are empty in `ios/Config/Release.xcconfig`, and `sendReview` returns immediately when they are empty. The shipped iPhone app does not collect reviews, install IDs for reviews, or email addresses.
 
 The Android app has no review prompt and no review send path.
