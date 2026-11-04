@@ -4,11 +4,14 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -26,7 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,7 +44,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import app.openblocker.android.data.KeyStore
 import app.openblocker.android.data.StoredKey
 import app.openblocker.android.format.OpenBlockerFormat
@@ -59,6 +67,8 @@ import app.openblocker.android.ui.theme.Radius
 import app.openblocker.android.ui.theme.Space
 import app.openblocker.android.ui.theme.asCopy
 import app.openblocker.android.ui.theme.obColors
+
+const val MISSING_KEY_NAME_HINT = "Add a name"
 
 fun isEmulatorDevice(): Boolean {
     val fingerprint = Build.FINGERPRINT
@@ -85,6 +95,8 @@ fun AddKeySheet(onClose: () -> Unit, modifier: Modifier = Modifier) {
     var nfcGood by remember { mutableStateOf(false) }
     var cardFirst by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var nameError by remember { mutableStateOf(false) }
+    var shakeToken by remember { mutableIntStateOf(0) }
 
     fun resetSecret() {
         secret = ""
@@ -102,7 +114,10 @@ fun AddKeySheet(onClose: () -> Unit, modifier: Modifier = Modifier) {
             resetSecret()
         },
         name = name,
-        onName = { name = it },
+        onName = {
+            name = it
+            if (nameError) nameError = false
+        },
         secret = secret,
         qrBitmap = qrBitmap,
         nfcStatus = nfcStatus,
@@ -162,12 +177,20 @@ fun AddKeySheet(onClose: () -> Unit, modifier: Modifier = Modifier) {
         },
         onClose = onClose,
         onSave = {
+            if (secret.isEmpty()) return@AddKeyContent
             val trimmed = name.trim()
-            if (trimmed.isEmpty() || secret.isEmpty()) return@AddKeyContent
+            if (trimmed.isEmpty()) {
+                nameError = true
+                shakeToken += 1
+                AppHaptics.warning(context)
+                return@AddKeyContent
+            }
             KeyStore.add(StoredKey(name = trimmed, kind = kind, secret = secret))
             AppHaptics.success(context)
             onClose()
         },
+        nameError = nameError,
+        shakeToken = shakeToken,
         modifier = modifier
     )
 }
@@ -190,10 +213,20 @@ fun AddKeyContent(
     onScanCard: () -> Unit,
     onClose: () -> Unit,
     onSave: () -> Unit,
+    nameError: Boolean = false,
+    shakeToken: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val colors = obColors()
-    val canSave = name.trim().isNotEmpty() && secret.isNotEmpty()
+    val hasSecret = secret.isNotEmpty()
+    val shakeOffset = remember { Animatable(0f) }
+    LaunchedEffect(shakeToken) {
+        if (shakeToken == 0) return@LaunchedEffect
+        val steps = listOf(10f, -10f, 7f, -7f, 4f, -4f, 0f)
+        for (step in steps) {
+            shakeOffset.animateTo(step, tween(40))
+        }
+    }
     Column(modifier.fillMaxSize().background(colors.sheet).testTag("add_key_sheet")) {
         SheetHeader("Add Key", onClose)
         ScrollColumn(Modifier.weight(1f)) {
@@ -208,31 +241,51 @@ fun AddKeyContent(
                 testTag = "key_kind"
             )
             Spacer(Modifier.height(Space.s))
-            SettingsGroup {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = Space.m).height(54.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Key Name", style = ObText.subhead, color = colors.inkSecondary, modifier = Modifier.padding(end = Space.s))
-                    TextField(
-                        value = name,
-                        onValueChange = onName,
-                        placeholder = {
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                                Text(kind.placeholder, style = ObText.subhead, color = colors.inkTertiary)
-                            }
-                        },
-                        singleLine = true,
-                        textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink, textAlign = TextAlign.End),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                        ),
-                        modifier = Modifier.weight(1f).testTag("key_name")
+            Box(
+                Modifier
+                    .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
+                    .then(
+                        if (nameError) {
+                            Modifier.border(1.5.dp, colors.danger, RoundedCornerShape(Radius.group))
+                        } else {
+                            Modifier
+                        }
                     )
+            ) {
+                SettingsGroup {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = Space.m).height(54.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Key Name", style = ObText.subhead, color = colors.inkSecondary, modifier = Modifier.padding(end = Space.s))
+                        TextField(
+                            value = name,
+                            onValueChange = onName,
+                            placeholder = {
+                                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                                    Text(kind.placeholder, style = ObText.subhead, color = colors.inkTertiary)
+                                }
+                            },
+                            singleLine = true,
+                            textStyle = ObText.subhead.copy(fontWeight = FontWeight.SemiBold, color = colors.ink, textAlign = TextAlign.End),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                            ),
+                            modifier = Modifier.weight(1f).testTag("key_name")
+                        )
+                    }
                 }
+            }
+            if (nameError) {
+                Text(
+                    MISSING_KEY_NAME_HINT,
+                    style = ObText.footnote,
+                    color = colors.danger,
+                    modifier = Modifier.padding(start = Space.xxs, top = Space.xs).testTag("key_name_hint")
+                )
             }
             Spacer(Modifier.height(Space.s))
             AnimatedContent(
@@ -277,7 +330,7 @@ fun AddKeyContent(
         PrimaryButton(
             "Save Key",
             emphasis = ButtonEmphasis.INK,
-            enabled = canSave,
+            enabled = hasSecret,
             testTag = "save_key",
             onClick = onSave,
             modifier = Modifier.padding(horizontal = Space.margin, vertical = Space.m)

@@ -64,10 +64,10 @@ final class WalkthroughTests: XCTestCase {
         pause(0.6)
         goBack()
         
-        tap("settings-contact", labeled: "Contact")
-        XCTAssertTrue(app.staticTexts["Bugs, questions, and ideas."].waitForExistence(timeout: 4))
+        let contact = element("settings-contact")
+        XCTAssertTrue(contact.waitForExistence(timeout: 4))
+        XCTAssertEqual(contact.label, "Contact & feedback")
         pause(0.5)
-        goBack()
         
         tap("settings-about", labeled: "About")
         XCTAssertTrue(app.staticTexts["MIT License"].waitForExistence(timeout: 4))

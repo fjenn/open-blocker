@@ -13,6 +13,6 @@ final class MonitorExtension: DeviceActivityMonitor {
     
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        Reconcile.reconcile()
+        Reconcile.reconcile(endingActivity: activity.rawValue)
     }
 }

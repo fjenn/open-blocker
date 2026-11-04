@@ -71,3 +71,22 @@ final class LinkDomainTests: XCTestCase {
         XCTAssertFalse(info.contains(banned))
     }
 }
+
+/// The "Share Open Blocker" row shares the App Store page with a short line.
+final class ShareOpenBlockerTests: XCTestCase {
+    func testSharesAppStoreLink() {
+        XCTAssertEqual(ShareOpenBlocker.url.absoluteString, "https://apps.apple.com/app/id6824046126")
+        XCTAssertEqual(ShareOpenBlocker.rowTitle, "Share Open Blocker")
+        XCTAssertEqual(ShareOpenBlocker.icon, "square.and.arrow.up")
+        XCTAssertEqual(ShareOpenBlocker.subject, "Open Blocker")
+    }
+    
+    func testShareMessageCopy() {
+        let text = ShareOpenBlocker.message
+        XCTAssertTrue(text.contains("physical key"))
+        XCTAssertTrue(text.contains("Free and open source"))
+        for copy in [text, ShareOpenBlocker.rowTitle, ShareOpenBlocker.subject] {
+            XCTAssertFalse(copy.contains("\u{2014}"), "no em dashes in copy")
+        }
+    }
+}

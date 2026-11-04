@@ -2,8 +2,8 @@ package app.openblocker.android.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,15 +28,19 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import app.openblocker.android.R
 import app.openblocker.android.domain.FillLevel
 import app.openblocker.android.domain.HoldFill
+import app.openblocker.android.domain.HoldPressTracking
 import app.openblocker.android.ui.haptics.HoldHaptics
 import app.openblocker.android.ui.theme.KeyPalette
 import app.openblocker.android.ui.theme.Motion
@@ -155,48 +159,76 @@ fun KeyStage(
         }
     }
 
+    val density = LocalDensity.current
+    val exitTolerancePx = with(density) { HoldPressTracking.EXIT_TOLERANCE_DP.dp.toPx() }
+    val tapMoveLimitPx = with(density) { HoldPressTracking.TAP_MOVE_LIMIT_DP.dp.toPx() }
+
     Box(
-        modifier.pointerInput(enabled, locked) {
-            detectTapGestures(
-                onPress = {
-                    if (!enabled) return@detectTapGestures
-                    pressStartedAt = System.currentTimeMillis()
-                    if (locked) {
-                        tryAwaitRelease()
-                        if (System.currentTimeMillis() - pressStartedAt > 250) onHoldWhileLocked()
-                        return@detectTapGestures
-                    }
-                    if (fill.press()) {
-                        haptics.prepare()
-                        haptics.beginBuildUp(fill.progress)
-                        publish()
-                    } else if (locked) {
-                        haptics.fail()
-                    }
-                    tryAwaitRelease()
-                    fill.release()
-                    haptics.stopBuildUp()
+        modifier.pointerInput(enabled, locked, exitTolerancePx, tapMoveLimitPx) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                if (!enabled) return@awaitEachGesture
+                val start = down.position
+                pressStartedAt = System.currentTimeMillis()
+                var leftArea = false
+                var moved = 0f
+                var lastX = start.x
+                dragging = false
+
+                if (!locked && fill.press()) {
+                    haptics.prepare()
+                    haptics.beginBuildUp(fill.progress)
                     publish()
-                    if (!dragging && System.currentTimeMillis() - pressStartedAt < 250) {
-                        onTap()
-                    }
+                } else if (!locked) {
+                    haptics.fail()
                 }
-            )
-        }.pointerInput(enabled) {
-            detectDragGestures(
-                onDragStart = {
-                    dragging = true
-                    fill.release()
-                    haptics.stopBuildUp()
-                    publish()
-                },
-                onDragEnd = { dragging = false },
-                onDragCancel = { dragging = false },
-                onDrag = { change, amount ->
+
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    val pos = change.position
+                    moved = HoldPressTracking.movement(pos.x - start.x, pos.y - start.y)
+                    if (moved > tapMoveLimitPx) {
+                        dragging = true
+                        yaw += (pos.x - lastX) * 0.012f
+                    }
+                    lastX = pos.x
+                    if (
+                        !leftArea &&
+                        !HoldPressTracking.isInsideHoldArea(
+                            pos.x,
+                            pos.y,
+                            size.width.toFloat(),
+                            size.height.toFloat(),
+                            exitTolerancePx
+                        )
+                    ) {
+                        leftArea = true
+                        if (fill.isHolding) {
+                            fill.release()
+                            haptics.stopBuildUp()
+                            publish()
+                        }
+                    }
                     change.consume()
-                    yaw += amount.x * 0.012f
+                    if (change.changedToUp()) break
                 }
-            )
+
+                val held = System.currentTimeMillis() - pressStartedAt
+                if (!leftArea) {
+                    if (fill.isHolding) {
+                        fill.release()
+                        haptics.stopBuildUp()
+                        publish()
+                    }
+                    if (HoldPressTracking.isShortTap(held, moved, tapMoveLimitPx)) {
+                        onTap()
+                    } else if (held >= HoldPressTracking.TAP_LIMIT_MS && locked) {
+                        onHoldWhileLocked()
+                    }
+                }
+                dragging = false
+            }
         }
     ) {
         val press = animateFloatAsState(

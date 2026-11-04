@@ -56,6 +56,20 @@ struct SettingsTab: View {
                     }
                     
                     section {
+                        ShareLink(
+                            item: ShareOpenBlocker.url,
+                            subject: Text(ShareOpenBlocker.subject),
+                            message: Text(ShareOpenBlocker.message),
+                            preview: SharePreview(ShareOpenBlocker.subject)
+                        ) {
+                            SettingsRow(icon: ShareOpenBlocker.icon, title: ShareOpenBlocker.rowTitle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier(AccessibilityID.settingsShare)
+                        .accessibilityHint("Opens the share sheet")
+                    }
+                    
+                    section {
                         VStack(alignment: .leading, spacing: Space.s) {
                             HStack(spacing: Space.s) {
                                 RowGlyph(systemName: "circle.lefthalf.filled")
@@ -77,7 +91,12 @@ struct SettingsTab: View {
                     section {
                         link(HelpScreen(), icon: "questionmark.circle", title: "Help", id: AccessibilityID.settingsHelp)
                         HairlineDivider()
-                        link(ContactScreen(), icon: "envelope", title: "Contact", id: AccessibilityID.settingsContact)
+                        externalLink(
+                            OpenBlockerLinks.feedback,
+                            icon: "envelope",
+                            title: "Contact & feedback",
+                            id: AccessibilityID.settingsContact
+                        )
                         HairlineDivider()
                         link(AboutScreen(), icon: "info.circle", title: "About", id: AccessibilityID.settingsAbout)
                         HairlineDivider()
@@ -132,5 +151,16 @@ struct SettingsTab: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+    
+    private func externalLink(_ url: URL, icon: String, title: String, id: String) -> some View {
+        Button {
+            UIApplication.shared.open(url)
+        } label: {
+            SettingsRow(icon: icon, title: title)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+        .accessibilityHint("Opens in Safari")
     }
 }

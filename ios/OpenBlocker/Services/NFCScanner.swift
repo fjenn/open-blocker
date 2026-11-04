@@ -1,5 +1,4 @@
 // Adapted from TapBack (MIT, (c) 2026 SarahUniverse): TapBack/Services/NFCScannerProtocol.swift, CoreNFCScanner.swift, MockNFCScanner.swift
-// NDEF write session adapted from Foqos (MIT, (c) 2024 Ali Waseem): Foqos/Utils/NFCScannerUtil.swift
 
 import Foundation
 #if !targetEnvironment(simulator)
@@ -8,7 +7,6 @@ import CoreNFC
 
 protocol NFCScannerProtocol {
     func scan(keyMatcher: ((ScannedKey) -> Bool)?) async throws -> ScannedKey
-    func writeOpenBlockerRecord(tagId: Data) async throws
 }
 
 enum NFCScanError: Error, Equatable, LocalizedError {
@@ -16,7 +14,6 @@ enum NFCScanError: Error, Equatable, LocalizedError {
     case sessionTimeout
     case userCancelled
     case readFailed(String)
-    case writeFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -28,8 +25,6 @@ enum NFCScanError: Error, Equatable, LocalizedError {
             return "Scan cancelled."
         case .readFailed(let message):
             return message
-        case .writeFailed(let message):
-            return message
         }
     }
 }
@@ -40,21 +35,16 @@ final class MockNFCScanner: NFCScannerProtocol {
     static let defaultUID = Data([0x04, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6])
     
     var results: [Result<ScannedKey, NFCScanError>]
-    var writeError: NFCScanError?
     var scanDelay: TimeInterval
     private(set) var scanCallCount = 0
-    private(set) var writeCallCount = 0
-    private(set) var lastWrittenTagId: Data?
     
     init(
         results: [Result<ScannedKey, NFCScanError>] = [
             .success(.card(uid: MockNFCScanner.defaultUID))
         ],
-        writeError: NFCScanError? = nil,
         scanDelay: TimeInterval = 0
     ) {
         self.results = results
-        self.writeError = writeError
         self.scanDelay = scanDelay
     }
     
@@ -95,22 +85,13 @@ final class MockNFCScanner: NFCScannerProtocol {
     /// Tags the matcher rejected (the session kept polling instead of finishing).
     private(set) var rejectedCount = 0
     
-    func writeOpenBlockerRecord(tagId: Data) async throws {
-        writeCallCount += 1
-        lastWrittenTagId = tagId
-        if let writeError {
-            throw writeError
-        }
-    }
 }
 #endif
 
 #if !targetEnvironment(simulator)
 final class CoreNFCScanner: NSObject, NFCScannerProtocol {
     private var session: NFCTagReaderSession?
-    private var writeSession: NFCNDEFReaderSession?
     private var scanDelegate: ScanDelegate?
-    private var writeDelegate: WriteDelegate?
     
     func scan(keyMatcher: ((ScannedKey) -> Bool)? = nil) async throws -> ScannedKey {
         guard NFCNDEFReaderSession.readingAvailable else {
@@ -140,48 +121,6 @@ final class CoreNFCScanner: NSObject, NFCScannerProtocol {
             newSession.alertMessage = "Hold the top of your iPhone near your key."
             newSession.begin()
         }
-    }
-    
-    func writeOpenBlockerRecord(tagId: Data) async throws {
-        guard NFCNDEFReaderSession.readingAvailable else {
-            throw NFCScanError.unavailable
-        }
-        
-        defer {
-            self.writeSession = nil
-            self.writeDelegate = nil
-        }
-        
-        let message = Self.openBlockerMessage(tagId: tagId)
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let delegate = WriteDelegate(message: message, continuation: continuation)
-            self.writeDelegate = delegate
-            let session = NFCNDEFReaderSession(
-                delegate: delegate,
-                queue: nil,
-                invalidateAfterFirstRead: false
-            )
-            self.writeSession = session
-            session.alertMessage = "Hold your iPhone near the sticker to write Open Blocker."
-            session.begin()
-        }
-    }
-    
-    static func openBlockerMessage(tagId: Data) -> NFCNDEFMessage {
-        let payload = Data([OpenBlockerFormat.VERSION]) + tagId
-        let record = NFCNDEFPayload(
-            format: .nfcExternal,
-            type: Data(OpenBlockerFormat.TYPE_EXTERNAL.utf8),
-            identifier: Data(),
-            payload: payload
-        )
-        let aar = NFCNDEFPayload(
-            format: .nfcExternal,
-            type: Data(OpenBlockerFormat.TYPE_AAR.utf8),
-            identifier: Data(),
-            payload: Data("app.openblocker.android".utf8)
-        )
-        return NFCNDEFMessage(records: [record, aar])
     }
 }
 
@@ -307,97 +246,18 @@ private final class ScanDelegate: NSObject, NFCTagReaderSessionDelegate {
         return nil
     }
 }
-
-private final class WriteDelegate: NSObject, NFCNDEFReaderSessionDelegate {
-    private let message: NFCNDEFMessage
-    private var continuation: CheckedContinuation<Void, Error>?
-    
-    init(message: NFCNDEFMessage, continuation: CheckedContinuation<Void, Error>) {
-        self.message = message
-        self.continuation = continuation
-    }
-    
-    func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession) {}
-    
-    func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {}
-    
-    func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
-        guard let continuation else { return }
-        self.continuation = nil
-        
-        if let readerError = error as? NFCReaderError {
-            switch readerError.code {
-            case .readerSessionInvalidationErrorUserCanceled,
-                 .readerSessionInvalidationErrorFirstNDEFTagRead:
-                continuation.resume(throwing: NFCScanError.userCancelled)
-            default:
-                continuation.resume(throwing: NFCScanError.writeFailed(readerError.localizedDescription))
-            }
-        } else {
-            continuation.resume(throwing: NFCScanError.writeFailed(error.localizedDescription))
-        }
-    }
-    
-    func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
-        guard let tag = tags.first else { return }
-        
-        session.connect(to: tag) { error in
-            if let error {
-                session.invalidate(errorMessage: "Connection failed")
-                self.finish(.failure(NFCScanError.writeFailed(error.localizedDescription)))
-                return
-            }
-            
-            tag.queryNDEFStatus { status, capacity, error in
-                if let error {
-                    session.invalidate(errorMessage: "Could not query tag")
-                    self.finish(.failure(NFCScanError.writeFailed(error.localizedDescription)))
-                    return
-                }
-                
-                switch status {
-                case .notSupported:
-                    session.invalidate(errorMessage: "This tag cannot store NDEF")
-                    self.finish(.failure(NFCScanError.writeFailed("Tag is not NDEF compliant")))
-                case .readOnly:
-                    session.invalidate(errorMessage: "This tag is read-only")
-                    self.finish(.failure(NFCScanError.writeFailed("Tag is read-only")))
-                case .readWrite:
-                    let payloadLength = self.message.records.reduce(0) { $0 + $1.payload.count + 8 }
-                    if capacity > 0, payloadLength > capacity {
-                        session.invalidate(errorMessage: "Not enough space on this tag")
-                        self.finish(.failure(NFCScanError.writeFailed("Tag capacity is too small")))
-                        return
-                    }
-                    tag.writeNDEF(self.message) { error in
-                        if let error {
-                            session.invalidate(errorMessage: "Write failed")
-                            self.finish(.failure(NFCScanError.writeFailed(error.localizedDescription)))
-                        } else {
-                            session.alertMessage = "Open Blocker record written"
-                            session.invalidate()
-                            self.finish(.success(()))
-                        }
-                    }
-                @unknown default:
-                    session.invalidate(errorMessage: "Unknown tag status")
-                    self.finish(.failure(NFCScanError.writeFailed("Unknown tag status")))
-                }
-            }
-        }
-    }
-    
-    private func finish(_ result: Result<Void, Error>) {
-        guard let continuation else { return }
-        self.continuation = nil
-        continuation.resume(with: result)
-    }
-}
 #endif
 
 extension NFCScannerProtocol {
     /// Accepts any tag (key registration).
     func scan() async throws -> ScannedKey {
         try await scan(keyMatcher: nil)
+    }
+}
+
+extension KeyRegistration {
+    /// Sticker setup is one scan. The key is saved by chip UID, so nothing is written to the tag.
+    static func registerSticker(using scanner: NFCScannerProtocol) async throws -> String? {
+        nfcUIDHex(from: try await scanner.scan())
     }
 }
