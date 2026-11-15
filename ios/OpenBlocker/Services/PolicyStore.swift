@@ -134,6 +134,8 @@ enum PolicyStore {
         var active: ActiveSession?
         var override: ScheduleOverride?
         var lastEnd: Date?
+        /// Schedule ID to the last time its daily limit was used up.
+        var limitReached: [String: Date]?
         
         init(
             active: ActiveSession? = nil,

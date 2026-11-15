@@ -11,6 +11,11 @@ final class MonitorExtension: DeviceActivityMonitor {
         Reconcile.reconcile()
     }
     
+    override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
+        super.eventDidReachThreshold(event, activity: activity)
+        Reconcile.limitReached(activity: activity.rawValue)
+    }
+    
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
         Reconcile.reconcile(endingActivity: activity.rawValue)
