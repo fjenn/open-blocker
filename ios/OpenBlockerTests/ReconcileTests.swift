@@ -44,6 +44,29 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(plan, .end(.accessRevoked, at: date(2026, 1, 8, 11, 0)))
     }
     
+    func testDailyLimitScheduleBlocksOnlyAfterLimitReachedToday() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 120
+        let now = date(2026, 1, 8, 15, 0)
+        func plan(_ reached: [String: Date]?) -> Reconcile.Plan {
+            var state = PolicyStore.State()
+            state.limitReached = reached
+            return Reconcile.plan(config: config, state: state, now: now, screenTime: .approved, calendar: calendar)
+        }
+        XCTAssertEqual(plan(nil), .unchanged)
+        XCTAssertEqual(plan([scheduleID.uuidString: date(2026, 1, 7, 20, 0)]), .unchanged, "yesterday's limit must not block today")
+        guard case .start(let session) = plan([scheduleID.uuidString: date(2026, 1, 8, 14, 0)]) else {
+            return XCTFail("expected start once the limit is reached")
+        }
+        XCTAssertEqual(session.startedAt, date(2026, 1, 8, 14, 0))
+        XCTAssertEqual(session.scheduleEnd, date(2026, 1, 8, 23, 59))
+    }
+    
+    func testStateSavedBeforeDailyLimitsStillDecodes() throws {
+        let old = try JSONEncoder().encode(PolicyStore.State())
+        XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)
+    }
+    
     func testSameDayScheduleStartsInsideWindow() {
         let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
         let now = date(2026, 1, 8, 10, 0)

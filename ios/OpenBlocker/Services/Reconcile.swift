@@ -59,7 +59,7 @@ enum Reconcile {
         }
         
         if state.active == nil,
-           let window = activeWindow(at: now, config: config, calendar: calendar),
+           let window = activeWindow(at: now, config: config, limitReached: state.limitReached ?? [:], calendar: calendar),
            shouldStartSchedule(window, state: state, now: now),
            let modeID = window.schedule.modeID {
             let session = ActiveSession(
@@ -194,6 +194,7 @@ enum Reconcile {
             reason: reason,
             at: time,
             config: config,
+            limitReached: state.limitReached ?? [:],
             calendar: calendar
         ) {
             next.override = override
@@ -209,11 +210,12 @@ enum Reconcile {
         reason: SessionRecord.EndReason,
         at time: Date,
         config: PolicyStore.Config,
+        limitReached: [String: Date] = [:],
         calendar: Calendar = .current
     ) -> ScheduleOverride? {
         guard reason == .key else { return nil }
         guard case .schedule(let scheduleID) = session.source else { return nil }
-        let until = session.scheduleEnd ?? activeWindow(at: time, config: config, calendar: calendar)
+        let until = session.scheduleEnd ?? activeWindow(at: time, config: config, limitReached: limitReached, calendar: calendar)
             .flatMap({ $0.schedule.id == scheduleID ? $0.end : nil })
         guard let until else { return nil }
         return ScheduleOverride(scheduleID: scheduleID, until: until)
@@ -246,20 +248,39 @@ enum Reconcile {
     static func activeWindow(
         at now: Date,
         config: PolicyStore.Config,
+        limitReached: [String: Date] = [:],
         calendar: Calendar = .current
     ) -> ScheduleWindow? {
         for schedule in config.schedules where schedule.isOn {
-            if let span = ScheduleInterval.window(
+            guard let span = ScheduleInterval.window(
                 startMinute: schedule.startMinute,
                 endMinute: schedule.effectiveEndMinute,
                 weekdays: schedule.weekdays,
                 at: now,
                 calendar: calendar
-            ) {
+            ) else { continue }
+            guard schedule.dailyLimitMinutes != nil else {
                 return ScheduleWindow(schedule: schedule, start: span.start, end: span.end)
+            }
+            // A daily-limit schedule only blocks once its limit was used up in this window.
+            if let hit = limitReached[schedule.id.uuidString], hit >= span.start, hit <= now {
+                return ScheduleWindow(schedule: schedule, start: hit, end: span.end)
             }
         }
         return nil
+    }
+    
+    /// Called by the Monitor extension when a schedule's daily limit is used up.
+    static func limitReached(activity: String, now: Date = Date()) {
+        var state: PolicyStore.State
+        switch PolicyStore.loadStateResult() {
+        case .loaded(let loaded): state = loaded
+        case .missing: state = PolicyStore.State()
+        case .unreadable: return
+        }
+        state.limitReached = (state.limitReached ?? [:]).merging([activity: now]) { $1 }
+        PolicyStore.save(state)
+        reconcile(now: now)
     }
     
     private static func shouldStartSchedule(
