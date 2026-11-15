@@ -13,6 +13,7 @@ struct ScheduleEditScreen: View {
     @State private var days: Set<Int>
     @State private var isOn: Bool
     @State private var endsOnKey: Bool
+    @State private var limit: Int?
     @State private var confirmingDelete = false
     @State private var deniedPermission: Permission?
     
@@ -25,6 +26,7 @@ struct ScheduleEditScreen: View {
         _days = State(initialValue: schedule?.weekdays ?? [2, 3, 4, 5, 6])
         _isOn = State(initialValue: schedule?.isOn ?? true)
         _endsOnKey = State(initialValue: schedule?.endsOnKey ?? false)
+        _limit = State(initialValue: schedule?.dailyLimitMinutes)
     }
     
     private var trimmedName: String {
@@ -68,6 +70,31 @@ struct ScheduleEditScreen: View {
                             HairlineDivider()
                             timeRow("End time", selection: $end)
                         }
+                        HairlineDivider()
+                        FormRow(label: "Daily limit") {
+                            Menu {
+                                Button("Off") { withAnimation(Motion.quick) { limit = nil } }
+                                ForEach(BlockSchedule.limitChoices, id: \.self) { minutes in
+                                    Button(BlockSchedule.limitText(minutes)) {
+                                        withAnimation(Motion.quick) { limit = minutes }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(limit.map(BlockSchedule.limitText) ?? "Off")
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundColor(Color.inkTertiary)
+                                }
+                            }
+                            .accessibilityIdentifier("schedule-daily-limit")
+                        }
+                    }
+                    if let limit {
+                        Text("The block starts after \(BlockSchedule.limitText(limit)) of use between the start and end. Block modes count the apps you chose. Allow-only modes count all use.")
+                            .textStyle(.footnote)
+                            .foregroundColor(Color.inkSecondary)
+                            .padding(.horizontal, Space.xxs)
                     }
                     if endsOnKey {
                         Text("The block stays on until you tap your key.")
@@ -213,6 +240,7 @@ struct ScheduleEditScreen: View {
             updated.weekdays = days
             updated.isOn = isOn
             updated.endsOnKey = endsOnKey
+            updated.dailyLimitMinutes = limit
             appState.updateSchedule(updated)
         } else {
             appState.addSchedule(BlockSchedule(
@@ -222,7 +250,8 @@ struct ScheduleEditScreen: View {
                 endMinute: endMinute,
                 modeID: modeID,
                 isOn: isOn,
-                endsOnKey: endsOnKey
+                endsOnKey: endsOnKey,
+                dailyLimitMinutes: limit
             ))
         }
         dismiss()

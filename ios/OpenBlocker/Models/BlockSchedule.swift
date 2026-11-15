@@ -11,6 +11,8 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     var modeID: UUID?
     var isOn: Bool
     var endsOnKey: Bool
+    /// When set, the block only starts after this much use inside the window.
+    var dailyLimitMinutes: Int?
     
     init(
         id: UUID = UUID(),
@@ -20,7 +22,8 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         endMinute: Int,
         modeID: UUID? = nil,
         isOn: Bool = false,
-        endsOnKey: Bool = false
+        endsOnKey: Bool = false,
+        dailyLimitMinutes: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -30,12 +33,21 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.modeID = modeID
         self.isOn = isOn
         self.endsOnKey = endsOnKey
+        self.dailyLimitMinutes = dailyLimitMinutes
     }
     
     /// End minute used for scheduling. Open-ended schedules span a full day
     /// (start + 1439) so DeviceActivity and Reconcile agree on the window.
     var effectiveEndMinute: Int {
         endsOnKey ? (startMinute + 1439) % 1440 : endMinute
+    }
+    
+    static let limitChoices = [15, 30, 45, 60, 90, 120, 180, 240]
+    
+    /// "45 min", "2 hr", "1 hr 30 min".
+    static func limitText(_ minutes: Int) -> String {
+        let h = minutes / 60, m = minutes % 60
+        return [h > 0 ? "\(h) hr" : nil, m > 0 ? "\(m) min" : nil].compactMap { $0 }.joined(separator: " ")
     }
     
     static func formatClock(_ minute: Int) -> String {
@@ -127,7 +139,8 @@ extension BlockSchedule {
             endMinute: try c.decode(Int.self, forKey: .endMinute),
             modeID: try c.decodeIfPresent(UUID.self, forKey: .modeID),
             isOn: try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false,
-            endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false
+            endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false,
+            dailyLimitMinutes: try c.decodeIfPresent(Int.self, forKey: .dailyLimitMinutes)
         )
     }
 }

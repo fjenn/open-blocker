@@ -62,8 +62,8 @@ class AppState: ObservableObject {
         
         checkAuthorization()
         // DeviceActivity registration is IPC; keep it off the launch path.
-        let schedules = config.schedules
-        Task.detached(priority: .utility) { ScheduleMonitor.sync(schedules) }
+        let snapshot = config
+        Task.detached(priority: .utility) { ScheduleMonitor.sync(snapshot) }
         reconcile()
         reportCompletedBlocks() // retries events that failed last time
         
@@ -440,7 +440,7 @@ class AppState: ObservableObject {
     
     private func saveConfig() {
         PolicyStore.save(config)
-        ScheduleMonitor.sync(config.schedules)
+        ScheduleMonitor.sync(config)
     }
     
     private func saveState() {
