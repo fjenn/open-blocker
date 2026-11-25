@@ -1,6 +1,7 @@
 // Adapted from Foqos (MIT, (c) 2024 Ali Waseem): Foqos/Models/Schedule.swift
 
 import Foundation
+import FamilyControls
 
 struct BlockSchedule: Identifiable, Codable, Equatable {
     let id: UUID
@@ -13,6 +14,9 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     var endsOnKey: Bool
     /// When set, the block only starts after this much use inside the window.
     var dailyLimitMinutes: Int?
+    /// Allow-only modes: the apps and categories whose use counts toward the
+    /// limit. Nil until the user picks some. Block modes count their own list.
+    var limitCountsData: Data?
     
     init(
         id: UUID = UUID(),
@@ -23,7 +27,8 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         modeID: UUID? = nil,
         isOn: Bool = false,
         endsOnKey: Bool = false,
-        dailyLimitMinutes: Int? = nil
+        dailyLimitMinutes: Int? = nil,
+        limitCountsData: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -34,6 +39,31 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.isOn = isOn
         self.endsOnKey = endsOnKey
         self.dailyLimitMinutes = dailyLimitMinutes
+        self.limitCountsData = limitCountsData
+    }
+    
+    /// The limit that applies with this mode, or nil when nothing would be counted.
+    func effectiveLimit(mode: BlockMode?) -> Int? {
+        guard let limit = dailyLimitMinutes, let mode else { return nil }
+        switch mode.kind {
+        case .block: return limit
+        case .allowOnly: return limitCountsData == nil ? nil : limit
+        }
+    }
+    
+    var limitCounts: FamilyActivitySelection {
+        get {
+            limitCountsData.flatMap { try? JSONDecoder().decode(FamilyActivitySelection.self, from: $0) }
+                ?? FamilyActivitySelection()
+        }
+        set { limitCountsData = Self.encodeLimitCounts(newValue) }
+    }
+    
+    /// Nil for an empty selection, so "nothing picked" is one state.
+    static func encodeLimitCounts(_ selection: FamilyActivitySelection) -> Data? {
+        let empty = selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty
+            && selection.webDomainTokens.isEmpty
+        return empty ? nil : try? JSONEncoder().encode(selection)
     }
     
     /// End minute used for scheduling. Open-ended schedules span a full day
@@ -144,7 +174,8 @@ extension BlockSchedule {
             modeID: try c.decodeIfPresent(UUID.self, forKey: .modeID),
             isOn: try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false,
             endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false,
-            dailyLimitMinutes: try c.decodeIfPresent(Int.self, forKey: .dailyLimitMinutes)
+            dailyLimitMinutes: try c.decodeIfPresent(Int.self, forKey: .dailyLimitMinutes),
+            limitCountsData: try c.decodeIfPresent(Data.self, forKey: .limitCountsData)
         )
     }
 }
