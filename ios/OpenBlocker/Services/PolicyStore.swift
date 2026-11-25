@@ -76,13 +76,11 @@ enum PolicyStore {
             modes.first { $0.id == id }
         }
         
-        /// The daily limit that actually applies. Only block modes have one:
-        /// iOS can count use of chosen apps, not "all use" for allow-only modes.
+        /// The daily limit that actually applies. iOS can only count use of
+        /// chosen apps: block modes count their own list, allow-only modes
+        /// need the user to pick what counts (`limitCounts`).
         func dailyLimit(for schedule: BlockSchedule) -> Int? {
-            guard let limit = schedule.dailyLimitMinutes,
-                  let modeID = schedule.modeID,
-                  mode(modeID)?.kind == .block else { return nil }
-            return limit
+            schedule.effectiveLimit(mode: schedule.modeID.flatMap(mode))
         }
     }
     

@@ -264,6 +264,7 @@ class AppState: ObservableObject {
         guard !on, config.schedules.contains(where: { $0.dailyLimitMinutes != nil }) else { return }
         for index in config.schedules.indices {
             config.schedules[index].dailyLimitMinutes = nil
+            config.schedules[index].limitCountsData = nil
         }
         saveConfig()
         reconcile()

@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyControls
 
 struct ScheduleEditScreen: View {
     @Environment(\.dismiss) private var dismiss
@@ -14,6 +15,8 @@ struct ScheduleEditScreen: View {
     @State private var isOn: Bool
     @State private var endsOnKey: Bool
     @State private var limit: Int?
+    @State private var limitCounts: FamilyActivitySelection
+    @State private var pickingLimitCounts = false
     @AppStorage(DailyLimits.storageKey) private var limitsEnabled = false
     @State private var confirmingDelete = false
     @State private var deniedPermission: Permission?
@@ -28,19 +31,40 @@ struct ScheduleEditScreen: View {
         _isOn = State(initialValue: schedule?.isOn ?? true)
         _endsOnKey = State(initialValue: schedule?.endsOnKey ?? false)
         _limit = State(initialValue: schedule?.dailyLimitMinutes)
+        _limitCounts = State(initialValue: schedule?.limitCounts ?? FamilyActivitySelection())
     }
     
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    /// Limits are an Advanced setting and only apply to block modes.
+    private var selectedMode: BlockMode? {
+        appState.modes.first { $0.id == modeID }
+    }
+    
+    /// Limits are an Advanced setting.
     private var showsLimit: Bool {
-        limitsEnabled && appState.modes.first(where: { $0.id == modeID })?.kind == .block
+        limitsEnabled && selectedMode != nil
+    }
+    
+    /// Allow-only modes have no list to count, so the user picks one.
+    private var needsLimitCounts: Bool {
+        showsLimit && limit != nil && selectedMode?.kind == .allowOnly
+    }
+    
+    private var limitCountsEmpty: Bool {
+        BlockSchedule.encodeLimitCounts(limitCounts) == nil
+    }
+    
+    private var limitCountsSummary: String {
+        let n = limitCounts.applicationTokens.count, c = limitCounts.categoryTokens.count
+        if n == 0 && c == 0 { return limitCountsEmpty ? "Choose" : "Websites" }
+        return [c > 0 ? "\(c) categor\(c == 1 ? "y" : "ies")" : nil, n > 0 ? "\(n) app\(n == 1 ? "" : "s")" : nil]
+            .compactMap { $0 }.joined(separator: ", ")
     }
     
     private var canSave: Bool {
-        !trimmedName.isEmpty && modeID != nil && !days.isEmpty
+        !trimmedName.isEmpty && modeID != nil && !days.isEmpty && !(needsLimitCounts && limitCountsEmpty)
     }
     
     var body: some View {
@@ -96,10 +120,26 @@ struct ScheduleEditScreen: View {
                                 }
                                 .accessibilityIdentifier("schedule-daily-limit")
                             }
+                            if needsLimitCounts {
+                                HairlineDivider()
+                                FormRow(label: "Counts") {
+                                    Button {
+                                        pickingLimitCounts = true
+                                    } label: {
+                                        HStack(spacing: 4) {
+                                            Text(limitCountsSummary)
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundColor(Color.inkTertiary)
+                                        }
+                                    }
+                                    .accessibilityIdentifier("schedule-limit-counts")
+                                }
+                            }
                         }
                     }
                     if showsLimit, let limit {
-                        Text("The block starts after \(BlockSchedule.limitText(limit)) in the apps and sites this mode blocks, between the start and end time.")
+                        Text(limitFootnote(limit))
                             .textStyle(.footnote)
                             .foregroundColor(Color.inkSecondary)
                             .padding(.horizontal, Space.xxs)
@@ -172,6 +212,7 @@ struct ScheduleEditScreen: View {
             Button("Cancel", role: .cancel) {}
         }
         .permissionSheet($deniedPermission)
+        .familyActivityPicker(isPresented: $pickingLimitCounts, selection: $limitCounts)
     }
     
     private var repeatSummary: String {
@@ -232,6 +273,14 @@ struct ScheduleEditScreen: View {
     }
     
     /// A schedule that's on blocks through Screen Time, so ask for it first.
+    private func limitFootnote(_ limit: Int) -> String {
+        let amount = BlockSchedule.limitText(limit)
+        if selectedMode?.kind == .allowOnly {
+            return "The block starts after \(amount) in what you choose under Counts, between the start and end time. To count all use, choose every category."
+        }
+        return "The block starts after \(amount) in the apps and sites this mode blocks, between the start and end time."
+    }
+    
     private func save() {
         guard isOn else { return commit() }
         Permissions.whenGranted(.screenTime, denied: $deniedPermission, perform: commit)
@@ -249,6 +298,7 @@ struct ScheduleEditScreen: View {
             updated.isOn = isOn
             updated.endsOnKey = endsOnKey
             updated.dailyLimitMinutes = showsLimit ? limit : nil
+            updated.limitCounts = needsLimitCounts ? limitCounts : FamilyActivitySelection()
             appState.updateSchedule(updated)
         } else {
             appState.addSchedule(BlockSchedule(
@@ -259,7 +309,8 @@ struct ScheduleEditScreen: View {
                 modeID: modeID,
                 isOn: isOn,
                 endsOnKey: endsOnKey,
-                dailyLimitMinutes: showsLimit ? limit : nil
+                dailyLimitMinutes: showsLimit ? limit : nil,
+                limitCountsData: needsLimitCounts ? BlockSchedule.encodeLimitCounts(limitCounts) : nil
             ))
         }
         dismiss()
