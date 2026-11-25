@@ -16,6 +16,8 @@ enum AccessibilityID {
     static let settingsAbout = "settings-about"
     static let settingsNotifications = "settings-notifications"
     static let notificationsToggle = "notifications-toggle"
+    static let settingsAdvanced = "settings-advanced"
+    static let dailyLimitsToggle = "daily-limits-toggle"
     static let navBack = "nav-back"
     static let activityScroll = "activity-scroll"
     static let scheduleRoot = "schedule-root"

@@ -75,6 +75,15 @@ enum PolicyStore {
         func mode(_ id: UUID) -> BlockMode? {
             modes.first { $0.id == id }
         }
+        
+        /// The daily limit that actually applies. Only block modes have one:
+        /// iOS can count use of chosen apps, not "all use" for allow-only modes.
+        func dailyLimit(for schedule: BlockSchedule) -> Int? {
+            guard let limit = schedule.dailyLimitMinutes,
+                  let modeID = schedule.modeID,
+                  mode(modeID)?.kind == .block else { return nil }
+            return limit
+        }
     }
     
     /// The last error from `loadConfig`, if the file existed but could not be decoded.

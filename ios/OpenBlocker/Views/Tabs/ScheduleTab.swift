@@ -120,7 +120,7 @@ struct ScheduleCard: View {
     
     private var modeLabel: String {
         if let id = schedule.modeID, let mode = appState.modes.first(where: { $0.id == id }) {
-            let limit = schedule.dailyLimitMinutes.map { " · after \(BlockSchedule.limitText($0)) of use" } ?? ""
+            let limit = (mode.kind == .block ? schedule.dailyLimitMinutes : nil).map { " · after \(BlockSchedule.limitText($0)) of use" } ?? ""
             return "Mode: \(mode.name)\(limit)"
         }
         return "Choose a mode to turn it on"

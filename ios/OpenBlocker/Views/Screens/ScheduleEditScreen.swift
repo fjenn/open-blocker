@@ -14,6 +14,7 @@ struct ScheduleEditScreen: View {
     @State private var isOn: Bool
     @State private var endsOnKey: Bool
     @State private var limit: Int?
+    @AppStorage(DailyLimits.storageKey) private var limitsEnabled = false
     @State private var confirmingDelete = false
     @State private var deniedPermission: Permission?
     
@@ -31,6 +32,11 @@ struct ScheduleEditScreen: View {
     
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    /// Limits are an Advanced setting and only apply to block modes.
+    private var showsLimit: Bool {
+        limitsEnabled && appState.modes.first(where: { $0.id == modeID })?.kind == .block
     }
     
     private var canSave: Bool {
@@ -70,28 +76,30 @@ struct ScheduleEditScreen: View {
                             HairlineDivider()
                             timeRow("End time", selection: $end)
                         }
-                        HairlineDivider()
-                        FormRow(label: "Daily limit") {
-                            Menu {
-                                Button("Off") { withAnimation(Motion.quick) { limit = nil } }
-                                ForEach(BlockSchedule.limitChoices, id: \.self) { minutes in
-                                    Button(BlockSchedule.limitText(minutes)) {
-                                        withAnimation(Motion.quick) { limit = minutes }
+                        if showsLimit {
+                            HairlineDivider()
+                            FormRow(label: "Daily limit") {
+                                Menu {
+                                    Button("Off") { withAnimation(Motion.quick) { limit = nil } }
+                                    ForEach(BlockSchedule.limitChoices, id: \.self) { minutes in
+                                        Button(BlockSchedule.limitText(minutes)) {
+                                            withAnimation(Motion.quick) { limit = minutes }
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(limit.map(BlockSchedule.limitText) ?? "Off")
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(Color.inkTertiary)
                                     }
                                 }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(limit.map(BlockSchedule.limitText) ?? "Off")
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(Color.inkTertiary)
-                                }
+                                .accessibilityIdentifier("schedule-daily-limit")
                             }
-                            .accessibilityIdentifier("schedule-daily-limit")
                         }
                     }
-                    if let limit {
-                        Text("The block starts after \(BlockSchedule.limitText(limit)) of use between the start and end. Block modes count the apps you chose. Allow-only modes count all use.")
+                    if showsLimit, let limit {
+                        Text("The block starts after \(BlockSchedule.limitText(limit)) in the apps and sites this mode blocks, between the start and end time.")
                             .textStyle(.footnote)
                             .foregroundColor(Color.inkSecondary)
                             .padding(.horizontal, Space.xxs)
@@ -240,7 +248,7 @@ struct ScheduleEditScreen: View {
             updated.weekdays = days
             updated.isOn = isOn
             updated.endsOnKey = endsOnKey
-            updated.dailyLimitMinutes = limit
+            updated.dailyLimitMinutes = showsLimit ? limit : nil
             appState.updateSchedule(updated)
         } else {
             appState.addSchedule(BlockSchedule(
@@ -251,7 +259,7 @@ struct ScheduleEditScreen: View {
                 modeID: modeID,
                 isOn: isOn,
                 endsOnKey: endsOnKey,
-                dailyLimitMinutes: limit
+                dailyLimitMinutes: showsLimit ? limit : nil
             ))
         }
         dismiss()
