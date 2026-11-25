@@ -257,6 +257,18 @@ class AppState: ObservableObject {
         reconcile()
     }
     
+    /// Turning daily limits off removes them, so no schedule keeps waiting
+    /// on a limit the user can no longer see.
+    func setDailyLimitsEnabled(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: DailyLimits.storageKey)
+        guard !on, config.schedules.contains(where: { $0.dailyLimitMinutes != nil }) else { return }
+        for index in config.schedules.indices {
+            config.schedules[index].dailyLimitMinutes = nil
+        }
+        saveConfig()
+        reconcile()
+    }
+    
     func updateSchedule(_ schedule: BlockSchedule) {
         if let index = config.schedules.firstIndex(where: { $0.id == schedule.id }) {
             config.schedules[index] = schedule

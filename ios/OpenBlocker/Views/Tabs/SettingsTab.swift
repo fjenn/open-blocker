@@ -53,6 +53,13 @@ struct SettingsTab: View {
                             detail: notifyOn ? "On" : "Off",
                             id: AccessibilityID.settingsNotifications
                         )
+                        HairlineDivider()
+                        link(
+                            AdvancedScreen(),
+                            icon: "slider.horizontal.3",
+                            title: "Advanced",
+                            id: AccessibilityID.settingsAdvanced
+                        )
                     }
                     
                     section {

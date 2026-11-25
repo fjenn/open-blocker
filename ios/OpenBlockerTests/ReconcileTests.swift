@@ -62,6 +62,15 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(session.scheduleEnd, date(2026, 1, 8, 23, 59))
     }
     
+    func testDailyLimitIsIgnoredForAllowOnlyModes() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.modes[0].kind = .allowOnly
+        config.schedules[0].dailyLimitMinutes = 120
+        XCTAssertNil(config.dailyLimit(for: config.schedules[0]))
+        let plan = Reconcile.plan(config: config, state: PolicyStore.State(), now: date(2026, 1, 8, 15, 0), screenTime: .approved, calendar: calendar)
+        guard case .start = plan else { return XCTFail("allow-only schedule should run as a normal schedule") }
+    }
+    
     func testStateSavedBeforeDailyLimitsStillDecodes() throws {
         let old = try JSONEncoder().encode(PolicyStore.State())
         XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)

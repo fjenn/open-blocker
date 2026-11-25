@@ -42,7 +42,11 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         endsOnKey ? (startMinute + 1439) % 1440 : endMinute
     }
     
+    #if DEBUG
+    static let limitChoices = [1, 15, 30, 45, 60, 90, 120, 180, 240] // 1 min: device testing only
+    #else
     static let limitChoices = [15, 30, 45, 60, 90, 120, 180, 240]
+    #endif
     
     /// "45 min", "2 hr", "1 hr 30 min".
     static func limitText(_ minutes: Int) -> String {
@@ -142,5 +146,14 @@ extension BlockSchedule {
             endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false,
             dailyLimitMinutes: try c.decodeIfPresent(Int.self, forKey: .dailyLimitMinutes)
         )
+    }
+}
+
+/// Advanced setting: daily limits on schedules. Off by default.
+enum DailyLimits {
+    static let storageKey = "advanced.dailyLimits"
+    
+    static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: storageKey)
     }
 }

@@ -38,19 +38,18 @@ enum ScheduleMonitor {
         #endif
     }
     
-    /// One usage event for a daily-limit schedule. Block modes count the
-    /// chosen apps and sites; allow-only modes count all use (empty sets).
+    /// One usage event for a daily-limit schedule: use of the block mode's
+    /// chosen apps, categories and sites.
     private static func limitEvents(
         for schedule: BlockSchedule,
         config: PolicyStore.Config
     ) -> [DeviceActivityEvent.Name: DeviceActivityEvent] {
-        guard let limit = schedule.dailyLimitMinutes,
+        guard let limit = config.dailyLimit(for: schedule),
               let mode = schedule.modeID.flatMap({ config.mode($0) }) else { return [:] }
         let sel = mode.selection
-        let counted = mode.kind == .block
-        let apps = counted ? sel.applicationTokens : []
-        let categories = counted ? sel.categoryTokens : []
-        let sites = counted ? sel.webDomainTokens : []
+        let apps = sel.applicationTokens
+        let categories = sel.categoryTokens
+        let sites = sel.webDomainTokens
         let threshold = DateComponents(hour: limit / 60, minute: limit % 60)
         let event: DeviceActivityEvent
         if #available(iOS 17.4, *) {

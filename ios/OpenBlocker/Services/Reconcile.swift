@@ -259,7 +259,7 @@ enum Reconcile {
                 at: now,
                 calendar: calendar
             ) else { continue }
-            guard schedule.dailyLimitMinutes != nil else {
+            guard config.dailyLimit(for: schedule) != nil else {
                 return ScheduleWindow(schedule: schedule, start: span.start, end: span.end)
             }
             // A daily-limit schedule only blocks once its limit was used up in this window.
