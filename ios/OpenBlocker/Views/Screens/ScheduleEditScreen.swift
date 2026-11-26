@@ -6,6 +6,8 @@ struct ScheduleEditScreen: View {
     @StateObject private var appState = AppState.shared
     
     let schedule: BlockSchedule?
+    /// A limit ("2 hr of these apps a day") rather than a timed schedule.
+    let isLimit: Bool
     
     @State private var name: String
     @State private var modeID: UUID?
@@ -17,20 +19,23 @@ struct ScheduleEditScreen: View {
     @State private var limit: Int?
     @State private var limitCounts: FamilyActivitySelection
     @State private var pickingLimitCounts = false
-    @AppStorage(DailyLimits.storageKey) private var limitsEnabled = false
+    @State private var allDay: Bool
     @State private var confirmingDelete = false
     @State private var deniedPermission: Permission?
     
-    init(schedule: BlockSchedule? = nil) {
+    init(schedule: BlockSchedule? = nil, isLimit: Bool = false) {
         self.schedule = schedule
+        let isLimit = isLimit || schedule?.dailyLimitMinutes != nil
+        self.isLimit = isLimit
+        _allDay = State(initialValue: schedule.map { $0.startMinute == 0 && $0.endMinute == 1439 } ?? true)
         _name = State(initialValue: schedule?.name ?? "")
         _modeID = State(initialValue: schedule?.modeID ?? AppState.shared.activeMode?.id)
         _start = State(initialValue: Self.date(forMinute: schedule?.startMinute ?? 9 * 60))
         _end = State(initialValue: Self.date(forMinute: schedule?.endMinute ?? 17 * 60))
-        _days = State(initialValue: schedule?.weekdays ?? [2, 3, 4, 5, 6])
+        _days = State(initialValue: schedule?.weekdays ?? (isLimit ? Set(1...7) : [2, 3, 4, 5, 6]))
         _isOn = State(initialValue: schedule?.isOn ?? true)
         _endsOnKey = State(initialValue: schedule?.endsOnKey ?? false)
-        _limit = State(initialValue: schedule?.dailyLimitMinutes)
+        _limit = State(initialValue: schedule?.dailyLimitMinutes ?? (isLimit ? 60 : nil))
         _limitCounts = State(initialValue: schedule?.limitCounts ?? FamilyActivitySelection())
     }
     
@@ -42,15 +47,12 @@ struct ScheduleEditScreen: View {
         appState.modes.first { $0.id == modeID }
     }
     
-    /// Limits are an Advanced setting.
-    private var showsLimit: Bool {
-        limitsEnabled && selectedMode != nil
-    }
-    
     /// Allow-only modes have no list to count, so the user picks one.
     private var needsLimitCounts: Bool {
-        showsLimit && limit != nil && selectedMode?.kind == .allowOnly
+        isLimit && selectedMode?.kind == .allowOnly
     }
+    
+    private var noun: String { isLimit ? "limit" : "schedule" }
     
     private var limitCountsEmpty: Bool {
         BlockSchedule.encodeLimitCounts(limitCounts) == nil
@@ -69,86 +71,23 @@ struct ScheduleEditScreen: View {
     
     var body: some View {
         SheetScaffold(
-            title: schedule == nil ? "Add schedule" : "Edit schedule",
+            title: schedule == nil ? "Add \(noun)" : "Edit \(noun)",
             trailing: SheetAction(systemImage: "xmark", accessibilityLabel: "Cancel") { dismiss() },
-            primary: SheetAction(title: "Save schedule", isEnabled: canSave) { save() }
+            primary: SheetAction(title: "Save \(noun)", isEnabled: canSave) { save() }
         ) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: Space.s) {
                     SettingsGroup {
-                        FormTextField(label: "Name", placeholder: "e.g. Work, Evenings", text: $name)
+                        FormTextField(label: "Name", placeholder: isLimit ? "e.g. Social media" : "e.g. Work, Evenings", text: $name)
                     }
                     
-                    SettingsGroup {
-                        timeRow("Starts", selection: $start)
-                        HairlineDivider()
-                        FormRow(label: "Ends") {
-                            Menu {
-                                Button("At a set time") { withAnimation(Motion.quick) { endsOnKey = false } }
-                                Button("Until I tap my key") { withAnimation(Motion.quick) { endsOnKey = true } }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(endsOnKey ? "Until I tap my key" : "At a set time")
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(Color.inkTertiary)
-                                }
-                            }
-                            .accessibilityIdentifier("schedule-ends-mode")
+                    if isLimit {
+                        limitGroup
+                    } else {
+                        timesGroup
+                        if endsOnKey {
+                            footnote("The block stays on until you tap your key.")
                         }
-                        if !endsOnKey {
-                            HairlineDivider()
-                            timeRow("End time", selection: $end)
-                        }
-                        if showsLimit {
-                            HairlineDivider()
-                            FormRow(label: "Daily limit") {
-                                Menu {
-                                    Button("Off") { withAnimation(Motion.quick) { limit = nil } }
-                                    ForEach(BlockSchedule.limitChoices, id: \.self) { minutes in
-                                        Button(BlockSchedule.limitText(minutes)) {
-                                            withAnimation(Motion.quick) { limit = minutes }
-                                        }
-                                    }
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Text(limit.map(BlockSchedule.limitText) ?? "Off")
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 10, weight: .semibold))
-                                            .foregroundColor(Color.inkTertiary)
-                                    }
-                                }
-                                .accessibilityIdentifier("schedule-daily-limit")
-                            }
-                            if needsLimitCounts {
-                                HairlineDivider()
-                                FormRow(label: "Counts") {
-                                    Button {
-                                        pickingLimitCounts = true
-                                    } label: {
-                                        HStack(spacing: 4) {
-                                            Text(limitCountsSummary)
-                                            Image(systemName: "chevron.right")
-                                                .font(.system(size: 10, weight: .semibold))
-                                                .foregroundColor(Color.inkTertiary)
-                                        }
-                                    }
-                                    .accessibilityIdentifier("schedule-limit-counts")
-                                }
-                            }
-                        }
-                    }
-                    if showsLimit, let limit {
-                        Text(limitFootnote(limit))
-                            .textStyle(.footnote)
-                            .foregroundColor(Color.inkSecondary)
-                            .padding(.horizontal, Space.xxs)
-                    }
-                    if endsOnKey {
-                        Text("The block stays on until you tap your key.")
-                            .textStyle(.footnote)
-                            .foregroundColor(Color.inkSecondary)
-                            .padding(.horizontal, Space.xxs)
                     }
                     
                     SettingsGroup {
@@ -167,6 +106,37 @@ struct ScheduleEditScreen: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        if needsLimitCounts {
+                            HairlineDivider()
+                            FormRow(label: "Counts") {
+                                Button {
+                                    pickingLimitCounts = true
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(limitCountsSummary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(Color.inkTertiary)
+                                    }
+                                }
+                                .accessibilityIdentifier("limit-counts")
+                            }
+                        }
+                    }
+                    if let limit, isLimit {
+                        footnote(limitFootnote(limit))
+                    }
+                    
+                    if isLimit {
+                        SettingsGroup {
+                            ToggleRow(title: "All day", isOn: $allDay.animation(Motion.quick))
+                            if !allDay {
+                                HairlineDivider()
+                                timeRow("From", selection: $start)
+                                HairlineDivider()
+                                timeRow("To", selection: $end)
+                            }
+                        }
                     }
                     
                     HStack {
@@ -190,7 +160,7 @@ struct ScheduleEditScreen: View {
                     
                     if schedule != nil {
                         Button(role: .destructive) { confirmingDelete = true } label: {
-                            Text("Delete schedule")
+                            Text("Delete \(noun)")
                                 .textStyle(.subhead, weight: .semibold)
                                 .foregroundColor(Color.danger)
                                 .frame(maxWidth: .infinity, minHeight: Metrics.compactButtonHeight)
@@ -204,7 +174,7 @@ struct ScheduleEditScreen: View {
                 .padding(.bottom, Space.l)
             }
         }
-        .confirmationDialog("Delete this schedule?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+        .confirmationDialog("Delete this \(noun)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let schedule { appState.deleteSchedule(schedule) }
                 dismiss()
@@ -213,6 +183,60 @@ struct ScheduleEditScreen: View {
         }
         .permissionSheet($deniedPermission)
         .familyActivityPicker(isPresented: $pickingLimitCounts, selection: $limitCounts)
+    }
+    
+    private var timesGroup: some View {
+        SettingsGroup {
+            timeRow("Starts", selection: $start)
+            HairlineDivider()
+            FormRow(label: "Ends") {
+                Menu {
+                    Button("At a set time") { withAnimation(Motion.quick) { endsOnKey = false } }
+                    Button("Until I tap my key") { withAnimation(Motion.quick) { endsOnKey = true } }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(endsOnKey ? "Until I tap my key" : "At a set time")
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Color.inkTertiary)
+                    }
+                }
+                .accessibilityIdentifier("schedule-ends-mode")
+            }
+            if !endsOnKey {
+                HairlineDivider()
+                timeRow("End time", selection: $end)
+            }
+        }
+    }
+    
+    private var limitGroup: some View {
+        SettingsGroup {
+            FormRow(label: "Per day") {
+                Menu {
+                    ForEach(BlockSchedule.limitChoices, id: \.self) { minutes in
+                        Button(BlockSchedule.limitText(minutes)) {
+                            withAnimation(Motion.quick) { limit = minutes }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(BlockSchedule.limitText(limit ?? 60))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Color.inkTertiary)
+                    }
+                }
+                .accessibilityIdentifier("limit-amount")
+            }
+        }
+    }
+    
+    private func footnote(_ text: String) -> some View {
+        Text(text)
+            .textStyle(.footnote)
+            .foregroundColor(Color.inkSecondary)
+            .padding(.horizontal, Space.xxs)
     }
     
     private var repeatSummary: String {
@@ -276,9 +300,9 @@ struct ScheduleEditScreen: View {
     private func limitFootnote(_ limit: Int) -> String {
         let amount = BlockSchedule.limitText(limit)
         if selectedMode?.kind == .allowOnly {
-            return "The block starts after \(amount) in what you choose under Counts, between the start and end time. To count all use, choose every category."
+            return "After \(amount) a day in what you choose under Counts, this mode turns on until the day ends or you tap your key. To count all phone use, choose every category."
         }
-        return "The block starts after \(amount) in the apps and sites this mode blocks, between the start and end time."
+        return "After \(amount) a day in the apps and sites this mode blocks, they are blocked until the day ends or you tap your key."
     }
     
     private func save() {
@@ -287,8 +311,10 @@ struct ScheduleEditScreen: View {
     }
     
     private func commit() {
-        let startMinute = Self.minute(of: start)
-        let endMinute = Self.minute(of: end)
+        let fullDay = isLimit && allDay
+        let startMinute = fullDay ? 0 : Self.minute(of: start)
+        let endMinute = fullDay ? 1439 : Self.minute(of: end)
+        let endsOnKey = isLimit ? false : endsOnKey
         if var updated = schedule {
             updated.name = trimmedName
             updated.modeID = modeID
@@ -297,7 +323,7 @@ struct ScheduleEditScreen: View {
             updated.weekdays = days
             updated.isOn = isOn
             updated.endsOnKey = endsOnKey
-            updated.dailyLimitMinutes = showsLimit ? limit : nil
+            updated.dailyLimitMinutes = isLimit ? limit : nil
             updated.limitCounts = needsLimitCounts ? limitCounts : FamilyActivitySelection()
             appState.updateSchedule(updated)
         } else {
@@ -309,7 +335,7 @@ struct ScheduleEditScreen: View {
                 modeID: modeID,
                 isOn: isOn,
                 endsOnKey: endsOnKey,
-                dailyLimitMinutes: showsLimit ? limit : nil,
+                dailyLimitMinutes: isLimit ? limit : nil,
                 limitCountsData: needsLimitCounts ? BlockSchedule.encodeLimitCounts(limitCounts) : nil
             ))
         }

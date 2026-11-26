@@ -193,7 +193,7 @@ struct AdvancedScreen: View {
                 SettingsGroup {
                     ToggleRow(
                         title: "Daily limits",
-                        subtitle: "Give a schedule an allowance, like 2 hours of social apps a day. The block starts once it is used up. Turning this off removes your limits.",
+                        subtitle: "Adds Daily limits to the Schedules tab, like 1 hour of social apps a day. Turning this off removes your limits.",
                         isOn: Binding(
                             get: { limitsOn },
                             set: { on in
