@@ -132,6 +132,9 @@ class AppState: ObservableObject {
         EmergencyUnblockManager.renewIfDue()
         emergencyStatus = EmergencyUnblockManager.status()
         checkAuthorization()
+        // The Monitor extension may have started or ended a block (schedule
+        // start, daily limit used up) while the app was in the background.
+        reconcile()
         reportCompletedBlocks()
         #if DEBUG
         Task { await Permissions.logStatuses() }
