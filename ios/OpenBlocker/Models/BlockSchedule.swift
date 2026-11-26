@@ -179,12 +179,3 @@ extension BlockSchedule {
         )
     }
 }
-
-/// Advanced setting: daily limits on schedules. Off by default.
-enum DailyLimits {
-    static let storageKey = "advanced.dailyLimits"
-    
-    static var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: storageKey)
-    }
-}

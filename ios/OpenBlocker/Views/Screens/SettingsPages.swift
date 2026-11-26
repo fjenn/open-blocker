@@ -182,32 +182,3 @@ struct NotificationsScreen: View {
         }
     }
 }
-
-struct AdvancedScreen: View {
-    @StateObject private var appState = AppState.shared
-    @State private var limitsOn = DailyLimits.isEnabled
-    
-    var body: some View {
-        PushedScreen(title: "Advanced") {
-            VStack(alignment: .leading, spacing: Space.m) {
-                SettingsGroup {
-                    ToggleRow(
-                        title: "Daily limits",
-                        subtitle: "Adds Daily limits to the Schedules tab, like 1 hour of social apps a day. Turning this off removes your limits.",
-                        isOn: Binding(
-                            get: { limitsOn },
-                            set: { on in
-                                appState.setDailyLimitsEnabled(on)
-                                limitsOn = on
-                            }
-                        ),
-                        accessibilityID: AccessibilityID.dailyLimitsToggle
-                    )
-                }
-                Spacer()
-            }
-            .padding(.horizontal, Space.margin)
-            .padding(.top, Space.xs)
-        }
-    }
-}
