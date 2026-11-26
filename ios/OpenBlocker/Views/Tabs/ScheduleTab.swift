@@ -3,7 +3,6 @@ import SwiftUI
 struct ScheduleTab: View {
     @ObservedObject var appState = AppState.shared
     @State private var editor: Editor?
-    @AppStorage(DailyLimits.storageKey) private var limitsEnabled = false
     
     /// What the sheet edits. One item, so the sheet never opens with a stale kind.
     private struct Editor: Identifiable {
@@ -22,9 +21,7 @@ struct ScheduleTab: View {
                     EmptyStateView(
                         systemImage: "calendar",
                         title: "No schedules yet",
-                        message: limitsEnabled
-                            ? "Block at set times, or after a daily allowance is used up."
-                            : "Block automatically at set times, every day or only on the days you pick."
+                        message: "Block at set times, or after a daily allowance is used up."
                     )
                     .frame(minHeight: 380)
                 } else {
@@ -54,25 +51,16 @@ struct ScheduleTab: View {
         }
     }
     
-    /// One create button. With daily limits on it asks which kind.
-    @ViewBuilder
+    /// One create button that asks which kind.
     private var createButton: some View {
-        if limitsEnabled {
-            Menu {
-                Button { edit(nil) } label: { Label("Schedule", systemImage: "calendar") }
-                Button { edit(nil, limit: true) } label: { Label("Daily limit", systemImage: "hourglass") }
-            } label: {
-                CreateButtonLabel(caption: "Create")
-            }
-            .accessibilityLabel("Create")
-            .accessibilityIdentifier("create-schedule-or-limit")
-        } else {
-            Button { edit(nil) } label: { CreateButtonLabel(caption: "Create schedule") }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Create schedule")
-                .accessibilityAddTraits(.isButton)
+        Menu {
+            Button { edit(nil) } label: { Label("Schedule", systemImage: "calendar") }
+            Button { edit(nil, limit: true) } label: { Label("Daily limit", systemImage: "hourglass") }
+        } label: {
+            CreateButtonLabel(caption: "Create")
         }
+        .accessibilityLabel("Create")
+        .accessibilityIdentifier("create-schedule-or-limit")
     }
     
     private func sectionHeader(_ title: String, first: Bool) -> some View {
