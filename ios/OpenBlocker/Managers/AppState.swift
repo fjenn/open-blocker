@@ -396,6 +396,7 @@ class AppState: ObservableObject {
         
         state.active = nil
         state.lastEnd = Date()
+        Reconcile.suppressActiveWindows(&state, config: config, at: Date())
         saveState()
         SessionNotify.notifyEnded()
         reconcile()

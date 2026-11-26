@@ -38,15 +38,13 @@ enum ScheduleMonitor {
         #endif
     }
     
-    /// One usage event for a daily-limit schedule: use of the block mode's
-    /// list, or of what the user picked to count for an allow-only mode.
+    /// One usage event for a daily limit: use of the limit's own apps.
     private static func limitEvents(
         for schedule: BlockSchedule,
         config: PolicyStore.Config
     ) -> [DeviceActivityEvent.Name: DeviceActivityEvent] {
-        guard let limit = config.dailyLimit(for: schedule),
-              let mode = schedule.modeID.flatMap({ config.mode($0) }) else { return [:] }
-        let sel = mode.kind == .block ? mode.selection : schedule.limitCounts
+        guard let limit = config.dailyLimit(for: schedule) else { return [:] }
+        let sel = schedule.limitApps
         let apps = sel.applicationTokens
         let categories = sel.categoryTokens
         let sites = sel.webDomainTokens

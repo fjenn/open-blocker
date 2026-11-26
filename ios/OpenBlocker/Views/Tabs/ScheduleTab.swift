@@ -151,16 +151,14 @@ struct ScheduleCard: View {
         guard let limit = schedule.dailyLimitMinutes else {
             return "\(schedule.timeRangeString) · \(schedule.daysString)"
         }
-        let allDay = schedule.startMinute == 0 && schedule.endMinute == 1439
-        let hours = allDay ? "" : " · \(schedule.timeRangeString)"
-        return "\(BlockSchedule.limitText(limit)) a day\(hours) · \(schedule.daysString)"
+        return "\(BlockSchedule.limitText(limit)) a day · \(schedule.daysString)"
     }
     
     private var modeLabel: String {
+        if schedule.isLimit {
+            return schedule.limitAppsSummary ?? "Choose apps to turn it on"
+        }
         if let id = schedule.modeID, let mode = appState.modes.first(where: { $0.id == id }) {
-            if schedule.dailyLimitMinutes != nil, schedule.effectiveLimit(mode: mode) == nil {
-                return "Mode: \(mode.name) · choose what counts"
-            }
             return "Mode: \(mode.name)"
         }
         return "Choose a mode to turn it on"

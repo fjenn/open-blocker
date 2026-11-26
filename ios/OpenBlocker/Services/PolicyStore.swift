@@ -72,15 +72,15 @@ enum PolicyStore {
             self.activeModeID = activeModeID
         }
         
+        /// A mode, or the block of a daily limit (whose `modeID` is its own id).
         func mode(_ id: UUID) -> BlockMode? {
             modes.first { $0.id == id }
+                ?? schedules.first { $0.id == id && $0.isLimit }?.limitMode
         }
         
-        /// The daily limit that actually applies. iOS can only count use of
-        /// chosen apps: block modes count their own list, allow-only modes
-        /// need the user to pick what counts (`limitCounts`).
+        /// The daily limit that actually applies (nil until apps are picked).
         func dailyLimit(for schedule: BlockSchedule) -> Int? {
-            schedule.effectiveLimit(mode: schedule.modeID.flatMap(mode))
+            schedule.effectiveLimit
         }
     }
     
@@ -143,6 +143,9 @@ enum PolicyStore {
         var lastEnd: Date?
         /// Schedule ID to the last time its daily limit was used up.
         var limitReached: [String: Date]?
+        /// Other windows that were active when the user unblocked. One unblock
+        /// ends everything, so each stays off until its own end.
+        var moreOverrides: [ScheduleOverride]?
         
         init(
             active: ActiveSession? = nil,

@@ -14,9 +14,9 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     var endsOnKey: Bool
     /// When set, the block only starts after this much use inside the window.
     var dailyLimitMinutes: Int?
-    /// Allow-only modes: the apps and categories whose use counts toward the
-    /// limit. Nil until the user picks some. Block modes count their own list.
-    var limitCountsData: Data?
+    /// Daily limits: the apps, categories and sites the limit counts and then
+    /// blocks. Nil until the user picks some. A limit's `modeID` is its own `id`.
+    var limitAppsData: Data?
     
     init(
         id: UUID = UUID(),
@@ -28,7 +28,7 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         isOn: Bool = false,
         endsOnKey: Bool = false,
         dailyLimitMinutes: Int? = nil,
-        limitCountsData: Data? = nil
+        limitAppsData: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -39,28 +39,44 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.isOn = isOn
         self.endsOnKey = endsOnKey
         self.dailyLimitMinutes = dailyLimitMinutes
-        self.limitCountsData = limitCountsData
+        self.limitAppsData = limitAppsData
     }
     
-    /// The limit that applies with this mode, or nil when nothing would be counted.
-    func effectiveLimit(mode: BlockMode?) -> Int? {
-        guard let limit = dailyLimitMinutes, let mode else { return nil }
-        switch mode.kind {
-        case .block: return limit
-        case .allowOnly: return limitCountsData == nil ? nil : limit
-        }
+    var isLimit: Bool { dailyLimitMinutes != nil }
+    
+    /// The limit that applies, or nil when no apps were picked to count.
+    var effectiveLimit: Int? {
+        limitAppsData == nil ? nil : dailyLimitMinutes
     }
     
-    var limitCounts: FamilyActivitySelection {
+    /// "3 apps, 1 category", or nil when nothing is picked.
+    var limitAppsSummary: String? { Self.summary(of: limitApps) }
+    
+    static func summary(of apps: FamilyActivitySelection) -> String? {
+        let n = apps.applicationTokens.count, c = apps.categoryTokens.count, w = apps.webDomainTokens.count
+        let parts = [
+            n > 0 ? "\(n) app\(n == 1 ? "" : "s")" : nil,
+            c > 0 ? "\(c) categor\(c == 1 ? "y" : "ies")" : nil,
+            w > 0 ? "\(w) website\(w == 1 ? "" : "s")" : nil,
+        ].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+    
+    /// The block a used-up limit applies: its own apps, as a block mode.
+    var limitMode: BlockMode {
+        BlockMode(id: id, name: name, kind: .block, selection: limitApps)
+    }
+    
+    var limitApps: FamilyActivitySelection {
         get {
-            limitCountsData.flatMap { try? JSONDecoder().decode(FamilyActivitySelection.self, from: $0) }
+            limitAppsData.flatMap { try? JSONDecoder().decode(FamilyActivitySelection.self, from: $0) }
                 ?? FamilyActivitySelection()
         }
-        set { limitCountsData = Self.encodeLimitCounts(newValue) }
+        set { limitAppsData = Self.encodeLimitApps(newValue) }
     }
     
     /// Nil for an empty selection, so "nothing picked" is one state.
-    static func encodeLimitCounts(_ selection: FamilyActivitySelection) -> Data? {
+    static func encodeLimitApps(_ selection: FamilyActivitySelection) -> Data? {
         let empty = selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty
             && selection.webDomainTokens.isEmpty
         return empty ? nil : try? JSONEncoder().encode(selection)
@@ -175,7 +191,7 @@ extension BlockSchedule {
             isOn: try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false,
             endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false,
             dailyLimitMinutes: try c.decodeIfPresent(Int.self, forKey: .dailyLimitMinutes),
-            limitCountsData: try c.decodeIfPresent(Data.self, forKey: .limitCountsData)
+            limitAppsData: try c.decodeIfPresent(Data.self, forKey: .limitAppsData)
         )
     }
 }
