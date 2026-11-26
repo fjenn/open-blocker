@@ -1,6 +1,7 @@
 // Adapted from Careful (MIT, (c) 2026 Alexander Montague): careful-ios/Shared/CarefulBlocker.swift
 
 import Foundation
+import os
 import FamilyControls
 import ManagedSettings
 
@@ -92,6 +93,31 @@ enum Reconcile {
         return .apply(session.modeID)
     }
     
+    /// DeviceActivity can call `intervalDidStart` a little before the exact
+    /// start minute. When the starting activity's window opens that soon,
+    /// treat it as open so the block starts on time instead of never.
+    static func monitorStartTime(
+        startingActivity: String,
+        config: PolicyStore.Config,
+        now: Date,
+        tolerance: TimeInterval = 120,
+        calendar: Calendar = .current
+    ) -> Date {
+        guard let schedule = config.schedules.first(where: { $0.id.uuidString == startingActivity }),
+              !schedule.isLimit else { return now }
+        let opensNow = ScheduleInterval.window(
+            startMinute: schedule.startMinute, endMinute: schedule.effectiveEndMinute,
+            weekdays: schedule.weekdays, at: now, calendar: calendar
+        ) != nil
+        if opensNow { return now }
+        let soon = now.addingTimeInterval(tolerance)
+        guard let span = ScheduleInterval.window(
+            startMinute: schedule.startMinute, endMinute: schedule.effectiveEndMinute,
+            weekdays: schedule.weekdays, at: soon, calendar: calendar
+        ), span.start > now else { return now }
+        return span.start
+    }
+    
     /// DeviceActivity can call `intervalDidEnd` a little before the exact end
     /// minute. When the ending activity is the active schedule and its end is
     /// that close, treat the end as reached so the block lifts on time.
@@ -120,7 +146,8 @@ enum Reconcile {
     static func reconcile(
         now: Date = Date(),
         config knownConfig: PolicyStore.Config? = nil,
-        endingActivity: String? = nil
+        endingActivity: String? = nil,
+        startingActivity: String? = nil
     ) -> BlockMode? {
         #if EXTENSION
         // Without the shared container the extension would read an empty
@@ -151,9 +178,13 @@ enum Reconcile {
         #endif
         #endif
         
-        let effectiveNow = monitorEndTime(endingActivity: endingActivity, state: state, now: now)
+        let effectiveNow = startingActivity.map {
+            monitorStartTime(startingActivity: $0, config: config, now: now)
+        } ?? monitorEndTime(endingActivity: endingActivity, state: state, now: now)
         
-        switch plan(config: config, state: state, now: effectiveNow, screenTime: screenTime) {
+        let decision = plan(config: config, state: state, now: effectiveNow, screenTime: screenTime)
+        ScheduleLog.log.notice("reconcile now=\(now, privacy: .public) effective=\(effectiveNow, privacy: .public) start=\(startingActivity ?? "-", privacy: .public) end=\(endingActivity ?? "-", privacy: .public) active=\(state.active != nil) override=\(state.override != nil) more=\(state.moreOverrides?.count ?? 0) schedulesOn=\(config.schedules.filter(\.isOn).count) plan=\(String(describing: decision), privacy: .public)")
+        switch decision {
         case .unchanged:
             break
         case .start(let session):
@@ -324,4 +355,10 @@ struct ScheduleWindow {
     let schedule: BlockSchedule
     let start: Date
     let end: Date
+}
+
+/// Shows up in the phone's system log (Console / `log collect`) under
+/// subsystem org.openblocker, so schedule problems can be diagnosed.
+enum ScheduleLog {
+    static let log = Logger(subsystem: "org.openblocker", category: "schedule")
 }

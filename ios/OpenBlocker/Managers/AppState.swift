@@ -260,10 +260,23 @@ class AppState: ObservableObject {
         reconcile()
     }
     
+    /// Adding, editing or turning on a schedule is a fresh choice: drop any
+    /// "unblocked until the end of this window" mark it carried.
+    private func clearUnblockMarks(for scheduleID: UUID) {
+        state = PolicyStore.loadState()
+        guard state.override?.scheduleID == scheduleID
+            || (state.moreOverrides ?? []).contains(where: { $0.scheduleID == scheduleID }) else { return }
+        if state.override?.scheduleID == scheduleID { state.override = nil }
+        state.moreOverrides?.removeAll { $0.scheduleID == scheduleID }
+        if state.moreOverrides?.isEmpty == true { state.moreOverrides = nil }
+        saveState()
+    }
+    
     func updateSchedule(_ schedule: BlockSchedule) {
         if let index = config.schedules.firstIndex(where: { $0.id == schedule.id }) {
             config.schedules[index] = schedule
             saveConfig()
+            if schedule.isOn && !schedule.isLimit { clearUnblockMarks(for: schedule.id) }
             reconcile()
         }
     }

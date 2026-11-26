@@ -8,7 +8,7 @@ import ManagedSettings
 final class MonitorExtension: DeviceActivityMonitor {
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        Reconcile.reconcile()
+        Reconcile.reconcile(startingActivity: activity.rawValue)
     }
     
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {

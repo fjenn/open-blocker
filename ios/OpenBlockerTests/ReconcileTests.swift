@@ -108,6 +108,18 @@ final class ReconcileTests: XCTestCase {
         }
     }
     
+    func testEarlyIntervalStartStillStartsTheSchedule() {
+        let config = config(startMinute: 15 * 60, endMinute: 16 * 60, weekdays: [5])
+        let early = date(2026, 1, 8, 14, 59).addingTimeInterval(30) // 14:59:30
+        let effective = Reconcile.monitorStartTime(startingActivity: scheduleID.uuidString, config: config, now: early, calendar: calendar)
+        XCTAssertEqual(effective, date(2026, 1, 8, 15, 0))
+        guard case .start = Reconcile.plan(config: config, state: PolicyStore.State(), now: effective, screenTime: .approved, calendar: calendar) else {
+            return XCTFail("a start signal 30 s early must still start the block")
+        }
+        let wayEarly = date(2026, 1, 8, 14, 50)
+        XCTAssertEqual(Reconcile.monitorStartTime(startingActivity: scheduleID.uuidString, config: config, now: wayEarly, calendar: calendar), wayEarly)
+    }
+    
     func testStateSavedBeforeDailyLimitsStillDecodes() throws {
         let old = try JSONEncoder().encode(PolicyStore.State())
         XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)
