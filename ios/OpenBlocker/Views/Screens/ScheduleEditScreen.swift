@@ -21,6 +21,11 @@ struct ScheduleEditScreen: View {
     @State private var pickingLimitCounts = false
     @State private var allDay: Bool
     @State private var confirmingDelete = false
+    @State private var nameNeedsAttention = false
+    @State private var nameShake = 0
+    @State private var countsNeedAttention = false
+    @State private var countsShake = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var deniedPermission: Permission?
     
     init(schedule: BlockSchedule? = nil, isLimit: Bool = false) {
@@ -60,13 +65,14 @@ struct ScheduleEditScreen: View {
     
     private var limitCountsSummary: String {
         let n = limitCounts.applicationTokens.count, c = limitCounts.categoryTokens.count
-        if n == 0 && c == 0 { return limitCountsEmpty ? "Choose" : "Websites" }
+        if n == 0 && c == 0 { return limitCountsEmpty ? "Choose apps" : "Websites" }
         return [c > 0 ? "\(c) categor\(c == 1 ? "y" : "ies")" : nil, n > 0 ? "\(n) app\(n == 1 ? "" : "s")" : nil]
             .compactMap { $0 }.joined(separator: ", ")
     }
     
+    /// A missing name or what-counts pick is shown on tap (shake + red), like key setup.
     private var canSave: Bool {
-        !trimmedName.isEmpty && modeID != nil && !days.isEmpty && !(needsLimitCounts && limitCountsEmpty)
+        modeID != nil && !days.isEmpty
     }
     
     var body: some View {
@@ -79,6 +85,20 @@ struct ScheduleEditScreen: View {
                 VStack(alignment: .leading, spacing: Space.s) {
                     SettingsGroup {
                         FormTextField(label: "Name", placeholder: isLimit ? "e.g. Social media" : "e.g. Work, Evenings", text: $name)
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.group, style: .continuous)
+                            .stroke(nameNeedsAttention ? Color.danger : Color.clear, lineWidth: 1.5)
+                    )
+                    .shake(trigger: nameShake, reducedMotion: reduceMotion)
+                    .onChange(of: name) { _ in
+                        if nameNeedsAttention { nameNeedsAttention = false }
+                    }
+                    if nameNeedsAttention {
+                        Text("Add a name")
+                            .textStyle(.footnote)
+                            .foregroundColor(Color.danger)
+                            .padding(.leading, Space.xxs)
                     }
                     
                     if isLimit {
@@ -108,7 +128,7 @@ struct ScheduleEditScreen: View {
                         .buttonStyle(.plain)
                         if needsLimitCounts {
                             HairlineDivider()
-                            FormRow(label: "Counts") {
+                            FormRow(label: "Time in") {
                                 Button {
                                     pickingLimitCounts = true
                                 } label: {
@@ -122,6 +142,20 @@ struct ScheduleEditScreen: View {
                                 .accessibilityIdentifier("limit-counts")
                             }
                         }
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.group, style: .continuous)
+                            .stroke(countsNeedAttention ? Color.danger : Color.clear, lineWidth: 1.5)
+                    )
+                    .shake(trigger: countsShake, reducedMotion: reduceMotion)
+                    .onChange(of: limitCounts) { _ in
+                        if countsNeedAttention { countsNeedAttention = false }
+                    }
+                    if countsNeedAttention {
+                        Text("Choose which apps' time uses up the limit")
+                            .textStyle(.footnote)
+                            .foregroundColor(Color.danger)
+                            .padding(.leading, Space.xxs)
                     }
                     if let limit, isLimit {
                         footnote(limitFootnote(limit))
@@ -300,14 +334,29 @@ struct ScheduleEditScreen: View {
     private func limitFootnote(_ limit: Int) -> String {
         let amount = BlockSchedule.limitText(limit)
         if selectedMode?.kind == .allowOnly {
-            return "After \(amount) a day in what you choose under Counts, this mode turns on until the day ends or you tap your key. To count all phone use, choose every category."
+            return "This mode only allows a few apps, so pick whose time counts under Time in. After \(amount) a day there, the mode turns on until the day ends or you tap your key. To count all phone use, choose every category."
         }
         return "After \(amount) a day in the apps and sites this mode blocks, they are blocked until the day ends or you tap your key."
     }
     
     private func save() {
+        if trimmedName.isEmpty {
+            nameNeedsAttention = true
+            nameShake += 1
+            return attentionFeedback("Add a name")
+        }
+        if needsLimitCounts && limitCountsEmpty {
+            countsNeedAttention = true
+            countsShake += 1
+            return attentionFeedback("Choose which apps' time uses up the limit")
+        }
         guard isOn else { return commit() }
         Permissions.whenGranted(.screenTime, denied: $deniedPermission, perform: commit)
+    }
+    
+    private func attentionFeedback(_ message: String) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIAccessibility.post(notification: .announcement, argument: message)
     }
     
     private func commit() {
