@@ -2,10 +2,15 @@ import SwiftUI
 
 struct ScheduleTab: View {
     @ObservedObject var appState = AppState.shared
-    @State private var showingEditor = false
-    @State private var editing: BlockSchedule?
-    @State private var editingLimit = false
+    @State private var editor: Editor?
     @AppStorage(DailyLimits.storageKey) private var limitsEnabled = false
+    
+    /// What the sheet edits. One item, so the sheet never opens with a stale kind.
+    private struct Editor: Identifiable {
+        let id = UUID()
+        let schedule: BlockSchedule?
+        let isLimit: Bool
+    }
     
     private var timed: [BlockSchedule] { appState.schedules.filter { $0.dailyLimitMinutes == nil } }
     private var limits: [BlockSchedule] { appState.schedules.filter { $0.dailyLimitMinutes != nil } }
@@ -13,20 +18,26 @@ struct ScheduleTab: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             TabScreen(title: "Schedules") {
-                if timed.isEmpty && !limitsEnabled {
+                if appState.schedules.isEmpty {
                     EmptyStateView(
                         systemImage: "calendar",
                         title: "No schedules yet",
-                        message: "Block automatically at set times, every day or only on the days you pick."
+                        message: limitsEnabled
+                            ? "Block at set times, or after a daily allowance is used up."
+                            : "Block automatically at set times, every day or only on the days you pick."
                     )
                     .frame(minHeight: 380)
                 } else {
                     VStack(alignment: .leading, spacing: Space.s) {
+                        // Headers only when both kinds are on screen.
+                        let headed = !timed.isEmpty && !limits.isEmpty
+                        if headed { sectionHeader("Schedules", first: true) }
                         ForEach(timed) { schedule in
                             ScheduleCard(schedule: schedule) { edit(schedule) }
                         }
-                        if limitsEnabled {
-                            limitsSection
+                        if headed { sectionHeader("Daily limits", first: false) }
+                        ForEach(limits) { schedule in
+                            ScheduleCard(schedule: schedule) { edit(schedule, limit: true) }
                         }
                     }
                     // Room for the floating create button.
@@ -34,81 +45,69 @@ struct ScheduleTab: View {
                 }
             }
             
-            CreateScheduleButton { edit(nil) }
+            createButton
                 .padding(.bottom, Space.l)
         }
         .accessibilityIdentifier(AccessibilityID.scheduleRoot)
-        .sheet(isPresented: $showingEditor) {
-            ScheduleEditScreen(schedule: editing, isLimit: editingLimit)
+        .sheet(item: $editor) { editor in
+            ScheduleEditScreen(schedule: editor.schedule, isLimit: editor.isLimit)
         }
     }
     
-    /// Daily limits: an allowance per day, then the mode blocks.
-    private var limitsSection: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            Text("Daily limits")
-                .textStyle(.subhead, weight: .semibold)
-                .foregroundColor(Color.inkSecondary)
-                .padding(.horizontal, Space.xxs)
-                .padding(.top, timed.isEmpty ? 0 : Space.m)
-            ForEach(limits) { schedule in
-                ScheduleCard(schedule: schedule) { edit(schedule, limit: true) }
+    /// One create button. With daily limits on it asks which kind.
+    @ViewBuilder
+    private var createButton: some View {
+        if limitsEnabled {
+            Menu {
+                Button { edit(nil) } label: { Label("Schedule", systemImage: "calendar") }
+                Button { edit(nil, limit: true) } label: { Label("Daily limit", systemImage: "hourglass") }
+            } label: {
+                CreateButtonLabel(caption: "Create")
             }
-            Button { edit(nil, limit: true) } label: {
-                HStack(spacing: Space.xs) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Add limit")
-                        .textStyle(.body, weight: .semibold)
-                }
-                .foregroundColor(Color.ink)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(CardBackground())
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityIdentifier("add-limit")
-            if limits.isEmpty {
-                Text("For example, 1 hour of social apps a day. Once it's used up, the mode blocks until the day ends or you tap your key.")
-                    .textStyle(.footnote)
-                    .foregroundColor(Color.inkSecondary)
-                    .padding(.horizontal, Space.xxs)
-            }
+            .accessibilityLabel("Create")
+            .accessibilityIdentifier("create-schedule-or-limit")
+        } else {
+            Button { edit(nil) } label: { CreateButtonLabel(caption: "Create schedule") }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Create schedule")
+                .accessibilityAddTraits(.isButton)
         }
+    }
+    
+    private func sectionHeader(_ title: String, first: Bool) -> some View {
+        Text(title)
+            .textStyle(.subhead, weight: .semibold)
+            .foregroundColor(Color.inkSecondary)
+            .padding(.horizontal, Space.xxs)
+            .padding(.top, first ? 0 : Space.m)
     }
     
     private func edit(_ schedule: BlockSchedule?, limit: Bool = false) {
-        editing = schedule
-        editingLimit = limit
-        showingEditor = true
+        editor = Editor(schedule: schedule, isLimit: limit)
     }
 }
 
-/// Floating "Create schedule" caption over a round plus button.
-private struct CreateScheduleButton: View {
-    let action: () -> Void
+/// Caption over a round plus button.
+private struct CreateButtonLabel: View {
+    let caption: String
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: Space.s) {
-                Text("Create schedule")
-                    .textStyle(.footnote)
-                    .foregroundColor(Color.inkSecondary)
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundColor(Color.ink)
-                    .frame(width: 52, height: 52)
-                    .background(
-                        Circle()
-                            .fill(Color.surfaceRaised)
-                            .shadow(color: Color.floatShadow, radius: 14, y: 6)
-                    )
-            }
-            .contentShape(Rectangle())
+        VStack(spacing: Space.s) {
+            Text(caption)
+                .textStyle(.footnote)
+                .foregroundColor(Color.inkSecondary)
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(Color.ink)
+                .frame(width: 52, height: 52)
+                .background(
+                    Circle()
+                        .fill(Color.surfaceRaised)
+                        .shadow(color: Color.floatShadow, radius: 14, y: 6)
+                )
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Create schedule")
-        .accessibilityAddTraits(.isButton)
+        .contentShape(Rectangle())
     }
 }
 
