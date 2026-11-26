@@ -4,11 +4,16 @@ struct ScheduleTab: View {
     @ObservedObject var appState = AppState.shared
     @State private var showingEditor = false
     @State private var editing: BlockSchedule?
+    @State private var editingLimit = false
+    @AppStorage(DailyLimits.storageKey) private var limitsEnabled = false
+    
+    private var timed: [BlockSchedule] { appState.schedules.filter { $0.dailyLimitMinutes == nil } }
+    private var limits: [BlockSchedule] { appState.schedules.filter { $0.dailyLimitMinutes != nil } }
     
     var body: some View {
         ZStack(alignment: .bottom) {
             TabScreen(title: "Schedules") {
-                if appState.schedules.isEmpty {
+                if timed.isEmpty && !limitsEnabled {
                     EmptyStateView(
                         systemImage: "calendar",
                         title: "No schedules yet",
@@ -16,9 +21,12 @@ struct ScheduleTab: View {
                     )
                     .frame(minHeight: 380)
                 } else {
-                    VStack(spacing: Space.s) {
-                        ForEach(appState.schedules) { schedule in
+                    VStack(alignment: .leading, spacing: Space.s) {
+                        ForEach(timed) { schedule in
                             ScheduleCard(schedule: schedule) { edit(schedule) }
+                        }
+                        if limitsEnabled {
+                            limitsSection
                         }
                     }
                     // Room for the floating create button.
@@ -31,12 +39,46 @@ struct ScheduleTab: View {
         }
         .accessibilityIdentifier(AccessibilityID.scheduleRoot)
         .sheet(isPresented: $showingEditor) {
-            ScheduleEditScreen(schedule: editing)
+            ScheduleEditScreen(schedule: editing, isLimit: editingLimit)
         }
     }
     
-    private func edit(_ schedule: BlockSchedule?) {
+    /// Daily limits: an allowance per day, then the mode blocks.
+    private var limitsSection: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text("Daily limits")
+                .textStyle(.subhead, weight: .semibold)
+                .foregroundColor(Color.inkSecondary)
+                .padding(.horizontal, Space.xxs)
+                .padding(.top, timed.isEmpty ? 0 : Space.m)
+            ForEach(limits) { schedule in
+                ScheduleCard(schedule: schedule) { edit(schedule, limit: true) }
+            }
+            Button { edit(nil, limit: true) } label: {
+                HStack(spacing: Space.xs) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Add limit")
+                        .textStyle(.body, weight: .semibold)
+                }
+                .foregroundColor(Color.ink)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .background(CardBackground())
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityIdentifier("add-limit")
+            if limits.isEmpty {
+                Text("For example, 1 hour of social apps a day. Once it's used up, the mode blocks until the day ends or you tap your key.")
+                    .textStyle(.footnote)
+                    .foregroundColor(Color.inkSecondary)
+                    .padding(.horizontal, Space.xxs)
+            }
+        }
+    }
+    
+    private func edit(_ schedule: BlockSchedule?, limit: Bool = false) {
         editing = schedule
+        editingLimit = limit
         showingEditor = true
     }
 }
@@ -83,7 +125,7 @@ struct ScheduleCard: View {
                     .textStyle(.body, weight: .semibold)
                     .foregroundColor(Color.ink)
                     .lineLimit(1)
-                Text("\(schedule.timeRangeString) · \(schedule.daysString)")
+                Text(subtitle)
                     .textStyle(.subhead)
                     .foregroundColor(Color.inkSecondary)
                     .lineLimit(1)
@@ -118,10 +160,21 @@ struct ScheduleCard: View {
         .permissionSheet($deniedPermission)
     }
     
+    private var subtitle: String {
+        guard let limit = schedule.dailyLimitMinutes else {
+            return "\(schedule.timeRangeString) · \(schedule.daysString)"
+        }
+        let allDay = schedule.startMinute == 0 && schedule.endMinute == 1439
+        let hours = allDay ? "" : " · \(schedule.timeRangeString)"
+        return "\(BlockSchedule.limitText(limit)) a day\(hours) · \(schedule.daysString)"
+    }
+    
     private var modeLabel: String {
         if let id = schedule.modeID, let mode = appState.modes.first(where: { $0.id == id }) {
-            let limit = schedule.effectiveLimit(mode: mode).map { " · after \(BlockSchedule.limitText($0)) of use" } ?? ""
-            return "Mode: \(mode.name)\(limit)"
+            if schedule.dailyLimitMinutes != nil, schedule.effectiveLimit(mode: mode) == nil {
+                return "Mode: \(mode.name) · choose what counts"
+            }
+            return "Mode: \(mode.name)"
         }
         return "Choose a mode to turn it on"
     }
