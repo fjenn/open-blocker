@@ -31,7 +31,9 @@ enum ScheduleMonitor {
                     during: activity,
                     events: limitEvents(for: schedule, config: config)
                 )
+                ScheduleLog.log.notice("monitoring \(schedule.id.uuidString, privacy: .public) \(schedule.startMinute)-\(schedule.effectiveEndMinute) limit=\(schedule.dailyLimitMinutes ?? 0)")
             } catch {
+                ScheduleLog.log.error("startMonitoring failed \(schedule.id.uuidString, privacy: .public): \(String(describing: error), privacy: .public)")
                 print("[ScheduleMonitor] startMonitoring failed: \(error)")
             }
         }
