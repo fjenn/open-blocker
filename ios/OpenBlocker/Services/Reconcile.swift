@@ -201,7 +201,27 @@ enum Reconcile {
         ) {
             next.override = override
         }
+        if reason == .key {
+            suppressActiveWindows(&next, config: config, at: time, calendar: calendar)
+        }
         return next
+    }
+    
+    /// One unblock ends everything: every schedule or limit active at `time`
+    /// stays off until its own end, so none of them re-arms the block.
+    static func suppressActiveWindows(
+        _ state: inout PolicyStore.State,
+        config: PolicyStore.Config,
+        at time: Date,
+        calendar: Calendar = .current
+    ) {
+        var list = (state.moreOverrides ?? []).filter { $0.until > time }
+        let windows = activeWindows(at: time, config: config, limitReached: state.limitReached ?? [:], calendar: calendar)
+        for window in windows where shouldStartSchedule(window, state: state, now: time) {
+            list.removeAll { $0.scheduleID == window.schedule.id }
+            list.append(ScheduleOverride(scheduleID: window.schedule.id, until: window.end))
+        }
+        state.moreOverrides = list.isEmpty ? nil : list
     }
     
     /// After a key ends a scheduled session early, suppress the rest of that
@@ -262,12 +282,14 @@ enum Reconcile {
                 at: now,
                 calendar: calendar
             ) else { continue }
-            guard config.dailyLimit(for: schedule) != nil else {
+            guard schedule.isLimit else {
                 windows.append(ScheduleWindow(schedule: schedule, start: span.start, end: span.end))
                 continue
             }
-            // A daily-limit schedule only blocks once its limit was used up in this window.
-            if let hit = limitReached[schedule.id.uuidString], hit >= span.start, hit <= now {
+            // A daily limit only blocks once it was used up in this window
+            // (and never without apps to count).
+            if config.dailyLimit(for: schedule) != nil,
+               let hit = limitReached[schedule.id.uuidString], hit >= span.start, hit <= now {
                 windows.append(ScheduleWindow(schedule: schedule, start: hit, end: span.end))
             }
         }
@@ -293,12 +315,8 @@ enum Reconcile {
         now: Date
     ) -> Bool {
         // Don't start if there's an override for this schedule that hasn't expired
-        if let override = state.override,
-           override.scheduleID == window.schedule.id,
-           override.until > now {
-            return false
-        }
-        return true
+        let overrides = [state.override].compactMap { $0 } + (state.moreOverrides ?? [])
+        return !overrides.contains { $0.scheduleID == window.schedule.id && $0.until > now }
     }
 }
 

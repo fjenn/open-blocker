@@ -17,14 +17,13 @@ struct ScheduleEditScreen: View {
     @State private var isOn: Bool
     @State private var endsOnKey: Bool
     @State private var limit: Int?
-    @State private var limitCounts: FamilyActivitySelection
-    @State private var pickingLimitCounts = false
-    @State private var allDay: Bool
+    @State private var limitApps: FamilyActivitySelection
+    @State private var pickingLimitApps = false
     @State private var confirmingDelete = false
     @State private var nameNeedsAttention = false
     @State private var nameShake = 0
-    @State private var countsNeedAttention = false
-    @State private var countsShake = 0
+    @State private var appsNeedAttention = false
+    @State private var appsShake = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var deniedPermission: Permission?
     
@@ -32,7 +31,6 @@ struct ScheduleEditScreen: View {
         self.schedule = schedule
         let isLimit = isLimit || schedule?.dailyLimitMinutes != nil
         self.isLimit = isLimit
-        _allDay = State(initialValue: schedule.map { $0.startMinute == 0 && $0.endMinute == 1439 } ?? true)
         _name = State(initialValue: schedule?.name ?? "")
         _modeID = State(initialValue: schedule?.modeID ?? AppState.shared.activeMode?.id)
         _start = State(initialValue: Self.date(forMinute: schedule?.startMinute ?? 9 * 60))
@@ -41,38 +39,26 @@ struct ScheduleEditScreen: View {
         _isOn = State(initialValue: schedule?.isOn ?? true)
         _endsOnKey = State(initialValue: schedule?.endsOnKey ?? false)
         _limit = State(initialValue: schedule?.dailyLimitMinutes ?? (isLimit ? 60 : nil))
-        _limitCounts = State(initialValue: schedule?.limitCounts ?? FamilyActivitySelection())
+        _limitApps = State(initialValue: schedule?.limitApps ?? FamilyActivitySelection())
     }
     
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    private var selectedMode: BlockMode? {
-        appState.modes.first { $0.id == modeID }
-    }
-    
-    /// Allow-only modes have no list to count, so the user picks one.
-    private var needsLimitCounts: Bool {
-        isLimit && selectedMode?.kind == .allowOnly
-    }
-    
     private var noun: String { isLimit ? "limit" : "schedule" }
     
-    private var limitCountsEmpty: Bool {
-        BlockSchedule.encodeLimitCounts(limitCounts) == nil
+    private var limitAppsEmpty: Bool {
+        BlockSchedule.encodeLimitApps(limitApps) == nil
     }
     
-    private var limitCountsSummary: String {
-        let n = limitCounts.applicationTokens.count, c = limitCounts.categoryTokens.count
-        if n == 0 && c == 0 { return limitCountsEmpty ? "Choose apps" : "Websites" }
-        return [c > 0 ? "\(c) categor\(c == 1 ? "y" : "ies")" : nil, n > 0 ? "\(n) app\(n == 1 ? "" : "s")" : nil]
-            .compactMap { $0 }.joined(separator: ", ")
+    private var limitAppsSummary: String {
+        BlockSchedule.summary(of: limitApps) ?? "Choose apps"
     }
     
-    /// A missing name or what-counts pick is shown on tap (shake + red), like key setup.
+    /// A missing name or app pick is shown on tap (shake + red), like key setup.
     private var canSave: Bool {
-        modeID != nil && !days.isEmpty
+        (isLimit || modeID != nil) && !days.isEmpty
     }
     
     var body: some View {
@@ -110,67 +96,13 @@ struct ScheduleEditScreen: View {
                         }
                     }
                     
-                    SettingsGroup {
-                        Menu {
-                            ForEach(appState.modes) { mode in
-                                Button(mode.name) { modeID = mode.id }
-                            }
-                        } label: {
-                            FormRow(label: "Mode") {
-                                HStack(spacing: 4) {
-                                    Text(selectedModeName)
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(Color.inkTertiary)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        if needsLimitCounts {
-                            HairlineDivider()
-                            FormRow(label: "Counted apps") {
-                                Button {
-                                    pickingLimitCounts = true
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Text(limitCountsSummary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 10, weight: .semibold))
-                                            .foregroundColor(Color.inkTertiary)
-                                    }
-                                }
-                                .accessibilityIdentifier("limit-counts")
-                            }
-                        }
-                    }
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Radius.group, style: .continuous)
-                            .stroke(countsNeedAttention ? Color.danger : Color.clear, lineWidth: 1.5)
-                    )
-                    .shake(trigger: countsShake, reducedMotion: reduceMotion)
-                    .onChange(of: limitCounts) { _ in
-                        if countsNeedAttention { countsNeedAttention = false }
-                    }
-                    if countsNeedAttention {
-                        Text("Choose which apps' time uses up the limit")
-                            .textStyle(.footnote)
-                            .foregroundColor(Color.danger)
-                            .padding(.leading, Space.xxs)
+                    if isLimit {
+                        appsGroup
+                    } else {
+                        modeGroup
                     }
                     if let limit, isLimit {
-                        footnote(limitFootnote(limit))
-                    }
-                    
-                    if isLimit {
-                        SettingsGroup {
-                            ToggleRow(title: "All day", isOn: $allDay.animation(Motion.quick))
-                            if !allDay {
-                                HairlineDivider()
-                                timeRow("From", selection: $start)
-                                HairlineDivider()
-                                timeRow("To", selection: $end)
-                            }
-                        }
+                        footnote("After \(BlockSchedule.limitText(limit)) a day in these apps, they're blocked until midnight or until you tap your key.")
                     }
                     
                     HStack {
@@ -216,7 +148,7 @@ struct ScheduleEditScreen: View {
             Button("Cancel", role: .cancel) {}
         }
         .permissionSheet($deniedPermission)
-        .familyActivityPicker(isPresented: $pickingLimitCounts, selection: $limitCounts)
+        .familyActivityPicker(isPresented: $pickingLimitApps, selection: $limitApps)
     }
     
     private var timesGroup: some View {
@@ -241,6 +173,60 @@ struct ScheduleEditScreen: View {
                 HairlineDivider()
                 timeRow("End time", selection: $end)
             }
+        }
+    }
+    
+    private var modeGroup: some View {
+        SettingsGroup {
+            Menu {
+                ForEach(appState.modes) { mode in
+                    Button(mode.name) { modeID = mode.id }
+                }
+            } label: {
+                FormRow(label: "Mode") {
+                    HStack(spacing: 4) {
+                        Text(selectedModeName)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Color.inkTertiary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    /// A limit's own apps: counted, then blocked once the time is used up.
+    @ViewBuilder
+    private var appsGroup: some View {
+        SettingsGroup {
+            FormRow(label: "Apps") {
+                Button {
+                    pickingLimitApps = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(limitAppsSummary)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Color.inkTertiary)
+                    }
+                }
+                .accessibilityIdentifier("limit-apps")
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.group, style: .continuous)
+                .stroke(appsNeedAttention ? Color.danger : Color.clear, lineWidth: 1.5)
+        )
+        .shake(trigger: appsShake, reducedMotion: reduceMotion)
+        .onChange(of: limitApps) { _ in
+            if appsNeedAttention { appsNeedAttention = false }
+        }
+        if appsNeedAttention {
+            Text("Choose the apps this limit counts")
+                .textStyle(.footnote)
+                .foregroundColor(Color.danger)
+                .padding(.leading, Space.xxs)
         }
     }
     
@@ -331,24 +317,16 @@ struct ScheduleEditScreen: View {
     }
     
     /// A schedule that's on blocks through Screen Time, so ask for it first.
-    private func limitFootnote(_ limit: Int) -> String {
-        let amount = BlockSchedule.limitText(limit)
-        if selectedMode?.kind == .allowOnly {
-            return "This mode only allows a few apps, so pick the counted apps: the ones whose time uses up the limit. After \(amount) a day there, the mode turns on until the day ends or you tap your key. To count all phone use, choose every category."
-        }
-        return "After \(amount) a day in the apps and sites this mode blocks, they are blocked until the day ends or you tap your key."
-    }
-    
     private func save() {
         if trimmedName.isEmpty {
             nameNeedsAttention = true
             nameShake += 1
             return attentionFeedback("Add a name")
         }
-        if needsLimitCounts && limitCountsEmpty {
-            countsNeedAttention = true
-            countsShake += 1
-            return attentionFeedback("Choose which apps' time uses up the limit")
+        if isLimit && limitAppsEmpty {
+            appsNeedAttention = true
+            appsShake += 1
+            return attentionFeedback("Choose the apps this limit counts")
         }
         guard isOn else { return commit() }
         Permissions.whenGranted(.screenTime, denied: $deniedPermission, perform: commit)
@@ -360,10 +338,14 @@ struct ScheduleEditScreen: View {
     }
     
     private func commit() {
-        let fullDay = isLimit && allDay
-        let startMinute = fullDay ? 0 : Self.minute(of: start)
-        let endMinute = fullDay ? 1439 : Self.minute(of: end)
+        // A limit always covers the whole day and starts fresh at midnight.
+        let startMinute = isLimit ? 0 : Self.minute(of: start)
+        let endMinute = isLimit ? 1439 : Self.minute(of: end)
         let endsOnKey = isLimit ? false : endsOnKey
+        let id = schedule?.id ?? UUID()
+        // A limit blocks its own apps, so it is its own mode.
+        let modeID = isLimit ? id : modeID
+        let appsData = isLimit ? BlockSchedule.encodeLimitApps(limitApps) : nil
         if var updated = schedule {
             updated.name = trimmedName
             updated.modeID = modeID
@@ -373,10 +355,11 @@ struct ScheduleEditScreen: View {
             updated.isOn = isOn
             updated.endsOnKey = endsOnKey
             updated.dailyLimitMinutes = isLimit ? limit : nil
-            updated.limitCounts = needsLimitCounts ? limitCounts : FamilyActivitySelection()
+            updated.limitAppsData = appsData
             appState.updateSchedule(updated)
         } else {
             appState.addSchedule(BlockSchedule(
+                id: id,
                 name: trimmedName,
                 weekdays: days,
                 startMinute: startMinute,
@@ -385,7 +368,7 @@ struct ScheduleEditScreen: View {
                 isOn: isOn,
                 endsOnKey: endsOnKey,
                 dailyLimitMinutes: isLimit ? limit : nil,
-                limitCountsData: needsLimitCounts ? BlockSchedule.encodeLimitCounts(limitCounts) : nil
+                limitAppsData: appsData
             ))
         }
         dismiss()
