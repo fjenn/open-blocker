@@ -146,6 +146,9 @@ enum PolicyStore {
         /// Other windows that were active when the user unblocked. One unblock
         /// ends everything, so each stays off until its own end.
         var moreOverrides: [ScheduleOverride]?
+        /// Schedule IDs whose own shield is on next to the active block
+        /// (two schedules or a schedule and a limit blocking at once).
+        var extraShields: [String]?
         
         init(
             active: ActiveSession? = nil,
