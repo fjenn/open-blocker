@@ -58,9 +58,11 @@ enum Reconcile {
             return .end(.scheduleEnd, at: end)
         }
         
+        // Check every active window: one that was ended by key today must not
+        // hide another schedule or limit that is also active now.
         if state.active == nil,
-           let window = activeWindow(at: now, config: config, limitReached: state.limitReached ?? [:], calendar: calendar),
-           shouldStartSchedule(window, state: state, now: now),
+           let window = activeWindows(at: now, config: config, limitReached: state.limitReached ?? [:], calendar: calendar)
+               .first(where: { shouldStartSchedule($0, state: state, now: now) && $0.schedule.modeID != nil }),
            let modeID = window.schedule.modeID {
             let session = ActiveSession(
                 modeID: modeID,
@@ -215,8 +217,8 @@ enum Reconcile {
     ) -> ScheduleOverride? {
         guard reason == .key else { return nil }
         guard case .schedule(let scheduleID) = session.source else { return nil }
-        let until = session.scheduleEnd ?? activeWindow(at: time, config: config, limitReached: limitReached, calendar: calendar)
-            .flatMap({ $0.schedule.id == scheduleID ? $0.end : nil })
+        let until = session.scheduleEnd ?? activeWindows(at: time, config: config, limitReached: limitReached, calendar: calendar)
+            .first(where: { $0.schedule.id == scheduleID })?.end
         guard let until else { return nil }
         return ScheduleOverride(scheduleID: scheduleID, until: until)
     }
@@ -244,13 +246,14 @@ enum Reconcile {
         }
     }
     
-    /// Find the active schedule window at a given time.
-    static func activeWindow(
+    /// Every schedule window active at a given time, in list order.
+    static func activeWindows(
         at now: Date,
         config: PolicyStore.Config,
         limitReached: [String: Date] = [:],
         calendar: Calendar = .current
-    ) -> ScheduleWindow? {
+    ) -> [ScheduleWindow] {
+        var windows: [ScheduleWindow] = []
         for schedule in config.schedules where schedule.isOn {
             guard let span = ScheduleInterval.window(
                 startMinute: schedule.startMinute,
@@ -260,14 +263,15 @@ enum Reconcile {
                 calendar: calendar
             ) else { continue }
             guard config.dailyLimit(for: schedule) != nil else {
-                return ScheduleWindow(schedule: schedule, start: span.start, end: span.end)
+                windows.append(ScheduleWindow(schedule: schedule, start: span.start, end: span.end))
+                continue
             }
             // A daily-limit schedule only blocks once its limit was used up in this window.
             if let hit = limitReached[schedule.id.uuidString], hit >= span.start, hit <= now {
-                return ScheduleWindow(schedule: schedule, start: hit, end: span.end)
+                windows.append(ScheduleWindow(schedule: schedule, start: hit, end: span.end))
             }
         }
-        return nil
+        return windows
     }
     
     /// Called by the Monitor extension when a schedule's daily limit is used up.

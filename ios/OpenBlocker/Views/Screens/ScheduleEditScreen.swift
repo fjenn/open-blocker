@@ -128,7 +128,7 @@ struct ScheduleEditScreen: View {
                         .buttonStyle(.plain)
                         if needsLimitCounts {
                             HairlineDivider()
-                            FormRow(label: "Time in") {
+                            FormRow(label: "Counted apps") {
                                 Button {
                                     pickingLimitCounts = true
                                 } label: {
@@ -334,7 +334,7 @@ struct ScheduleEditScreen: View {
     private func limitFootnote(_ limit: Int) -> String {
         let amount = BlockSchedule.limitText(limit)
         if selectedMode?.kind == .allowOnly {
-            return "This mode only allows a few apps, so pick whose time counts under Time in. After \(amount) a day there, the mode turns on until the day ends or you tap your key. To count all phone use, choose every category."
+            return "This mode only allows a few apps, so pick the counted apps: the ones whose time uses up the limit. After \(amount) a day there, the mode turns on until the day ends or you tap your key. To count all phone use, choose every category."
         }
         return "After \(amount) a day in the apps and sites this mode blocks, they are blocked until the day ends or you tap your key."
     }

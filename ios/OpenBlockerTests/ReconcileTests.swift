@@ -75,6 +75,19 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(Reconcile.plan(config: config, state: PolicyStore.State(), now: date(2026, 1, 8, 15, 0), screenTime: .approved, calendar: calendar), .unchanged, "waits for the limit")
     }
     
+    func testScheduleStartsWhenAnEarlierLimitWasEndedByKey() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60 // the limit, listed first
+        let later = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(later)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 10, 0)]
+        state.override = ScheduleOverride(scheduleID: scheduleID, until: date(2026, 1, 8, 23, 59))
+        let plan = Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 15, 1), screenTime: .approved, calendar: calendar)
+        guard case .start(let session) = plan else { return XCTFail("the 3 PM schedule must start, got \(plan)") }
+        XCTAssertEqual(session.source, .schedule(later.id))
+    }
+    
     func testStateSavedBeforeDailyLimitsStillDecodes() throws {
         let old = try JSONEncoder().encode(PolicyStore.State())
         XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)
