@@ -192,21 +192,55 @@ enum Reconcile {
             PolicyStore.save(state)
         case .end(let reason, let at):
             endSession(&state, config: config, reason: reason, at: at)
+            // Another schedule or limit may still be on: start it right away.
+            if case .start(let next) = plan(config: config, state: state, now: effectiveNow, screenTime: screenTime) {
+                state.active = next
+            }
             PolicyStore.save(state)
         }
         
+        let result: BlockMode?
         switch shieldAction(state: state, config: config) {
         case .apply(let modeID):
-            guard let mode = config.mode(modeID) else { return nil }
-            BlockEngine.apply(mode, rules: config.rules)
-            return mode
+            if let mode = config.mode(modeID) {
+                BlockEngine.apply(mode, rules: config.rules)
+            }
+            result = config.mode(modeID)
         case .keep:
             print("[Reconcile] active session's mode not found; keeping current shield")
-            return nil
+            result = nil
         case .clear:
             BlockEngine.clear()
-            return nil
+            result = nil
         }
+        
+        // Everything else that is on right now blocks too.
+        let extras = extraWindows(state: state, config: config, now: effectiveNow).compactMap { window in
+            window.schedule.modeID.flatMap(config.mode).map { (id: window.schedule.id.uuidString, mode: $0) }
+        }
+        let previous = state.extraShields ?? []
+        BlockEngine.applyExtras(extras, rules: config.rules, previous: previous)
+        let ids = extras.map(\.id)
+        if ids != previous {
+            state.extraShields = ids.isEmpty ? nil : ids
+            PolicyStore.save(state)
+        }
+        return result
+    }
+    
+    /// Schedules and limits that are on now next to the active block. Each
+    /// adds its own shield; one unblock suppresses them all.
+    static func extraWindows(
+        state: PolicyStore.State,
+        config: PolicyStore.Config,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> [ScheduleWindow] {
+        guard let session = state.active else { return [] }
+        var ownID: UUID?
+        if case .schedule(let id) = session.source { ownID = id }
+        return activeWindows(at: now, config: config, limitReached: state.limitReached ?? [:], calendar: calendar)
+            .filter { $0.schedule.id != ownID && $0.schedule.modeID != nil && shouldStartSchedule($0, state: state, now: now) }
     }
     
     /// Pure: clear the active session and, for a key end of a scheduled window,

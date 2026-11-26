@@ -120,6 +120,26 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(Reconcile.monitorStartTime(startingActivity: scheduleID.uuidString, config: config, now: wayEarly, calendar: calendar), wayEarly)
     }
     
+    func testScheduleStartingDuringALimitBlockAlsoBlocks() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let night = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(night)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 14, 0)]
+        guard case .start(let limitBlock) = Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 14, 30), screenTime: .approved, calendar: calendar) else {
+            return XCTFail("limit should block")
+        }
+        state.active = limitBlock
+        XCTAssertTrue(Reconcile.extraWindows(state: state, config: config, now: date(2026, 1, 8, 14, 30), calendar: calendar).isEmpty)
+        let extras = Reconcile.extraWindows(state: state, config: config, now: date(2026, 1, 8, 15, 1), calendar: calendar)
+        XCTAssertEqual(extras.map(\.schedule.id), [night.id], "the schedule blocks next to the limit")
+        
+        let ended = Reconcile.ending(state, config: config, reason: .key, at: date(2026, 1, 8, 15, 5), calendar: calendar)!
+        XCTAssertEqual(Reconcile.plan(config: config, state: ended, now: date(2026, 1, 8, 15, 6), screenTime: .approved, calendar: calendar), .unchanged)
+    }
+    
     func testStateSavedBeforeDailyLimitsStillDecodes() throws {
         let old = try JSONEncoder().encode(PolicyStore.State())
         XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)
