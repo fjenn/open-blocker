@@ -15,7 +15,10 @@ enum ScheduleMonitor {
         let center = DeviceActivityCenter()
         center.stopMonitoring()
         
-        for schedule in config.schedules where schedule.isOn {
+        // Keep watching anything still blocking, even if switched off, so
+        // its block still lifts on time.
+        let blocking = Reconcile.blockingIDs(PolicyStore.loadState())
+        for schedule in config.schedules where schedule.isOn || blocking.contains(schedule.id.uuidString) {
             let bounds = ScheduleInterval.deviceActivityBounds(
                 startMinute: schedule.startMinute,
                 endMinute: schedule.effectiveEndMinute

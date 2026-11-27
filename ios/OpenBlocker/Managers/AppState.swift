@@ -281,6 +281,12 @@ class AppState: ObservableObject {
         }
     }
     
+    /// True while this schedule or limit is blocking: it can't be switched
+    /// off, edited or deleted until it ends or the key is used.
+    func isBlocking(by schedule: BlockSchedule) -> Bool {
+        Reconcile.blockingIDs(state).contains(schedule.id.uuidString)
+    }
+    
     func deleteSchedule(_ schedule: BlockSchedule) {
         config.schedules.removeAll { $0.id == schedule.id }
         saveConfig()
