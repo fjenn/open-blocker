@@ -44,6 +44,133 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(plan, .end(.accessRevoked, at: date(2026, 1, 8, 11, 0)))
     }
     
+    func testDailyLimitScheduleBlocksOnlyAfterLimitReachedToday() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 120
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let now = date(2026, 1, 8, 15, 0)
+        func plan(_ reached: [String: Date]?) -> Reconcile.Plan {
+            var state = PolicyStore.State()
+            state.limitReached = reached
+            return Reconcile.plan(config: config, state: state, now: now, screenTime: .approved, calendar: calendar)
+        }
+        XCTAssertEqual(plan(nil), .unchanged)
+        XCTAssertEqual(plan([scheduleID.uuidString: date(2026, 1, 7, 20, 0)]), .unchanged, "yesterday's limit must not block today")
+        guard case .start(let session) = plan([scheduleID.uuidString: date(2026, 1, 8, 14, 0)]) else {
+            return XCTFail("expected start once the limit is reached")
+        }
+        XCTAssertEqual(session.startedAt, date(2026, 1, 8, 14, 0))
+        XCTAssertEqual(session.scheduleEnd, date(2026, 1, 8, 23, 59))
+    }
+    
+    func testLimitWithoutAppsNeverBlocks() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 120
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 10, 0)]
+        XCTAssertNil(config.dailyLimit(for: config.schedules[0]))
+        XCTAssertEqual(Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 15, 0), screenTime: .approved, calendar: calendar), .unchanged)
+    }
+    
+    func testScheduleStartsWhenAnEarlierLimitWasEndedByKey() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60 // the limit, listed first
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let later = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(later)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 10, 0)]
+        state.override = ScheduleOverride(scheduleID: scheduleID, until: date(2026, 1, 8, 23, 59))
+        let plan = Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 15, 1), screenTime: .approved, calendar: calendar)
+        guard case .start(let session) = plan else { return XCTFail("the 3 PM schedule must start, got \(plan)") }
+        XCTAssertEqual(session.source, .schedule(later.id))
+    }
+    
+    func testKeyEndsLimitAndScheduleActiveTogether() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let night = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(night)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 14, 0)]
+        let now = date(2026, 1, 8, 15, 5)
+        guard case .start(let session) = Reconcile.plan(config: config, state: state, now: now, screenTime: .approved, calendar: calendar) else {
+            return XCTFail("expected a block")
+        }
+        state.active = session
+        guard let ended = Reconcile.ending(state, config: config, reason: .key, at: now, calendar: calendar) else {
+            return XCTFail("expected the key to end it")
+        }
+        XCTAssertEqual(Reconcile.plan(config: config, state: ended, now: now.addingTimeInterval(60), screenTime: .approved, calendar: calendar), .unchanged, "one key tap ends the limit and the schedule")
+        guard case .start = Reconcile.plan(config: config, state: ended, now: date(2026, 1, 15, 15, 5), screenTime: .approved, calendar: calendar) else {
+            return XCTFail("next week's window starts again")
+        }
+    }
+    
+    func testEarlyIntervalStartStillStartsTheSchedule() {
+        let config = config(startMinute: 15 * 60, endMinute: 16 * 60, weekdays: [5])
+        let early = date(2026, 1, 8, 14, 59).addingTimeInterval(30) // 14:59:30
+        let effective = Reconcile.monitorStartTime(startingActivity: scheduleID.uuidString, config: config, now: early, calendar: calendar)
+        XCTAssertEqual(effective, date(2026, 1, 8, 15, 0))
+        guard case .start = Reconcile.plan(config: config, state: PolicyStore.State(), now: effective, screenTime: .approved, calendar: calendar) else {
+            return XCTFail("a start signal 30 s early must still start the block")
+        }
+        let wayEarly = date(2026, 1, 8, 14, 50)
+        XCTAssertEqual(Reconcile.monitorStartTime(startingActivity: scheduleID.uuidString, config: config, now: wayEarly, calendar: calendar), wayEarly)
+    }
+    
+    func testScheduleStartingDuringALimitBlockAlsoBlocks() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let night = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(night)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 14, 0)]
+        guard case .start(let limitBlock) = Reconcile.plan(config: config, state: state, now: date(2026, 1, 8, 14, 30), screenTime: .approved, calendar: calendar) else {
+            return XCTFail("limit should block")
+        }
+        state.active = limitBlock
+        XCTAssertTrue(Reconcile.extraWindows(state: state, config: config, now: date(2026, 1, 8, 14, 30), calendar: calendar).isEmpty)
+        let extras = Reconcile.extraWindows(state: state, config: config, now: date(2026, 1, 8, 15, 1), calendar: calendar)
+        XCTAssertEqual(extras.map(\.schedule.id), [night.id], "the schedule blocks next to the limit")
+        
+        let ended = Reconcile.ending(state, config: config, reason: .key, at: date(2026, 1, 8, 15, 5), calendar: calendar)!
+        XCTAssertEqual(Reconcile.plan(config: config, state: ended, now: date(2026, 1, 8, 15, 6), screenTime: .approved, calendar: calendar), .unchanged)
+    }
+    
+    func testSwitchingOffABlockingLimitDoesNotLiftIt() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let night = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(night)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 14, 0)]
+        // The schedule is the main block, the limit blocks next to it.
+        state.active = ActiveSession(modeID: modeID, source: .schedule(night.id), startedAt: date(2026, 1, 8, 15, 0), scheduleEnd: date(2026, 1, 8, 16, 0))
+        state.extraShields = [scheduleID.uuidString]
+        config.schedules[0].isOn = false
+        let extras = Reconcile.extraWindows(state: state, config: config, now: date(2026, 1, 8, 15, 10), calendar: calendar)
+        XCTAssertEqual(extras.map(\.schedule.id), [scheduleID], "a limit switched off while blocking keeps blocking")
+        
+        // The limit as the main block, switched off: the session stays.
+        var alone = PolicyStore.State()
+        alone.limitReached = state.limitReached
+        alone.active = ActiveSession(modeID: scheduleID, source: .schedule(scheduleID), startedAt: date(2026, 1, 8, 14, 0), scheduleEnd: date(2026, 1, 8, 23, 59))
+        XCTAssertEqual(Reconcile.plan(config: config, state: alone, now: date(2026, 1, 8, 14, 30), screenTime: .approved, calendar: calendar), .unchanged)
+        
+        // The key still ends it, and it stays off.
+        let ended = Reconcile.ending(state, config: config, reason: .key, at: date(2026, 1, 8, 15, 20), calendar: calendar)!
+        XCTAssertTrue((ended.moreOverrides ?? []).contains { $0.scheduleID == scheduleID })
+    }
+    
+    func testStateSavedBeforeDailyLimitsStillDecodes() throws {
+        let old = try JSONEncoder().encode(PolicyStore.State())
+        XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)
+    }
+    
     func testSameDayScheduleStartsInsideWindow() {
         let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
         let now = date(2026, 1, 8, 10, 0)
@@ -336,7 +463,7 @@ final class ReconcileTests: XCTestCase {
         }
     }
     
-    func testKeyUnblockOfManualSessionDoesNotSetScheduleOverride() {
+    func testKeyUnblockOfManualSessionAlsoEndsActiveSchedule() {
         let config = config(startMinute: 9 * 60, endMinute: 17 * 60, weekdays: [5])
         let ended = Reconcile.ending(
             PolicyStore.State(active: ActiveSession(
@@ -352,7 +479,7 @@ final class ReconcileTests: XCTestCase {
         XCTAssertNil(ended.active)
         XCTAssertNil(ended.override)
         
-        // A live schedule window with no override should still start.
+        // One unblock ends everything: the live schedule window stays off until its end.
         let plan = Reconcile.plan(
             config: config,
             state: ended,
@@ -360,8 +487,9 @@ final class ReconcileTests: XCTestCase {
             screenTime: .approved,
             calendar: calendar
         )
-        guard case .start = plan else {
-            return XCTFail("ending a manual session must not suppress an active schedule, got \(plan)")
+        XCTAssertEqual(plan, .unchanged, "the key ended the schedule's window too")
+        guard case .start = Reconcile.plan(config: config, state: ended, now: date(2026, 1, 15, 10, 0), screenTime: .approved, calendar: calendar) else {
+            return XCTFail("next week's window starts again")
         }
     }
     

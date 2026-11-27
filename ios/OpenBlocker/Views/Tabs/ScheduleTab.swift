@@ -2,8 +2,18 @@ import SwiftUI
 
 struct ScheduleTab: View {
     @ObservedObject var appState = AppState.shared
-    @State private var showingEditor = false
-    @State private var editing: BlockSchedule?
+    @State private var editor: Editor?
+    @State private var toast: String?
+    
+    /// What the sheet edits. One item, so the sheet never opens with a stale kind.
+    private struct Editor: Identifiable {
+        let id = UUID()
+        let schedule: BlockSchedule?
+        let isLimit: Bool
+    }
+    
+    private var timed: [BlockSchedule] { appState.schedules.filter { $0.dailyLimitMinutes == nil } }
+    private var limits: [BlockSchedule] { appState.schedules.filter { $0.dailyLimitMinutes != nil } }
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -12,13 +22,20 @@ struct ScheduleTab: View {
                     EmptyStateView(
                         systemImage: "calendar",
                         title: "No schedules yet",
-                        message: "Block automatically at set times, every day or only on the days you pick."
+                        message: "Block at set times, or after a daily allowance is used up."
                     )
                     .frame(minHeight: 380)
                 } else {
-                    VStack(spacing: Space.s) {
-                        ForEach(appState.schedules) { schedule in
-                            ScheduleCard(schedule: schedule) { edit(schedule) }
+                    VStack(alignment: .leading, spacing: Space.s) {
+                        // Headers only when both kinds are on screen.
+                        let headed = !timed.isEmpty && !limits.isEmpty
+                        if headed { sectionHeader("Schedules", first: true) }
+                        ForEach(timed) { schedule in
+                            ScheduleCard(schedule: schedule, toast: $toast) { edit(schedule) }
+                        }
+                        if headed { sectionHeader("Daily limits", first: false) }
+                        ForEach(limits) { schedule in
+                            ScheduleCard(schedule: schedule, toast: $toast) { edit(schedule, limit: true) }
                         }
                     }
                     // Room for the floating create button.
@@ -26,52 +43,72 @@ struct ScheduleTab: View {
                 }
             }
             
-            CreateScheduleButton { edit(nil) }
+            createButton
                 .padding(.bottom, Space.l)
         }
         .accessibilityIdentifier(AccessibilityID.scheduleRoot)
-        .sheet(isPresented: $showingEditor) {
-            ScheduleEditScreen(schedule: editing)
+        .toast($toast)
+        .sheet(item: $editor) { editor in
+            ScheduleEditScreen(schedule: editor.schedule, isLimit: editor.isLimit)
         }
     }
     
-    private func edit(_ schedule: BlockSchedule?) {
-        editing = schedule
-        showingEditor = true
+    /// One create button that asks which kind.
+    private var createButton: some View {
+        Menu {
+            Button { edit(nil) } label: { Label("Schedule", systemImage: "calendar") }
+            Button { edit(nil, limit: true) } label: { Label("Daily limit", systemImage: "hourglass") }
+        } label: {
+            CreateButtonLabel(caption: "Create")
+        }
+        .accessibilityLabel("Create")
+        .accessibilityIdentifier("create-schedule-or-limit")
+    }
+    
+    private func sectionHeader(_ title: String, first: Bool) -> some View {
+        Text(title)
+            .textStyle(.subhead, weight: .semibold)
+            .foregroundColor(Color.inkSecondary)
+            .padding(.horizontal, Space.xxs)
+            .padding(.top, first ? 0 : Space.m)
+    }
+    
+    private func edit(_ schedule: BlockSchedule?, limit: Bool = false) {
+        if let schedule, appState.isBlocking(by: schedule) {
+            toast = ScheduleCard.lockedMessage
+            return
+        }
+        editor = Editor(schedule: schedule, isLimit: limit)
     }
 }
 
-/// Floating "Create schedule" caption over a round plus button.
-private struct CreateScheduleButton: View {
-    let action: () -> Void
+/// Caption over a round plus button.
+private struct CreateButtonLabel: View {
+    let caption: String
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: Space.s) {
-                Text("Create schedule")
-                    .textStyle(.footnote)
-                    .foregroundColor(Color.inkSecondary)
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundColor(Color.ink)
-                    .frame(width: 52, height: 52)
-                    .background(
-                        Circle()
-                            .fill(Color.surfaceRaised)
-                            .shadow(color: Color.floatShadow, radius: 14, y: 6)
-                    )
-            }
-            .contentShape(Rectangle())
+        VStack(spacing: Space.s) {
+            Text(caption)
+                .textStyle(.footnote)
+                .foregroundColor(Color.inkSecondary)
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(Color.ink)
+                .frame(width: 52, height: 52)
+                .background(
+                    Circle()
+                        .fill(Color.surfaceRaised)
+                        .shadow(color: Color.floatShadow, radius: 14, y: 6)
+                )
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Create schedule")
-        .accessibilityAddTraits(.isButton)
+        .contentShape(Rectangle())
     }
 }
 
 struct ScheduleCard: View {
+    static let lockedMessage = "It's blocking right now. Scan your key to unblock."
     let schedule: BlockSchedule
+    @Binding var toast: String?
     var onEdit: () -> Void
     @ObservedObject var appState = AppState.shared
     @State private var deniedPermission: Permission?
@@ -83,7 +120,7 @@ struct ScheduleCard: View {
                     .textStyle(.body, weight: .semibold)
                     .foregroundColor(Color.ink)
                     .lineLimit(1)
-                Text("\(schedule.timeRangeString) · \(schedule.daysString)")
+                Text(subtitle)
                     .textStyle(.subhead)
                     .foregroundColor(Color.inkSecondary)
                     .lineLimit(1)
@@ -98,6 +135,10 @@ struct ScheduleCard: View {
                 get: { schedule.isOn && schedule.modeID != nil },
                 set: { on in
                     var updated = schedule
+                    if !on && appState.isBlocking(by: schedule) {
+                        toast = Self.lockedMessage
+                        return
+                    }
                     updated.isOn = on
                     guard on else { return appState.updateSchedule(updated) }
                     Permissions.whenGranted(.screenTime, denied: $deniedPermission) {
@@ -118,7 +159,17 @@ struct ScheduleCard: View {
         .permissionSheet($deniedPermission)
     }
     
+    private var subtitle: String {
+        guard let limit = schedule.dailyLimitMinutes else {
+            return "\(schedule.timeRangeString) · \(schedule.daysString)"
+        }
+        return "\(BlockSchedule.limitText(limit)) a day · \(schedule.daysString)"
+    }
+    
     private var modeLabel: String {
+        if schedule.isLimit {
+            return schedule.limitAppsSummary ?? "Choose apps to turn it on"
+        }
         if let id = schedule.modeID, let mode = appState.modes.first(where: { $0.id == id }) {
             return "Mode: \(mode.name)"
         }

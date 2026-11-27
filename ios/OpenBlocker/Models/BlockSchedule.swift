@@ -1,6 +1,7 @@
 // Adapted from Foqos (MIT, (c) 2024 Ali Waseem): Foqos/Models/Schedule.swift
 
 import Foundation
+import FamilyControls
 
 struct BlockSchedule: Identifiable, Codable, Equatable {
     let id: UUID
@@ -11,6 +12,11 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
     var modeID: UUID?
     var isOn: Bool
     var endsOnKey: Bool
+    /// When set, the block only starts after this much use inside the window.
+    var dailyLimitMinutes: Int?
+    /// Daily limits: the apps, categories and sites the limit counts and then
+    /// blocks. Nil until the user picks some. A limit's `modeID` is its own `id`.
+    var limitAppsData: Data?
     
     init(
         id: UUID = UUID(),
@@ -20,7 +26,9 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         endMinute: Int,
         modeID: UUID? = nil,
         isOn: Bool = false,
-        endsOnKey: Bool = false
+        endsOnKey: Bool = false,
+        dailyLimitMinutes: Int? = nil,
+        limitAppsData: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -30,12 +38,66 @@ struct BlockSchedule: Identifiable, Codable, Equatable {
         self.modeID = modeID
         self.isOn = isOn
         self.endsOnKey = endsOnKey
+        self.dailyLimitMinutes = dailyLimitMinutes
+        self.limitAppsData = limitAppsData
+    }
+    
+    var isLimit: Bool { dailyLimitMinutes != nil }
+    
+    /// The limit that applies, or nil when no apps were picked to count.
+    var effectiveLimit: Int? {
+        limitAppsData == nil ? nil : dailyLimitMinutes
+    }
+    
+    /// "3 apps, 1 category", or nil when nothing is picked.
+    var limitAppsSummary: String? { Self.summary(of: limitApps) }
+    
+    static func summary(of apps: FamilyActivitySelection) -> String? {
+        let n = apps.applicationTokens.count, c = apps.categoryTokens.count, w = apps.webDomainTokens.count
+        let parts = [
+            n > 0 ? "\(n) app\(n == 1 ? "" : "s")" : nil,
+            c > 0 ? "\(c) categor\(c == 1 ? "y" : "ies")" : nil,
+            w > 0 ? "\(w) website\(w == 1 ? "" : "s")" : nil,
+        ].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+    
+    /// The block a used-up limit applies: its own apps, as a block mode.
+    var limitMode: BlockMode {
+        BlockMode(id: id, name: name, kind: .block, selection: limitApps)
+    }
+    
+    var limitApps: FamilyActivitySelection {
+        get {
+            limitAppsData.flatMap { try? JSONDecoder().decode(FamilyActivitySelection.self, from: $0) }
+                ?? FamilyActivitySelection()
+        }
+        set { limitAppsData = Self.encodeLimitApps(newValue) }
+    }
+    
+    /// Nil for an empty selection, so "nothing picked" is one state.
+    static func encodeLimitApps(_ selection: FamilyActivitySelection) -> Data? {
+        let empty = selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty
+            && selection.webDomainTokens.isEmpty
+        return empty ? nil : try? JSONEncoder().encode(selection)
     }
     
     /// End minute used for scheduling. Open-ended schedules span a full day
     /// (start + 1439) so DeviceActivity and Reconcile agree on the window.
     var effectiveEndMinute: Int {
         endsOnKey ? (startMinute + 1439) % 1440 : endMinute
+    }
+    
+    #if DEBUG
+    static let limitChoices = [1, 15, 30, 45, 60, 90, 120, 180, 240] // 1 min: device testing only
+    #else
+    static let limitChoices = [15, 30, 45, 60, 90, 120, 180, 240]
+    #endif
+    
+    /// "45 min", "2 hr", "1 hr 30 min".
+    static func limitText(_ minutes: Int) -> String {
+        let h = minutes / 60, m = minutes % 60
+        return [h > 0 ? "\(h) hr" : nil, m > 0 ? "\(m) min" : nil].compactMap { $0 }.joined(separator: " ")
     }
     
     static func formatClock(_ minute: Int) -> String {
@@ -127,7 +189,9 @@ extension BlockSchedule {
             endMinute: try c.decode(Int.self, forKey: .endMinute),
             modeID: try c.decodeIfPresent(UUID.self, forKey: .modeID),
             isOn: try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false,
-            endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false
+            endsOnKey: try c.decodeIfPresent(Bool.self, forKey: .endsOnKey) ?? false,
+            dailyLimitMinutes: try c.decodeIfPresent(Int.self, forKey: .dailyLimitMinutes),
+            limitAppsData: try c.decodeIfPresent(Data.self, forKey: .limitAppsData)
         )
     }
 }

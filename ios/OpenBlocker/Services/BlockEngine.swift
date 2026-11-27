@@ -11,6 +11,36 @@ enum BlockEngine {
         #if targetEnvironment(simulator)
         return
         #else
+        shield(mode, in: store, rules: rules)
+        // Rules
+        store.application.denyAppRemoval = rules.preventDelete
+        store.application.denyAppInstallation = rules.blockInstalls
+        store.appStore.denyInAppPurchases = rules.blockPurchases
+        #endif
+    }
+    
+    /// Extra blocks running at the same time as the main one each get their
+    /// own store; iOS enforces the union of all stores' shields.
+    static func applyExtras(_ extras: [(id: String, mode: BlockMode)], rules: Rules, previous: [String]) {
+        #if targetEnvironment(simulator)
+        return
+        #else
+        let keep = Set(extras.map(\.id))
+        for id in previous where !keep.contains(id) {
+            extraStore(id).clearAllSettings()
+        }
+        for extra in extras {
+            shield(extra.mode, in: extraStore(extra.id), rules: rules)
+        }
+        #endif
+    }
+    
+    private static func extraStore(_ id: String) -> ManagedSettingsStore {
+        ManagedSettingsStore(named: .init("openblocker.extra.\(id)"))
+    }
+    
+    private static func shield(_ mode: BlockMode, in store: ManagedSettingsStore, rules: Rules) {
+        #if !targetEnvironment(simulator)
         let sel = mode.selection
         
         switch mode.kind {
@@ -37,11 +67,6 @@ enum BlockEngine {
         } else {
             store.webContent.blockedByFilter = nil
         }
-        
-        // Rules
-        store.application.denyAppRemoval = rules.preventDelete
-        store.application.denyAppInstallation = rules.blockInstalls
-        store.appStore.denyInAppPurchases = rules.blockPurchases
         #endif
     }
     

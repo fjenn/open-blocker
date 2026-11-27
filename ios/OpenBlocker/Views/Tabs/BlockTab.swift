@@ -286,6 +286,7 @@ struct BlockTab: View {
     }
     
     private func applyScannedKey(_ scannedKey: ScannedKey) {
+        appState.reconcile() // a block may have started while the app was open
         guard let matchedKey = appState.matchKey(scannedKey) else {
             UINotificationFeedbackGenerator().notificationOccurred(.error)
             toast = appState.isBlocking

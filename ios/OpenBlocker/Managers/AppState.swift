@@ -62,8 +62,8 @@ class AppState: ObservableObject {
         
         checkAuthorization()
         // DeviceActivity registration is IPC; keep it off the launch path.
-        let schedules = config.schedules
-        Task.detached(priority: .utility) { ScheduleMonitor.sync(schedules) }
+        let snapshot = config
+        Task.detached(priority: .utility) { ScheduleMonitor.sync(snapshot) }
         reconcile()
         reportCompletedBlocks() // retries events that failed last time
         
@@ -132,6 +132,9 @@ class AppState: ObservableObject {
         EmergencyUnblockManager.renewIfDue()
         emergencyStatus = EmergencyUnblockManager.status()
         checkAuthorization()
+        // The Monitor extension may have started or ended a block (schedule
+        // start, daily limit used up) while the app was in the background.
+        reconcile()
         reportCompletedBlocks()
         #if DEBUG
         Task { await Permissions.logStatuses() }
@@ -257,12 +260,31 @@ class AppState: ObservableObject {
         reconcile()
     }
     
+    /// Adding, editing or turning on a schedule is a fresh choice: drop any
+    /// "unblocked until the end of this window" mark it carried.
+    private func clearUnblockMarks(for scheduleID: UUID) {
+        state = PolicyStore.loadState()
+        guard state.override?.scheduleID == scheduleID
+            || (state.moreOverrides ?? []).contains(where: { $0.scheduleID == scheduleID }) else { return }
+        if state.override?.scheduleID == scheduleID { state.override = nil }
+        state.moreOverrides?.removeAll { $0.scheduleID == scheduleID }
+        if state.moreOverrides?.isEmpty == true { state.moreOverrides = nil }
+        saveState()
+    }
+    
     func updateSchedule(_ schedule: BlockSchedule) {
         if let index = config.schedules.firstIndex(where: { $0.id == schedule.id }) {
             config.schedules[index] = schedule
             saveConfig()
+            if schedule.isOn && !schedule.isLimit { clearUnblockMarks(for: schedule.id) }
             reconcile()
         }
+    }
+    
+    /// True while this schedule or limit is blocking: it can't be switched
+    /// off, edited or deleted until it ends or the key is used.
+    func isBlocking(by schedule: BlockSchedule) -> Bool {
+        Reconcile.blockingIDs(state).contains(schedule.id.uuidString)
     }
     
     func deleteSchedule(_ schedule: BlockSchedule) {
@@ -393,6 +415,7 @@ class AppState: ObservableObject {
         
         state.active = nil
         state.lastEnd = Date()
+        Reconcile.suppressActiveWindows(&state, config: config, at: Date())
         saveState()
         SessionNotify.notifyEnded()
         reconcile()
@@ -440,7 +463,7 @@ class AppState: ObservableObject {
     
     private func saveConfig() {
         PolicyStore.save(config)
-        ScheduleMonitor.sync(config.schedules)
+        ScheduleMonitor.sync(config)
     }
     
     private func saveState() {

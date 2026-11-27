@@ -1,20 +1,24 @@
 import Foundation
 #if !EXTENSION
 import DeviceActivity
+import FamilyControls
 
 /// Registers one repeating DeviceActivity interval per enabled schedule so
 /// the Monitor extension can reconcile at start and end. Overnight schedules
 /// use hour/minute components that wrap midnight; we never pin both ends to
 /// the same calendar Date.
 enum ScheduleMonitor {
-    static func sync(_ schedules: [BlockSchedule]) {
+    static func sync(_ config: PolicyStore.Config) {
         #if targetEnvironment(simulator)
         return
         #else
         let center = DeviceActivityCenter()
         center.stopMonitoring()
         
-        for schedule in schedules where schedule.isOn {
+        // Keep watching anything still blocking, even if switched off, so
+        // its block still lifts on time.
+        let blocking = Reconcile.blockingIDs(PolicyStore.loadState())
+        for schedule in config.schedules where schedule.isOn || blocking.contains(schedule.id.uuidString) {
             let bounds = ScheduleInterval.deviceActivityBounds(
                 startMinute: schedule.startMinute,
                 endMinute: schedule.effectiveEndMinute
@@ -27,13 +31,42 @@ enum ScheduleMonitor {
             do {
                 try center.startMonitoring(
                     DeviceActivityName(schedule.id.uuidString),
-                    during: activity
+                    during: activity,
+                    events: limitEvents(for: schedule, config: config)
                 )
+                ScheduleLog.log.notice("monitoring \(schedule.id.uuidString, privacy: .public) \(schedule.startMinute)-\(schedule.effectiveEndMinute) limit=\(schedule.dailyLimitMinutes ?? 0)")
             } catch {
+                ScheduleLog.log.error("startMonitoring failed \(schedule.id.uuidString, privacy: .public): \(String(describing: error), privacy: .public)")
                 print("[ScheduleMonitor] startMonitoring failed: \(error)")
             }
         }
         #endif
+    }
+    
+    /// One usage event for a daily limit: use of the limit's own apps.
+    private static func limitEvents(
+        for schedule: BlockSchedule,
+        config: PolicyStore.Config
+    ) -> [DeviceActivityEvent.Name: DeviceActivityEvent] {
+        guard let limit = config.dailyLimit(for: schedule) else { return [:] }
+        let sel = schedule.limitApps
+        let apps = sel.applicationTokens
+        let categories = sel.categoryTokens
+        let sites = sel.webDomainTokens
+        let threshold = DateComponents(hour: limit / 60, minute: limit % 60)
+        let event: DeviceActivityEvent
+        if #available(iOS 17.4, *) {
+            event = DeviceActivityEvent(
+                applications: apps, categories: categories, webDomains: sites,
+                threshold: threshold, includesPastActivity: true
+            )
+        } else {
+            // shortcut: before iOS 17.4 the count restarts whenever schedules re-sync; raise the minimum iOS to fix.
+            event = DeviceActivityEvent(
+                applications: apps, categories: categories, webDomains: sites, threshold: threshold
+            )
+        }
+        return [DeviceActivityEvent.Name("limit"): event]
     }
 }
 #endif
