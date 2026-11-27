@@ -62,7 +62,7 @@ enum Reconcile {
         // Check every active window: one that was ended by key today must not
         // hide another schedule or limit that is also active now.
         if state.active == nil,
-           let window = activeWindows(at: now, config: config, limitReached: state.limitReached ?? [:], calendar: calendar)
+           let window = activeWindows(at: now, config: config, limitReached: state.limitReached ?? [:], keepOn: blockingIDs(state), calendar: calendar)
                .first(where: { shouldStartSchedule($0, state: state, now: now) && $0.schedule.modeID != nil }),
            let modeID = window.schedule.modeID {
             let session = ActiveSession(
@@ -239,7 +239,7 @@ enum Reconcile {
         guard let session = state.active else { return [] }
         var ownID: UUID?
         if case .schedule(let id) = session.source { ownID = id }
-        return activeWindows(at: now, config: config, limitReached: state.limitReached ?? [:], calendar: calendar)
+        return activeWindows(at: now, config: config, limitReached: state.limitReached ?? [:], keepOn: blockingIDs(state), calendar: calendar)
             .filter { $0.schedule.id != ownID && $0.schedule.modeID != nil && shouldStartSchedule($0, state: state, now: now) }
     }
     
@@ -281,7 +281,7 @@ enum Reconcile {
         calendar: Calendar = .current
     ) {
         var list = (state.moreOverrides ?? []).filter { $0.until > time }
-        let windows = activeWindows(at: time, config: config, limitReached: state.limitReached ?? [:], calendar: calendar)
+        let windows = activeWindows(at: time, config: config, limitReached: state.limitReached ?? [:], keepOn: blockingIDs(state), calendar: calendar)
         for window in windows where shouldStartSchedule(window, state: state, now: time) {
             list.removeAll { $0.scheduleID == window.schedule.id }
             list.append(ScheduleOverride(scheduleID: window.schedule.id, until: window.end))
@@ -336,10 +336,13 @@ enum Reconcile {
         at now: Date,
         config: PolicyStore.Config,
         limitReached: [String: Date] = [:],
+        keepOn: Set<String> = [],
         calendar: Calendar = .current
     ) -> [ScheduleWindow] {
         var windows: [ScheduleWindow] = []
-        for schedule in config.schedules where schedule.isOn {
+        // Switching off something that is blocking right now must not lift
+        // it: it counts as on until its window ends or the key is used.
+        for schedule in config.schedules where schedule.isOn || keepOn.contains(schedule.id.uuidString) {
             guard let span = ScheduleInterval.window(
                 startMinute: schedule.startMinute,
                 endMinute: schedule.effectiveEndMinute,
@@ -359,6 +362,15 @@ enum Reconcile {
             }
         }
         return windows
+    }
+    
+    /// Schedules and limits blocking right now (the session's own and the extras).
+    static func blockingIDs(_ state: PolicyStore.State) -> Set<String> {
+        var ids = Set(state.extraShields ?? [])
+        if let session = state.active, case .schedule(let id) = session.source {
+            ids.insert(id.uuidString)
+        }
+        return ids
     }
     
     /// Called by the Monitor extension when a schedule's daily limit is used up.

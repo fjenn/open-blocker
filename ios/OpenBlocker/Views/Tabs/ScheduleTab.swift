@@ -3,6 +3,7 @@ import SwiftUI
 struct ScheduleTab: View {
     @ObservedObject var appState = AppState.shared
     @State private var editor: Editor?
+    @State private var toast: String?
     
     /// What the sheet edits. One item, so the sheet never opens with a stale kind.
     private struct Editor: Identifiable {
@@ -30,11 +31,11 @@ struct ScheduleTab: View {
                         let headed = !timed.isEmpty && !limits.isEmpty
                         if headed { sectionHeader("Schedules", first: true) }
                         ForEach(timed) { schedule in
-                            ScheduleCard(schedule: schedule) { edit(schedule) }
+                            ScheduleCard(schedule: schedule, toast: $toast) { edit(schedule) }
                         }
                         if headed { sectionHeader("Daily limits", first: false) }
                         ForEach(limits) { schedule in
-                            ScheduleCard(schedule: schedule) { edit(schedule, limit: true) }
+                            ScheduleCard(schedule: schedule, toast: $toast) { edit(schedule, limit: true) }
                         }
                     }
                     // Room for the floating create button.
@@ -46,6 +47,7 @@ struct ScheduleTab: View {
                 .padding(.bottom, Space.l)
         }
         .accessibilityIdentifier(AccessibilityID.scheduleRoot)
+        .toast($toast)
         .sheet(item: $editor) { editor in
             ScheduleEditScreen(schedule: editor.schedule, isLimit: editor.isLimit)
         }
@@ -72,6 +74,10 @@ struct ScheduleTab: View {
     }
     
     private func edit(_ schedule: BlockSchedule?, limit: Bool = false) {
+        if let schedule, appState.isBlocking(by: schedule) {
+            toast = ScheduleCard.lockedMessage
+            return
+        }
         editor = Editor(schedule: schedule, isLimit: limit)
     }
 }
@@ -100,7 +106,9 @@ private struct CreateButtonLabel: View {
 }
 
 struct ScheduleCard: View {
+    static let lockedMessage = "It's blocking right now. Scan your key to unblock."
     let schedule: BlockSchedule
+    @Binding var toast: String?
     var onEdit: () -> Void
     @ObservedObject var appState = AppState.shared
     @State private var deniedPermission: Permission?
@@ -127,6 +135,10 @@ struct ScheduleCard: View {
                 get: { schedule.isOn && schedule.modeID != nil },
                 set: { on in
                     var updated = schedule
+                    if !on && appState.isBlocking(by: schedule) {
+                        toast = Self.lockedMessage
+                        return
+                    }
                     updated.isOn = on
                     guard on else { return appState.updateSchedule(updated) }
                     Permissions.whenGranted(.screenTime, denied: $deniedPermission) {

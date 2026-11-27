@@ -140,6 +140,32 @@ final class ReconcileTests: XCTestCase {
         XCTAssertEqual(Reconcile.plan(config: config, state: ended, now: date(2026, 1, 8, 15, 6), screenTime: .approved, calendar: calendar), .unchanged)
     }
     
+    func testSwitchingOffABlockingLimitDoesNotLiftIt() {
+        var config = config(startMinute: 0, endMinute: 1439, weekdays: [5])
+        config.schedules[0].dailyLimitMinutes = 60
+        config.schedules[0].limitAppsData = Data("{}".utf8)
+        let night = BlockSchedule(name: "Night", weekdays: [5], startMinute: 15 * 60, endMinute: 16 * 60, modeID: modeID, isOn: true)
+        config.schedules.append(night)
+        var state = PolicyStore.State()
+        state.limitReached = [scheduleID.uuidString: date(2026, 1, 8, 14, 0)]
+        // The schedule is the main block, the limit blocks next to it.
+        state.active = ActiveSession(modeID: modeID, source: .schedule(night.id), startedAt: date(2026, 1, 8, 15, 0), scheduleEnd: date(2026, 1, 8, 16, 0))
+        state.extraShields = [scheduleID.uuidString]
+        config.schedules[0].isOn = false
+        let extras = Reconcile.extraWindows(state: state, config: config, now: date(2026, 1, 8, 15, 10), calendar: calendar)
+        XCTAssertEqual(extras.map(\.schedule.id), [scheduleID], "a limit switched off while blocking keeps blocking")
+        
+        // The limit as the main block, switched off: the session stays.
+        var alone = PolicyStore.State()
+        alone.limitReached = state.limitReached
+        alone.active = ActiveSession(modeID: scheduleID, source: .schedule(scheduleID), startedAt: date(2026, 1, 8, 14, 0), scheduleEnd: date(2026, 1, 8, 23, 59))
+        XCTAssertEqual(Reconcile.plan(config: config, state: alone, now: date(2026, 1, 8, 14, 30), screenTime: .approved, calendar: calendar), .unchanged)
+        
+        // The key still ends it, and it stays off.
+        let ended = Reconcile.ending(state, config: config, reason: .key, at: date(2026, 1, 8, 15, 20), calendar: calendar)!
+        XCTAssertTrue((ended.moreOverrides ?? []).contains { $0.scheduleID == scheduleID })
+    }
+    
     func testStateSavedBeforeDailyLimitsStillDecodes() throws {
         let old = try JSONEncoder().encode(PolicyStore.State())
         XCTAssertNil(try JSONDecoder().decode(PolicyStore.State.self, from: old).limitReached)
